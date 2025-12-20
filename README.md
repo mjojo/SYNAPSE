@@ -2,14 +2,14 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/Version-0.8.0--alpha-blue)
+![Version](https://img.shields.io/badge/Version-0.9.0--alpha-blue)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20x64-green)
 ![Assembler](https://img.shields.io/badge/Built%20with-FASM-red)
 
-**The Unhackable AI: Neural Network on Blockchain Memory**
+**The Bridge is Complete: SYNAPSE Language ↔ MOVA Engine**
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Roadmap](#-roadmap)
+[Features](#-features) • [Architecture](#-architecture) • [Quick Start](#-quick-start) • [Roadmap](#-roadmap)
 
 </div>
 
@@ -19,72 +19,71 @@
 
 | Component | Version | Status |
 |-----------|---------|--------|
-| **SYNAPSE Core** | `0.8.0-alpha` | ✅ **UNIFIED!** |
+| **SYNAPSE Core** | `0.9.0-alpha` | 🔄 Active |
 | Lexer/Parser | `2.0` | ✅ Stable |
-| JIT Compiler | `2.0` | ✅ Stable |
+| JIT Compiler | `3.0` | ✅ **Bridged!** |
+| MOVA Engine | `1.0` | ✅ Stable |
 | Neural Engine | `2.0` | ✅ Stable |
-| SHA-256 Crypto | `1.0` | ✅ Stable |
-| Merkle Ledger | `2.0` | ✅ Stable |
+| Crypto Core | `1.0` | ✅ Stable |
 
 ---
 
 ## ⚡ Features
 
-### 🔐 The Unhackable AI
+### 🌉 The Bridge (Phase 5.1)
 
-SYNAPSE is the **first language** where neural networks run on blockchain memory:
+SYNAPSE JIT compiler can now invoke MOVA Engine functions:
 
 ```
 ==================================================
-  SYNAPSE CORE v0.8.0 - Unhackable AI
-  Phase 4: Grand Unification
-  Neural Network + Blockchain Memory
+  SYNAPSE -> MOVA Bridge Test (Phase 5.1)
+  JIT Compiler Calling Kernel Functions
 ==================================================
 
-[LEDGER] Allocating neural network in blockchain...
-[IO] Loading weights into secure memory...
-[CHAIN] Computing integrity hash of neural weights...
-  Initial Root Hash: [SHA-256]
+[BRIDGE] Building intrinsics table...
+[JIT] Generating bridge code...
+[JIT] Executing generated code...
+[MOVA] Checking kernel response...
+  Root Hash: [SHA-256]
 
-[EXEC] Running MNIST inference on secure data...
-  Prediction: 7
-
-[CHAIN] Final integrity audit...
-  Final Root Hash:   [SHA-256] ← SAME!
-
-*** INTEGRITY VERIFIED! ***
-    Neural network executed on immutable data.
+*** SUCCESS! SYNAPSE -> MOVA Bridge Works! ***
+    JIT successfully called merkle_alloc() and merkle_commit()
+    The language can now invoke kernel power.
 ```
 
 ### 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
-│           SYNAPSE CORE v0.8.0                   │
+│              SYNAPSE LANGUAGE                   │
+│         (Syntax, Parser, Semantics)             │
 ├─────────────────────────────────────────────────┤
-│  ┌─────────────┐    ┌─────────────────────────┐ │
-│  │ Neural Net  │◄───│   Blockchain Memory     │ │
-│  │ (MNIST)     │    │   (Merkle Ledger)       │ │
-│  └─────────────┘    └─────────────────────────┘ │
-│         ▲                      ▲                │
-│         │                      │                │
-│  ┌──────┴──────┐    ┌──────────┴──────────┐    │
-│  │   AVX2/FMA  │    │     SHA-256         │    │
-│  │   SIMD      │    │     Crypto Core     │    │
-│  └─────────────┘    └─────────────────────┘    │
+│              JIT COMPILER v3.0                  │
+│           (Code Generation + Bridge)            │
 ├─────────────────────────────────────────────────┤
-│                x86-64 Assembly                  │
+│       ┌──────────────────────────────┐          │
+│       │    INTRINSICS TABLE          │          │
+│       │  ┌─────────┬────────────┐    │          │
+│       │  │ ID 0    │ merkle_alloc│   │          │
+│       │  │ ID 1    │ merkle_commit│  │          │
+│       │  │ ID 2    │ sha256_compute│ │          │
+│       │  └─────────┴─────────────┘   │          │
+│       └──────────────────────────────┘          │
+├─────────────────────────────────────────────────┤
+│              MOVA ENGINE                        │
+│    (Blockchain Memory, SHA-256, Neural)         │
 └─────────────────────────────────────────────────┘
 ```
 
-### ✅ What Works
+### ✅ Completed Phases
 
-| Category | Feature | Description |
-|----------|---------|-------------|
-| **Memory** | Merkle Ledger | 64-byte headers, SHA-256 per block |
-| **Crypto** | Chain of Trust | XOR linking, global Root Hash |
-| **Neural** | MNIST Inference | 784→128→10, ReLU activation |
-| **Integrity** | Tamper Detection | Any change invalidates hash |
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 1 | Lexer + Parser | ✅ |
+| 2 | JIT + AVX2 + Neural | ✅ |
+| 3 | Blockchain Memory | ✅ |
+| 4 | Grand Unification | ✅ |
+| **5.1** | **SYNAPSE ↔ MOVA Bridge** | ✅ |
 
 ---
 
@@ -93,17 +92,13 @@ SYNAPSE is the **first language** where neural networks run on blockchain memory
 ```batch
 cd d:\Projects\SYNAPSE
 
-# The Unhackable AI
+# Bridge Test (JIT calling MOVA)
+D:\fasmw17334\fasm.exe src\bridge_test.asm src\bridge_test.exe
+.\src\bridge_test.exe
+
+# Unhackable AI
 D:\fasmw17334\fasm.exe src\synapse_core.asm src\synapse_core.exe
 .\src\synapse_core.exe
-
-# Blockchain Memory Test
-D:\fasmw17334\fasm.exe src\merkle_test.asm src\merkle_test.exe
-.\src\merkle_test.exe
-
-# SHA-256 Crypto
-D:\fasmw17334\fasm.exe src\crypto_test.asm src\crypto_test.exe
-.\src\crypto_test.exe
 ```
 
 ---
@@ -112,10 +107,9 @@ D:\fasmw17334\fasm.exe src\crypto_test.asm src\crypto_test.exe
 
 | Component | Size |
 |-----------|------|
+| bridge_test.exe | 4,096 bytes |
 | synapse_core.exe | 5,632 bytes |
-| merkle_test.exe | 4,096 bytes |
-| crypto_test.exe | ~4 KB |
-| **TOTAL** | **~14 KB** |
+| **TOTAL PLATFORM** | **~10 KB** |
 
 ---
 
@@ -129,7 +123,8 @@ v0.4.0 ✅ Neural Engine
 v0.5.0 ✅ SHA-256
 v0.6.0 ✅ Blockchain Memory
 v0.7.0 ✅ Chain of Trust
-v0.8.0 ✅ Grand Unification ← CURRENT
+v0.8.0 ✅ Grand Unification
+v0.9.0 ✅ Bridge ← CURRENT
 v1.0.0 📋 Production Release
 ```
 
@@ -143,13 +138,3 @@ MIT License
 
 - **mjojo (Vitaly.G)** — Architecture, ASM
 - **GLK-Dev** — AI Assistant
-
----
-
-<div align="center">
-
-**SYNAPSE: The Unhackable AI Platform**
-
-*Neural Networks Protected by Blockchain — In Pure Assembly*
-
-</div>

@@ -166,10 +166,24 @@
 - [x] Integrity check до и после inference
 - [x] **Результат:** INTEGRITY VERIFIED! Hashes match! ✅
 
-### 3.2 Memory Management
-- [ ] Arena allocator
-- [ ] Stack-based locals
-- [ ] Heap for dynamic data
+---
+
+## 📋 Phase 5: The Bridge (IN PROGRESS)
+
+### 5.1 Intrinsics Table ✅ COMPLETE
+- [x] Создать `src/bridge_test.asm`
+- [x] Intrinsics Table: Jump table для kernel функций
+- [x] `init_intrinsics()` — заполняет таблицу указателями
+- [x] JIT генерирует вызовы: `merkle_alloc`, `merkle_commit`
+- [x] **Результат:** SYNAPSE -> MOVA Bridge Works! ✅
+
+### 5.2 Auto-Ledger
+- [ ] JIT использует `merkle_alloc` для всех тензоров
+- [ ] Parser распознаёт `@secure` аннотации
+
+### 5.3 Final Script
+- [ ] Написать `mnist.syn` на языке SYNAPSE
+- [ ] Компилятор генерирует и исполняет защищённый кодamic data
 
 ### 3.3 Standard Library
 - [ ] print() function

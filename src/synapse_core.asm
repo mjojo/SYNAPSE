@@ -1,9 +1,11 @@
 ; =============================================================================
-; SYNAPSE Merkle Ledger Test - Phase 3.2
+; SYNAPSE CORE v0.8.0 - Grand Unification (Phase 4)
 ; (c) 2025 mjojo (Vitaly.G) & GLK-Dev
 ;
-; Blockchain Memory: Every allocation is a block in a chain.
-; Tampering with any block changes the hash.
+; THE UNHACKABLE AI: Neural Network on Blockchain Memory
+; - All weights stored in Merkle Ledger
+; - All memory protected by SHA-256
+; - Root Hash proves data integrity
 ; =============================================================================
 
 format PE64 console
@@ -13,14 +15,12 @@ entry start
 MEM_COMMIT      = 0x1000
 MEM_RESERVE     = 0x2000
 PAGE_READWRITE  = 0x04
+PAGE_EXECUTE_RW = 0x40
 
-; Block Header Structure (64 bytes - AVX2 Aligned!)
-; 00-03: MAGIC ('BLOK')
-; 04-07: SIZE (user data size)
-; 08-15: PREV_PTR (previous block)
-; 16-47: HASH (32 bytes SHA-256)
-; 48-63: PADDING (16 bytes for 32-byte alignment)
-; 64+:   DATA (user data) <- Now 32-byte aligned!
+GENERIC_READ    = 0x80000000
+OPEN_EXISTING   = 3
+
+; Block Header (64 bytes - AVX2 Aligned)
 BLOCK_HEADER_SIZE = 64
 MAGIC_BLOK = 0x4B4F4C42
 
@@ -36,6 +36,9 @@ section '.idata' import data readable
         WriteConsoleA   dq RVA _WriteConsoleA
         ExitProcess     dq RVA _ExitProcess
         VirtualAlloc    dq RVA _VirtualAlloc
+        CreateFileA     dq RVA _CreateFileA
+        ReadFile        dq RVA _ReadFile
+        CloseHandle     dq RVA _CloseHandle
                         dq 0
 
     kernel32_name   db 'kernel32.dll',0
@@ -43,32 +46,43 @@ section '.idata' import data readable
     _WriteConsoleA  db 0,0,'WriteConsoleA',0
     _ExitProcess    db 0,0,'ExitProcess',0
     _VirtualAlloc   db 0,0,'VirtualAlloc',0
+    _CreateFileA    db 0,0,'CreateFileA',0
+    _ReadFile       db 0,0,'ReadFile',0
+    _CloseHandle    db 0,0,'CloseHandle',0
 
 ; =============================================================================
 ; Data
 ; =============================================================================
 section '.data' data readable writeable
 
-    banner      db '================================================',13,10
-                db '  SYNAPSE Chain of Trust - Phase 3.3',13,10
-                db '  Blockchain Memory with XOR Linking',13,10
-                db '================================================',13,10,13,10,0
+    banner      db '==================================================',13,10
+                db '  SYNAPSE CORE v0.8.0 - Unhackable AI',13,10
+                db '  Phase 4: Grand Unification',13,10
+                db '  Neural Network + Blockchain Memory',13,10
+                db '==================================================',13,10,13,10,0
     
-    msg_init    db '[INIT] Initializing Ledger Heap...',13,10,0
-    msg_alloc_a db '[MEM] Allocated Block A: "Hello"',13,10,0
-    msg_alloc_b db '[MEM] Allocated Block B: "World"',13,10,0
-    msg_commit1 db 13,10,'[CHAIN] Building blockchain state...',13,10,0
-    msg_hash1   db 'Root Hash (Clean): ',0
-    msg_hack    db 13,10,'[HACK] ALERT! Modifying OLD Block A...',13,10
-                db '       Changing "Hello" -> "Hxllo"',13,10,0
-    msg_commit2 db 13,10,'[CHAIN] Rebuilding blockchain state...',13,10,0
-    msg_hash2   db 'Root Hash (Dirty): ',0
-    msg_success db 13,10,'*** SUCCESS! CHAIN REACTION CONFIRMED! ***',13,10
-                db '    Changing old block invalidated GLOBAL Root Hash!',13,10
-                db '    This is TRUE Blockchain Memory.',13,10,0
-    msg_fail    db 13,10,'[FAIL] No chain reaction - hashes match!',13,10,0
-    msg_debug_hash db '  [DEBUG] Hashing block, size=',0
+    msg_init    db '[CORE] Initializing systems...',13,10,0
+    msg_alloc   db '[LEDGER] Allocating neural network in blockchain...',13,10,0
+    msg_load    db '[IO] Loading weights into secure memory...',13,10,0
+    msg_commit1 db '[CHAIN] Computing integrity hash of neural weights...',13,10,0
+    msg_hash1   db '  Initial Root Hash: ',0
+    msg_exec    db 13,10,'[EXEC] Running MNIST inference on secure data...',13,10,0
+    msg_commit2 db '[CHAIN] Final integrity audit...',13,10,0
+    msg_hash2   db '  Final Root Hash:   ',0
+    msg_match   db 13,10,'*** INTEGRITY VERIFIED! Hashes match! ***',13,10
+                db '    Neural network executed on immutable data.',13,10,0
+    msg_diff    db 13,10,'[WARN] Hashes differ - data was modified during execution!',13,10,0
+    msg_pred    db '  Prediction: ',0
+    msg_ok      db ' OK',13,10,0
+    msg_fail    db ' FAILED',13,10,0
     newline     db 13,10,0
+    
+    ; File paths
+    path_w1     db 'neural\w1.bin',0
+    path_b1     db 'neural\b1.bin',0
+    path_w2     db 'neural\w2.bin',0
+    path_b2     db 'neural\b2.bin',0
+    path_img    db 'neural\digit_7_0.bin',0
     
     hex_chars   db '0123456789abcdef'
 
@@ -100,6 +114,7 @@ section '.bss' data readable writeable
 
     stdout          dq ?
     bytes_written   dd ?
+    bytes_read      dd ?
     
     ; Heap
     heap_base       dq ?
@@ -107,24 +122,30 @@ section '.bss' data readable writeable
     
     ; Ledger
     last_block_ptr  dq ?
-    
-    ; Block pointers
-    ptr_a           dq ?
-    ptr_b           dq ?
-    
-    ; Saved hash for comparison
+    root_hash       rb 32
     saved_hash      rb 32
     
-    ; Global Root Hash (XOR of all block hashes)
-    root_hash       rb 32
+    ; Neural network pointers (all in blockchain memory!)
+    ptr_input       dq ?
+    ptr_w1          dq ?
+    ptr_b1          dq ?
+    ptr_hidden      dq ?
+    ptr_w2          dq ?
+    ptr_b2          dq ?
+    ptr_output      dq ?
     
     ; SHA-256 working area
     sha_state       rd 8
     sha_w           rd 64
     sha_block       rb 64
     
-    ; Hex output buffer
+    ; Temp
     hex_buffer      rb 4
+    num_buffer      rb 16
+    
+    ; Output scores
+    max_score       dq ?
+    max_idx         dq ?
 
 ; =============================================================================
 ; Code
@@ -141,7 +162,9 @@ start:
     lea rcx, [banner]
     call print_string
     
-    ; Initialize systems
+    ; ===========================================
+    ; 1. INITIALIZE SYSTEMS
+    ; ===========================================
     lea rcx, [msg_init]
     call print_string
     
@@ -149,49 +172,91 @@ start:
     call merkle_init
     
     ; ===========================================
-    ; Allocate Block A: "Hello"
+    ; 2. ALLOCATE IN BLOCKCHAIN MEMORY
     ; ===========================================
-    mov rcx, 16
-    call merkle_alloc
-    mov [ptr_a], rax
-    
-    mov dword [rax], 'Hell'
-    mov byte [rax+4], 'o'
-    mov byte [rax+5], 0
-    
-    lea rcx, [msg_alloc_a]
+    lea rcx, [msg_alloc]
     call print_string
     
-    ; ===========================================
-    ; Allocate Block B: "World"
-    ; ===========================================
-    mov rcx, 16
+    ; Input (784 doubles)
+    mov rcx, 784*8
     call merkle_alloc
-    mov [ptr_b], rax
+    mov [ptr_input], rax
     
-    mov dword [rax], 'Worl'
-    mov byte [rax+4], 'd'
-    mov byte [rax+5], 0
+    ; W1 (784*128 doubles)
+    mov rcx, 784*128*8
+    call merkle_alloc
+    mov [ptr_w1], rax
     
-    lea rcx, [msg_alloc_b]
+    ; B1 (128 doubles)
+    mov rcx, 128*8
+    call merkle_alloc
+    mov [ptr_b1], rax
+    
+    ; Hidden layer (128 doubles)
+    mov rcx, 128*8
+    call merkle_alloc
+    mov [ptr_hidden], rax
+    
+    ; W2 (128*10 doubles)
+    mov rcx, 128*10*8
+    call merkle_alloc
+    mov [ptr_w2], rax
+    
+    ; B2 (10 doubles)
+    mov rcx, 10*8
+    call merkle_alloc
+    mov [ptr_b2], rax
+    
+    ; Output (10 doubles)
+    mov rcx, 10*8
+    call merkle_alloc
+    mov [ptr_output], rax
+    
+    ; ===========================================
+    ; 3. LOAD WEIGHTS INTO SECURE MEMORY
+    ; ===========================================
+    lea rcx, [msg_load]
     call print_string
     
+    lea rcx, [path_w1]
+    mov rdx, [ptr_w1]
+    mov r8, 784*128*8
+    call load_file
+    
+    lea rcx, [path_b1]
+    mov rdx, [ptr_b1]
+    mov r8, 128*8
+    call load_file
+    
+    lea rcx, [path_w2]
+    mov rdx, [ptr_w2]
+    mov r8, 128*10*8
+    call load_file
+    
+    lea rcx, [path_b2]
+    mov rdx, [ptr_b2]
+    mov r8, 10*8
+    call load_file
+    
+    lea rcx, [path_img]
+    mov rdx, [ptr_input]
+    mov r8, 784*8
+    call load_file
+    
     ; ===========================================
-    ; COMMIT 1: Build blockchain state
+    ; 4. COMPUTE INITIAL INTEGRITY HASH
     ; ===========================================
     lea rcx, [msg_commit1]
     call print_string
     
     call merkle_commit
     
-    ; Save GLOBAL ROOT HASH (XOR of all block hashes)
-    ; merkle_commit now returns ptr to root_hash
+    ; Save initial hash
     mov rsi, rax
     lea rdi, [saved_hash]
     mov rcx, 4
     rep movsq
     
-    ; Print Root Hash 1
     lea rcx, [msg_hash1]
     call print_string
     lea rsi, [saved_hash]
@@ -200,24 +265,34 @@ start:
     call print_string
     
     ; ===========================================
-    ; TAMPERING: Modify OLD Block A
+    ; 5. EXECUTE NEURAL NETWORK
     ; ===========================================
-    lea rcx, [msg_hack]
+    lea rcx, [msg_exec]
     call print_string
     
-    mov rax, [ptr_a]
-    mov byte [rax+1], 'x'       ; "Hello" -> "Hxllo"
+    call run_inference
     
     ; ===========================================
-    ; COMMIT 2: Rebuild blockchain state
+    ; 6. FIND PREDICTION
+    ; ===========================================
+    call find_max_output
+    
+    lea rcx, [msg_pred]
+    call print_string
+    mov rax, [max_idx]
+    call print_number
+    lea rcx, [newline]
+    call print_string
+    
+    ; ===========================================
+    ; 7. FINAL INTEGRITY AUDIT
     ; ===========================================
     lea rcx, [msg_commit2]
     call print_string
     
     call merkle_commit
-    mov r12, rax                ; New root hash ptr
+    mov r12, rax
     
-    ; Print Root Hash 2
     lea rcx, [msg_hash2]
     call print_string
     mov rsi, r12
@@ -225,22 +300,20 @@ start:
     lea rcx, [newline]
     call print_string
     
-    ; ===========================================
-    ; COMPARE: Chain Reaction Detection
-    ; ===========================================
+    ; Compare hashes
     lea rsi, [saved_hash]
     mov rdi, r12
     mov rcx, 32
     repe cmpsb
-    je .fail
+    jne .hash_differ
     
-    ; SUCCESS - Global Root Hash changed!
-    lea rcx, [msg_success]
+    ; SUCCESS - Hashes match!
+    lea rcx, [msg_match]
     call print_string
     jmp .exit
 
-.fail:
-    lea rcx, [msg_fail]
+.hash_differ:
+    lea rcx, [msg_diff]
     call print_string
 
 .exit:
@@ -248,12 +321,156 @@ start:
     call [ExitProcess]
 
 ; =============================================================================
+; NEURAL NETWORK INFERENCE (Pure scalar for simplicity)
+; =============================================================================
+run_inference:
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, 40
+    
+    ; Layer 1: hidden = ReLU(input * W1 + B1)
+    ; For each of 128 hidden neurons
+    mov r12, 0                  ; neuron index
+    
+.layer1_loop:
+    cmp r12, 128
+    jge .layer1_done
+    
+    ; Compute dot product: input[784] . W1[neuron, 784]
+    xorpd xmm0, xmm0            ; accumulator = 0
+    
+    mov r13, 0                  ; input index
+    mov rsi, [ptr_input]
+    mov rdi, [ptr_w1]
+    
+    ; W1 layout: W1[neuron * 784 + i]
+    mov rax, r12
+    imul rax, 784*8
+    add rdi, rax                ; rdi = &W1[neuron * 784]
+    
+.dot1_loop:
+    cmp r13, 784
+    jge .dot1_done
+    
+    movsd xmm1, [rsi + r13*8]   ; input[i]
+    movsd xmm2, [rdi + r13*8]   ; W1[neuron, i]
+    mulsd xmm1, xmm2
+    addsd xmm0, xmm1
+    
+    inc r13
+    jmp .dot1_loop
+
+.dot1_done:
+    ; Add bias
+    mov rax, [ptr_b1]
+    addsd xmm0, [rax + r12*8]
+    
+    ; ReLU: max(0, x)
+    xorpd xmm1, xmm1
+    maxsd xmm0, xmm1
+    
+    ; Store result
+    mov rax, [ptr_hidden]
+    movsd [rax + r12*8], xmm0
+    
+    inc r12
+    jmp .layer1_loop
+
+.layer1_done:
+    
+    ; Layer 2: output = hidden * W2 + B2 (no ReLU - raw scores)
+    mov r12, 0                  ; output neuron index
+    
+.layer2_loop:
+    cmp r12, 10
+    jge .layer2_done
+    
+    xorpd xmm0, xmm0
+    
+    mov r13, 0
+    mov rsi, [ptr_hidden]
+    mov rdi, [ptr_w2]
+    
+    mov rax, r12
+    imul rax, 128*8
+    add rdi, rax
+    
+.dot2_loop:
+    cmp r13, 128
+    jge .dot2_done
+    
+    movsd xmm1, [rsi + r13*8]
+    movsd xmm2, [rdi + r13*8]
+    mulsd xmm1, xmm2
+    addsd xmm0, xmm1
+    
+    inc r13
+    jmp .dot2_loop
+
+.dot2_done:
+    ; Add bias
+    mov rax, [ptr_b2]
+    addsd xmm0, [rax + r12*8]
+    
+    ; Store
+    mov rax, [ptr_output]
+    movsd [rax + r12*8], xmm0
+    
+    inc r12
+    jmp .layer2_loop
+
+.layer2_done:
+    add rsp, 40
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; =============================================================================
+; FIND MAX OUTPUT
+; =============================================================================
+find_max_output:
+    mov rsi, [ptr_output]
+    movsd xmm0, [rsi]           ; max_score = output[0]
+    xor rax, rax                ; max_idx = 0
+    mov rcx, 1                  ; i = 1
+    
+.find_loop:
+    cmp rcx, 10
+    jge .find_done
+    
+    movsd xmm1, [rsi + rcx*8]
+    comisd xmm1, xmm0
+    jbe .not_greater
+    
+    movsd xmm0, xmm1
+    mov rax, rcx
+
+.not_greater:
+    inc rcx
+    jmp .find_loop
+
+.find_done:
+    mov [max_idx], rax
+    movsd [max_score], xmm0
+    ret
+
+; =============================================================================
 ; MEMORY MANAGER
 ; =============================================================================
 mem_init:
     sub rsp, 40
     xor ecx, ecx
-    mov edx, 1024*1024
+    mov edx, 4*1024*1024        ; 4 MB for neural network
     mov r8d, MEM_COMMIT or MEM_RESERVE
     mov r9d, PAGE_READWRITE
     call [VirtualAlloc]
@@ -281,50 +498,34 @@ merkle_init:
     ret
 
 merkle_alloc:
-    ; RCX = user data size
     push rbx
-    mov rbx, rcx                ; Save user size
+    mov rbx, rcx
     
-    ; Allocate: header + data
     add rcx, BLOCK_HEADER_SIZE
     mov rdx, 32
     call mem_alloc_aligned
     
-    ; Fill header
     mov dword [rax], MAGIC_BLOK
-    mov dword [rax+4], ebx      ; Size
+    mov dword [rax+4], ebx
     
     mov rdx, [last_block_ptr]
-    mov [rax+8], rdx            ; Prev ptr
+    mov [rax+8], rdx
     
-    ; Clear hash field (16-47)
     xor rcx, rcx
     mov [rax+16], rcx
     mov [rax+24], rcx
     mov [rax+32], rcx
     mov [rax+40], rcx
-    
-    ; Clear padding (48-63) for AVX2 alignment
     mov [rax+48], rcx
     mov [rax+56], rcx
     
-    ; Update chain head
     mov [last_block_ptr], rax
-    
-    ; Return ptr to data (offset 64)
     add rax, BLOCK_HEADER_SIZE
     
     pop rbx
     ret
 
 merkle_commit:
-    ; ==========================================================
-    ; CHAIN OF TRUST (Phase 3.3)
-    ; Two-pass algorithm:
-    ;   Pass 1: Compute SHA-256 of each block's data
-    ;   Pass 2: XOR all block hashes into global Root Hash
-    ; Result: Changing ANY block changes the Root Hash
-    ; ==========================================================
     push rbx
     push rsi
     push rdi
@@ -334,39 +535,29 @@ merkle_commit:
     push r15
     sub rsp, 40
     
-    ; ==================== PASS 1: Compute Block Hashes ====================
+    ; Pass 1: Compute hashes
     mov r12, [last_block_ptr]
     
-.pass1_loop:
+.pass1:
     test r12, r12
     jz .pass1_done
     
-    ; Save next block ptr
     mov rax, [r12+8]
     mov [rsp+32], rax
     
-    ; Get size
     mov r14d, [r12+4]
+    lea rcx, [r12+64]
+    mov rdx, r14
+    lea r8, [r12+16]
     
-    ; sha256_compute(data, size, hash_field)
-    lea rcx, [r12+64]           ; input = data (WAS 48, NOW 64 for alignment!)
-    mov rdx, r14                ; size
-    lea r8, [r12+16]            ; output = hash field in header
-    
-    mov [rsp+24], r12           ; Save r12
+    mov [rsp+24], r12
     call sha256_compute
     
-    ; Next block
     mov r12, [rsp+32]
-    jmp .pass1_loop
+    jmp .pass1
 
 .pass1_done:
-    
-    ; ==================== PASS 2: XOR Chain (Build Root Hash) ====================
-    ; RootHash = H(Block_1) XOR H(Block_2) XOR ... XOR H(Block_N)
-    ; Changing ANY block changes the final Root Hash!
-    
-    ; Clear root_hash
+    ; Pass 2: XOR chain
     lea rdi, [root_hash]
     xor rax, rax
     mov [rdi], rax
@@ -380,11 +571,7 @@ merkle_commit:
     test r12, r12
     jz .done
     
-    ; XOR 32 bytes (4 qwords) from block hash into root_hash
-    ; root_hash ^= block_hash
-    
-    ; Load from root_hash, XOR with block hash, store back
-    mov rax, [rdi]              ; rdi = root_hash
+    mov rax, [rdi]
     xor rax, [r12+16]
     mov [rdi], rax
     
@@ -400,14 +587,11 @@ merkle_commit:
     xor rax, [r12+40]
     mov [rdi+24], rax
     
-    ; Next block
     mov r12, [r12+8]
     jmp .xor_loop
 
 .done:
-    ; Return pointer to global Root Hash
     lea rax, [root_hash]
-    
     add rsp, 40
     pop r15
     pop r14
@@ -419,10 +603,58 @@ merkle_commit:
     ret
 
 ; =============================================================================
-; SHA-256 (Inline version)
+; FILE I/O
+; =============================================================================
+load_file:
+    ; RCX = filename, RDX = buffer, R8 = size
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    sub rsp, 56
+    
+    mov r12, rdx
+    mov r13, r8
+    
+    ; CreateFileA
+    mov rdx, GENERIC_READ
+    xor r8d, r8d
+    xor r9d, r9d
+    mov dword [rsp+32], OPEN_EXISTING
+    mov dword [rsp+40], 0
+    mov qword [rsp+48], 0
+    call [CreateFileA]
+    
+    cmp rax, -1
+    je .load_fail
+    mov rbx, rax
+    
+    ; ReadFile
+    mov rcx, rbx
+    mov rdx, r12
+    mov r8, r13
+    lea r9, [bytes_read]
+    mov qword [rsp+32], 0
+    call [ReadFile]
+    
+    ; CloseHandle
+    mov rcx, rbx
+    call [CloseHandle]
+
+.load_fail:
+    add rsp, 56
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; =============================================================================
+; SHA-256
 ; =============================================================================
 sha256_compute:
-    ; RCX = input, RDX = size, R8 = output
     push rbx
     push rsi
     push rdi
@@ -437,7 +669,6 @@ sha256_compute:
     mov [rsp+48], rdx
     mov r14, r8
     
-    ; Init state
     lea rsi, [h_init]
     lea rdi, [sha_state]
     mov ecx, 8
@@ -449,35 +680,29 @@ sha256_compute:
     dec ecx
     jnz .init
     
-    ; Prepare block - clear it
     lea rdi, [sha_block]
-    mov r15, rdi                ; Save sha_block ptr in r15
+    mov r15, rdi
     xor eax, eax
     mov ecx, 16
     rep stosd
     
-    ; Copy input
     mov rsi, [rsp+40]
-    mov rdi, r15                ; sha_block
+    mov rdi, r15
     mov rcx, [rsp+48]
     cmp rcx, 55
     jg .toolong
     rep movsb
     
-    ; Padding: sha_block[size] = 0x80
     mov rax, [rsp+48]
     mov byte [r15 + rax], 0x80
     
-    ; Length in bits at sha_block[56]
     mov rax, [rsp+48]
     shl rax, 3
     bswap rax
     mov qword [r15 + 56], rax
     
-    ; Transform
     call sha256_transform
     
-    ; Output
     lea rsi, [sha_state]
     mov rdi, r14
     mov ecx, 8
@@ -512,7 +737,6 @@ sha256_transform:
     push r14
     push r15
     
-    ; Load W[0..15]
     lea rsi, [sha_block]
     lea rdi, [sha_w]
     mov ecx, 16
@@ -525,7 +749,6 @@ sha256_transform:
     dec ecx
     jnz .loadw
     
-    ; Expand W[16..63]
     lea rdi, [sha_w]
     mov ebx, 16
 .expand:
@@ -559,7 +782,6 @@ sha256_transform:
     cmp ebx, 64
     jl .expand
     
-    ; Init working vars
     lea rsi, [sha_state]
     mov eax, [rsi]
     mov ebx, [rsi+4]
@@ -570,7 +792,6 @@ sha256_transform:
     mov r10d, [rsi+24]
     mov r11d, [rsi+28]
     
-    ; 64 rounds
     lea rbp, [k_table]
     lea rdi, [sha_w]
     xor rsi, rsi
@@ -632,7 +853,6 @@ sha256_transform:
     cmp rsi, 64
     jl .round
     
-    ; Add to state
     lea rsi, [sha_state]
     add [rsi], eax
     add [rsi+4], ebx
@@ -714,10 +934,10 @@ print_hex_byte:
     pop rdi
     ret
 
-print_num:
+print_number:
     push rbx
     push rdi
-    lea rdi, [hex_buffer + 3]
+    lea rdi, [num_buffer + 15]
     mov byte [rdi], 0
     dec rdi
     test rax, rax

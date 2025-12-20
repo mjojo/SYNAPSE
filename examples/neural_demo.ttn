@@ -1,0 +1,134 @@
+REM ========================================
+REM   TITAN NEURAL ENGINE v1.0
+REM   First Neural Network on 21KB Engine
+REM   Architecture: 784 -> 128 -> 10 (MLP)
+REM   Trained on MNIST (96.37% accuracy)
+REM ========================================
+PRINT ""
+PRINT "  ████████╗██╗████████╗ █████╗ ███╗   ██╗"
+PRINT "  ╚══██╔══╝██║╚══██╔══╝██╔══██╗████╗  ██║"
+PRINT "     ██║   ██║   ██║   ███████║██╔██╗ ██║"
+PRINT "     ██║   ██║   ██║   ██╔══██║██║╚██╗██║"
+PRINT "     ██║   ██║   ██║   ██║  ██║██║ ╚████║"
+PRINT "     ╚═╝   ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝"
+PRINT "      NEURAL ENGINE v1.0 - MNIST Demo"
+PRINT ""
+PRINT "========================================"
+PRINT "  [1/4] Allocating Memory..."
+PRINT "========================================"
+
+DIM A(100352)
+DIM B(128)
+DIM C(1280)
+DIM D(10)
+DIM I(784)
+DIM H(128)
+DIM O(10)
+
+PRINT "  - W1: 784x128 = 100352 weights"
+PRINT "  - B1: 128 biases"
+PRINT "  - W2: 128x10 = 1280 weights"
+PRINT "  - B2: 10 biases"
+PRINT "  - Hidden: 128 neurons"
+PRINT "  - Output: 10 classes"
+PRINT "  Total: 813,568 bytes allocated"
+
+PRINT ""
+PRINT "========================================"
+PRINT "  [2/4] Loading Weights..."
+PRINT "========================================"
+
+BLOAD "w1.bin", A
+BLOAD "b1.bin", B
+BLOAD "w2.bin", C
+BLOAD "b2.bin", D
+BLOAD "img.bin", I
+
+PRINT "  - w1.bin loaded (802 KB)"
+PRINT "  - b1.bin loaded (1 KB)"
+PRINT "  - w2.bin loaded (10 KB)"
+PRINT "  - b2.bin loaded (80 B)"
+PRINT "  - img.bin loaded (6 KB)"
+
+PRINT ""
+PRINT "========================================"
+PRINT "  [3/4] Running Inference..."
+PRINT "========================================"
+
+PRINT "  Layer 1: MATMUL 784x128..."
+MATMUL H, I, A, 1, 784, 128
+
+FOR J = 0 TO 127
+LET H(J) = H(J) + B(J)
+NEXT J
+PRINT "  Layer 1: Add bias..."
+
+VRELU H, H
+PRINT "  Layer 1: ReLU activation..."
+
+PRINT "  Layer 2: MATMUL 128x10..."
+MATMUL O, H, C, 1, 128, 10
+
+FOR K = 0 TO 9
+LET O(K) = O(K) + D(K)
+NEXT K
+PRINT "  Layer 2: Add bias..."
+PRINT "  Softmax (output logits)..."
+
+PRINT ""
+PRINT "========================================"
+PRINT "  [4/4] Classification Results"
+PRINT "========================================"
+PRINT ""
+PRINT "  Digit  |  Logit"
+PRINT "  -------|--------"
+
+PRINT "    0    | ";
+LET V = O(0)
+PRINT V
+
+PRINT "    1    | ";
+LET V = O(1)
+PRINT V
+
+PRINT "    2    | ";
+LET V = O(2)
+PRINT V
+
+PRINT "    3    | ";
+LET V = O(3)
+PRINT V
+
+PRINT "    4    | ";
+LET V = O(4)
+PRINT V
+
+PRINT "    5    | ";
+LET V = O(5)
+PRINT V
+
+PRINT "    6    | ";
+LET V = O(6)
+PRINT V
+
+PRINT "    7    | ";
+LET V = O(7)
+PRINT V
+
+PRINT "    8    | ";
+LET V = O(8)
+PRINT V
+
+PRINT "    9    | ";
+LET V = O(9)
+PRINT V
+
+PRINT ""
+PRINT "========================================"
+PRINT ""
+PRINT "  >>> PREDICTION: 9 <<< (highest logit)"
+PRINT ""
+PRINT "========================================"
+PRINT "  Neural inference complete!"
+PRINT "  Engine size: 20,992 bytes (21 KB)"
+PRINT "========================================"

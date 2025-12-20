@@ -1,0 +1,24 @@
+REM TITAN Simple Graphics Test
+PRINT "Creating window..."
+WINDOW 320, 240, "TITAN GFX"
+PRINT "Window OK!"
+
+PRINT "Drawing white diagonal..."
+FOR I = 0 TO 200
+PSET I, I, 16777215
+NEXT I
+
+PRINT "Drawing red line..."
+FOR X = 0 TO 319
+PSET X, 120, 16711680
+NEXT X
+
+PRINT "Drawing green line..."  
+FOR Y = 0 TO 239
+PSET 160, Y, 65280
+NEXT Y
+
+PRINT "Calling UPDATE..."
+UPDATE
+PRINT "Done! Press Enter..."
+INPUT A

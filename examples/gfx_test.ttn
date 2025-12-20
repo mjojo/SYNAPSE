@@ -1,0 +1,30 @@
+REM TITAN Graphics Test - Phase 21
+REM Creates a window and draws pixels
+
+PRINT "=== TITAN Graphics Test ==="
+PRINT "Creating 400x300 window..."
+
+WINDOW 400, 300, "TITAN GFX TEST"
+
+PRINT "Drawing pattern..."
+
+REM Draw a diagonal line
+FOR I = 0 TO 200
+PSET I, I, 16777215
+NEXT I
+
+REM Draw red horizontal line
+FOR X = 0 TO 399
+PSET X, 150, 16711680
+NEXT X
+
+REM Draw green vertical line
+FOR Y = 0 TO 299
+PSET 200, Y, 65280
+NEXT Y
+
+UPDATE
+
+PRINT "Done! Close window to exit."
+PRINT "Press Enter to continue..."
+INPUT A

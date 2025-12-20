@@ -1,0 +1,16 @@
+REM TITAN Graphics Window Test
+REM Run this and you should see a window!
+
+PRINT "Creating window..."
+WINDOW 400, 300, "TITAN Graphics Window"
+PRINT "Window created! Drawing..."
+
+REM Draw a white cross pattern
+FOR I = 0 TO 299
+PSET 200, I, 16777215
+PSET I, 150, 16777215
+NEXT I
+
+UPDATE
+PRINT "Done! Press Enter to close..."
+INPUT A

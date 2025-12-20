@@ -1,0 +1,9 @@
+DECLARE MSGBOX LIB "user32.dll" ALIAS "MessageBoxA"
+
+5 REM === FFI TEST: MessageBox ===
+10 LET R = MSGBOX(0, "TITAN FFI is working!", "Success", 0)
+20 PRINT "MessageBox returned:"
+30 PRINT R
+40 END
+RUN
+QUIT

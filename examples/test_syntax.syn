@@ -1,0 +1,71 @@
+// =============================================================================
+// SYNAPSE Test Program: test_syntax.syn
+// Testing the new Python-like syntax with indentation
+// =============================================================================
+
+// Simple function
+fn main():
+    let x = 10
+    let y: int = 20
+    
+    if x > 5:
+        print("x is greater than 5")
+        
+        if y > 15:
+            print("y is also greater than 15")
+    else:
+        print("x is small")
+    
+    // Loop example
+    for i in 0..10:
+        print(i)
+    
+    // Function call
+    let result = add(x, y)
+    print(result)
+
+// Function with parameters and return type
+fn add(a: int, b: int) -> int:
+    return a + b
+
+// Neural network example
+fn neural_forward(input: tensor<f32, [784]>) -> tensor<f32, [10]>:
+    let w1: tensor<f32, [784, 128]> = load_weights("w1.bin")
+    let w2: tensor<f32, [128, 10]> = load_weights("w2.bin")
+    
+    // Matrix multiplication with tensor operator
+    let hidden = input <dot> w1
+    hidden.relu()
+    
+    let output = hidden <dot> w2
+    return output
+
+// Smart contract example  
+contract fn transfer(amount: int) signed_by(Admin):
+    if amount > balance:
+        return Error("Insufficient funds")
+    
+    balance -= amount
+    chain.commit()
+    return Ok(amount)
+
+// Struct definition
+struct Point:
+    x: f32
+    y: f32
+
+// Enum definition
+enum Result<T>:
+    Ok(T)
+    Error(string)
+
+// Unsafe block with inline assembly
+fn low_level_check() -> int:
+    let result: int = 0
+    
+    unsafe asm:
+        MOV RAX, 1
+        CPUID
+        MOV [result], RBX
+    
+    return result

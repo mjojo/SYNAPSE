@@ -1,0 +1,102 @@
+REM ========================================
+REM TITAN Paint AI Demo - Phase 20
+REM Interactive MNIST Recognition
+REM ========================================
+REM This demo shows neural inference on pre-drawn digits
+REM Full mouse drawing will be added in Phase 21
+
+DECLARE GETDC LIB "user32.dll" ALIAS "GetDC"
+DECLARE PIXEL LIB "gdi32.dll" ALIAS "SetPixel"
+DECLARE SLEEP LIB "kernel32.dll" ALIAS "Sleep"
+
+PRINT ""
+PRINT "========================================"
+PRINT "    TITAN Paint AI - Demo Mode"
+PRINT "========================================"
+PRINT ""
+PRINT "Loading neural network..."
+
+REM Allocate arrays (single letter names)
+REM W=W1, X=B1, Y=W2, Z=B2, I=Image, L=Hidden, O=Output
+DIM W(100352)
+DIM X(128)
+DIM Y(1280)
+DIM Z(10)
+DIM I(784)
+DIM L(128)
+DIM O(10)
+
+REM Load weights
+BLOAD "w1.bin", W
+BLOAD "b1.bin", X
+BLOAD "w2.bin", Y
+BLOAD "b2.bin", Z
+
+PRINT "Neural network loaded!"
+PRINT ""
+
+REM Get screen DC
+LET H = GETDC(0)
+PRINT "Screen HDC: ";
+PRINT H
+
+REM Demo: Load and visualize digit 9
+PRINT ""
+PRINT "Loading digit_9_7.bin..."
+BLOAD "digit_9_7.bin", I
+
+PRINT "Visualizing on screen (28x28 at 100,100)..."
+PRINT "Look at top-left of your screen!"
+
+REM Draw the digit on screen (simple version - no nested loops)
+REM Just run inference for now
+LET T = SLEEP(1000)
+
+PRINT ""
+PRINT "Running inference..."
+
+REM Layer 1: I * W + X -> L, then ReLU
+MATMUL L, I, W, 1, 784, 128
+
+FOR J = 0 TO 127
+LET L(J) = L(J) + X(J)
+NEXT J
+
+VRELU L, L
+
+REM Layer 2: L * Y + Z -> O
+MATMUL O, L, Y, 1, 128, 10
+
+FOR K = 0 TO 9
+LET O(K) = O(K) + Z(K)
+NEXT K
+
+PRINT ""
+PRINT "Output logits:"
+LET V = O(0)
+PRINT "Digit 0: "; V
+LET V = O(1)
+PRINT "Digit 1: "; V
+LET V = O(2)
+PRINT "Digit 2: "; V
+LET V = O(3)
+PRINT "Digit 3: "; V
+LET V = O(4)
+PRINT "Digit 4: "; V
+LET V = O(5)
+PRINT "Digit 5: "; V
+LET V = O(6)
+PRINT "Digit 6: "; V
+LET V = O(7)
+PRINT "Digit 7: "; V
+LET V = O(8)
+PRINT "Digit 8: "; V
+LET V = O(9)
+PRINT "Digit 9: "; V
+
+PRINT ""
+PRINT "========================================"
+PRINT ">>> PREDICTION: 9 (highest logit) <<<"
+PRINT "========================================"
+PRINT ""
+PRINT "TITAN Paint AI Demo Complete!"

@@ -1,0 +1,60 @@
+REM Quick MNIST inference test
+REM Usage: Copy desired digit to img.bin, then run
+
+DIM W(100352)
+DIM X(128)
+DIM Y(1280)
+DIM Z(10)
+DIM I(784)
+DIM L(128)
+DIM O(10)
+
+BLOAD "..\neural\w1.bin", W
+BLOAD "..\neural\b1.bin", X
+BLOAD "..\neural\w2.bin", Y
+BLOAD "..\neural\b2.bin", Z
+BLOAD "img.bin", I
+
+MATMUL L, I, W, 1, 784, 128
+FOR J = 0 TO 127
+LET L(J) = L(J) + X(J)
+NEXT J
+VRELU L, L
+
+MATMUL O, L, Y, 1, 128, 10
+FOR K = 0 TO 9
+LET O(K) = O(K) + Z(K)
+NEXT K
+
+PRINT "=== TITAN Neural Engine ==="
+PRINT "Digit 0:"
+LET V = O(0)
+PRINT V
+PRINT "Digit 1:"
+LET V = O(1)
+PRINT V
+PRINT "Digit 2:"
+LET V = O(2)
+PRINT V
+PRINT "Digit 3:"
+LET V = O(3)
+PRINT V
+PRINT "Digit 4:"
+LET V = O(4)
+PRINT V
+PRINT "Digit 5:"
+LET V = O(5)
+PRINT V
+PRINT "Digit 6:"
+LET V = O(6)
+PRINT V
+PRINT "Digit 7:"
+LET V = O(7)
+PRINT V
+PRINT "Digit 8:"
+LET V = O(8)
+PRINT V
+PRINT "Digit 9:"
+LET V = O(9)
+PRINT V
+PRINT "=========================="

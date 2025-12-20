@@ -1,0 +1,33 @@
+REM TITAN Paint Demo - Phase 21
+REM Interactive drawing with mouse!
+
+PRINT "==================================="
+PRINT "   TITAN PAINT v0.19.0"
+PRINT "==================================="
+PRINT "Creating graphics window..."
+
+WINDOW 640, 480, "TITAN PAINT - Draw with Mouse!"
+
+PRINT "Window created!"
+PRINT ""
+PRINT "Instructions:"
+PRINT "- Move mouse with LEFT BUTTON held to draw"
+PRINT "- Window shows real-time graphics"
+PRINT ""
+
+REM Fill with dark blue background
+LET C = 2105376
+FOR Y = 0 TO 479
+FOR X = 0 TO 639
+PSET X, Y, C
+NEXT X
+NEXT Y
+UPDATE
+
+PRINT "Canvas ready! Start drawing..."
+PRINT "(Use CTRL+C to exit)"
+
+REM Main draw loop
+:LOOP
+    UPDATE
+    GOTO LOOP

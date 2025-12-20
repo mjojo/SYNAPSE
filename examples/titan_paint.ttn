@@ -1,0 +1,25 @@
+REM ==========================================
+REM   TITAN PAINT - Interactive Drawing Demo
+REM   Phase 21: Graphics Window System
+REM ==========================================
+
+PRINT "===================================="
+PRINT "     TITAN PAINT v0.19.0"  
+PRINT "===================================="
+PRINT ""
+PRINT "Hold LEFT MOUSE BUTTON to draw"
+PRINT "Press CTRL+C to exit"
+PRINT ""
+
+WINDOW 400, 300, "TITAN PAINT - Draw Here!"
+
+LET WHITE = 16777215
+
+:DRAW
+  MOUSE X, Y, B
+  IF B = 1 THEN PSET X, Y, WHITE
+  IF B = 1 THEN PSET X+1, Y, WHITE
+  IF B = 1 THEN PSET X, Y+1, WHITE
+  IF B = 1 THEN PSET X+1, Y+1, WHITE
+  UPDATE
+GOTO DRAW

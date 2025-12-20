@@ -118,9 +118,18 @@
 
 ---
 
-## 📋 Phase 3: Advanced Features (PLANNED)
+## 📋 Phase 3: Blockchain Memory (IN PROGRESS)
 
-### 3.1 SIMD/AVX Operations
+### 3.1 SHA-256 Crypto Core ✅ COMPLETE
+- [x] Создать `src/crypto_test.asm` — полная реализация SHA-256
+- [x] K константы (64 dwords) — кубические корни простых чисел
+- [x] Message expansion W[0..63]
+- [x] 64 раунда компрессии (Sigma, Ch, Maj)
+- [x] Big-endian конвертация
+- [x] Скомпилировать и протестировать
+- [x] **Результат:** SHA256("abc") = ba7816bf...f20015ad ✅
+
+### 3.2 Merkle Tree Allocator
 - [ ] Tensor operations → SIMD instructions
 - [ ] <dot> → MATMUL
 - [ ] <+>, <-> → Vectorized add/sub

@@ -2,12 +2,12 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/Version-0.4.0--alpha-blue)
+![Version](https://img.shields.io/badge/Version-0.5.0--alpha-blue)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20x64-green)
 ![Assembler](https://img.shields.io/badge/Built%20with-FASM-red)
 
-**Современный системный язык с Python-синтаксисом и JIT-компиляцией на чистом Ассемблере**
+**Современный системный язык с Python-синтаксисом, JIT-компиляцией и Blockchain-памятью**
 
 [Особенности](#-особенности) • [Установка](#-быстрый-старт) • [Документация](#-документация) • [Roadmap](#-roadmap)
 
@@ -19,45 +19,45 @@
 
 | Компонент | Версия | Статус |
 |-----------|--------|--------|
-| **SYNAPSE Core** | `0.4.0-alpha` | 🔄 Active Development |
+| **SYNAPSE Core** | `0.5.0-alpha` | 🔄 Active Development |
 | Lexer | `2.0` | ✅ Stable |
 | Parser | `2.0` | ✅ Stable |
 | JIT Compiler | `2.0` | ✅ Stable |
 | AVX2 Engine | `1.0` | ✅ Stable |
 | Neural Engine | `1.0` | ✅ Stable |
+| **Crypto Core** | `1.0` | ✅ **NEW!** |
 
-**Стадия разработки:** `ALPHA` — базовый функционал работает, API может меняться.
+**Стадия:** `ALPHA` — базовый функционал работает, API может меняться.
 
 ---
 
 ## ⚡ Возможности
 
-### ✅ Реализовано (v0.3.0-alpha)
+### ✅ Реализовано (v0.5.0-alpha)
 
-| Возможность | Описание | Тест |
-|-------------|----------|------|
-| **Python-like синтаксис** | Отступы вместо скобок, INDENT/DEDENT токены | ✅ |
-| **Типизация с дженериками** | `tensor<f32, [784, 128]>` | ✅ |
-| **JIT-компиляция** | Генерация x64 кода в память, VirtualAlloc | ✅ |
-| **Локальные переменные** | Stack frame, `[rbp-offset]` адресация | ✅ |
-| **Арифметика** | `+`, `-`, `*` для int | ✅ |
-| **CPU Detection** | CPUID/XGETBV для SSE/AVX2/AVX-512 | ✅ |
-| **AVX2 Tensor Add** | `<+>` — 8 float за 1 такт | ✅ |
-| **AVX2 Dot Product** | `<dot>` — VMULPS + VHADDPS | ✅ |
-| **Aligned Allocator** | 32-byte выравнивание для SIMD | ✅ |
+| Категория | Возможность | Описание |
+|-----------|-------------|----------|
+| **Синтаксис** | Python-like | Отступы, INDENT/DEDENT токены |
+| **Типы** | Generics | `tensor<f32, [784, 128]>` |
+| **JIT** | x64 Codegen | VirtualAlloc, машинный код |
+| **Переменные** | Stack Frame | `[rbp-offset]`, символьная таблица |
+| **SIMD** | AVX2 | VMOVAPS, VADDPS, VMULPS, VFMADD |
+| **CPU** | Detection | CPUID/XGETBV для Tier 1/2/3 |
+| **Tensors** | `<+>`, `<dot>` | Сложение и скалярное произведение |
+| **Neural** | MATMUL+ReLU | Полносвязные слои с активацией |
+| **MNIST** | Inference | 784→128→10, загрузка весов |
+| **Crypto** | SHA-256 | Чистый ASM, без зависимостей |
 
-### 🔄 В разработке (v0.4.0)
+### 🔄 В разработке (v0.6.0)
 
-- [ ] MATMUL (Matrix Multiplication)
-- [ ] Full expression parser (operator precedence)
-- [ ] Control flow codegen (`if`/`else` → jumps)
-- [ ] MNIST inference demo
+- [ ] Merkle Tree Allocator
+- [ ] Memory integrity verification
+- [ ] Full expression parser
 
 ### 📋 Запланировано (v1.0.0)
 
-- [ ] Полная система типов
-- [ ] AVX-512 support (Tier 3)
 - [ ] Blockchain memory contracts
+- [ ] AVX-512 support
 - [ ] Linux support
 
 ---
@@ -68,40 +68,26 @@
 - Windows x64
 - [FASM](https://flatassembler.net/) 1.73+
 
-### Сборка и тест
+### Сборка и запуск
 
 ```batch
-cd src
+cd d:\Projects\SYNAPSE
 
-# Основной JIT тест (return 42)
-D:\fasmw17334\fasm.exe jit_test.asm jit_test.exe
-jit_test.exe
+# JIT тест (return 42)
+D:\fasmw17334\fasm.exe src\jit_test.asm src\jit_test.exe
+.\src\jit_test.exe
 
-# AVX2 тензорный тест
-D:\fasmw17334\fasm.exe avx_test.asm avx_test.exe
-avx_test.exe
+# AVX2 тензоры
+D:\fasmw17334\fasm.exe src\avx_test.asm src\avx_test.exe
+.\src\avx_test.exe
 
-# Dot Product тест
-D:\fasmw17334\fasm.exe dot_test.asm dot_test.exe
-dot_test.exe
-```
+# MNIST inference
+D:\fasmw17334\fasm.exe src\mnist_infer.asm src\mnist_infer.exe
+.\src\mnist_infer.exe
 
-### Пример кода SYNAPSE
-
-```synapse
-fn main():
-    # Скалярные переменные
-    let x: int = 40
-    let y: int = 2
-    
-    # Тензорные операции (AVX2)
-    let a: tensor<f32, [8]> = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-    let b: tensor<f32, [8]> = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
-    
-    let c = a <+> b      # Поэлементное сложение
-    let d = a <dot> b    # Скалярное произведение → 4.0
-    
-    return x + y         # → 42
+# SHA-256 crypto
+D:\fasmw17334\fasm.exe src\crypto_test.asm src\crypto_test.exe
+.\src\crypto_test.exe
 ```
 
 ---
@@ -110,24 +96,24 @@ fn main():
 
 ```
 SYNAPSE/
-├── src/                     # Исходный код компилятора
-│   ├── jit_test.asm         # JIT v1: return 42
-│   ├── jit_vars.asm         # JIT v2: переменные + арифметика
-│   ├── cpu_test.asm         # CPU tier detection
-│   ├── avx_test.asm         # AVX2 tensor add
-│   ├── dot_test.asm         # AVX2 dot product
-│   ├── lexer_v2.asm         # Indentation lexer
-│   ├── parser_v2.asm        # Type parser with generics
-│   └── build_*.bat          # Build scripts
+├── src/
+│   ├── jit_test.asm        # JIT: return 42
+│   ├── jit_vars.asm        # JIT: переменные + арифметика
+│   ├── cpu_test.asm        # CPU tier detection
+│   ├── avx_test.asm        # AVX2 tensor add
+│   ├── dot_test.asm        # AVX2 dot product
+│   ├── matmul_test.asm     # MATMUL + ReLU
+│   ├── mnist_infer.asm     # MNIST inference
+│   ├── crypto_test.asm     # SHA-256 ⭐ NEW
+│   └── lexer/parser_*.asm  # Frontend
 ├── include/
-│   ├── synapse_tokens.inc   # Token constants
-│   └── ast.inc              # AST structures
-├── docs/
-│   ├── SYNAPSE_SPEC.md      # Language specification
-│   ├── SYNAPSE_GRAMMAR.md   # BNF grammar
-│   └── archive/             # TITAN legacy code
-├── TASKS.md                 # Development tracker
-├── CHANGELOG.md             # Version history
+│   ├── synapse_tokens.inc
+│   ├── ast.inc
+│   └── version.inc
+├── neural/                  # MNIST weights (.bin)
+├── docs/                    # Documentation
+├── TASKS.md
+├── CHANGELOG.md
 └── README.md
 ```
 
@@ -137,12 +123,15 @@ SYNAPSE/
 
 | Компонент | Размер | Описание |
 |-----------|--------|----------|
-| `jit_test.exe` | 4,608 B | Базовый JIT |
-| `jit_vars.exe` | 5,632 B | Переменные + стек |
-| `cpu_test.exe` | 3,072 B | CPUID детектор |
-| `avx_test.exe` | 3,584 B | AVX2 add |
-| `dot_test.exe` | 4,096 B | Dot product |
-| **TOTAL** | **~21 KB** | Весь компилятор! |
+| jit_test | 4,608 B | Базовый JIT |
+| jit_vars | 5,632 B | Переменные |
+| cpu_test | 3,072 B | CPUID |
+| avx_test | 3,584 B | AVX2 add |
+| dot_test | 4,096 B | Dot product |
+| matmul_test | 4,096 B | Neural layer |
+| mnist_infer | 4,096 B | MNIST |
+| crypto_test | ~4 KB | SHA-256 |
+| **TOTAL** | **~33 KB** | Весь компилятор! |
 
 ---
 
@@ -151,8 +140,9 @@ SYNAPSE/
 - **Ассемблер:** FASM (Flat Assembler)
 - **Архитектура:** x86-64 (Windows PE64)
 - **JIT:** VirtualAlloc + PAGE_EXECUTE_READWRITE
-- **SIMD:** AVX2 (256-bit YMM registers)
-- **Парсинг:** Recursive Descent
+- **SIMD:** AVX2/FMA (256-bit YMM)
+- **Crypto:** SHA-256 (pure ASM)
+- **Neural:** MATMUL, ReLU, File I/O
 
 ---
 
@@ -162,7 +152,6 @@ SYNAPSE/
 |----------|----------|
 | [SYNAPSE_SPEC.md](docs/SYNAPSE_SPEC.md) | Спецификация языка |
 | [SYNAPSE_GRAMMAR.md](docs/SYNAPSE_GRAMMAR.md) | BNF грамматика |
-| [SYNAPSE_SYNTAX.md](docs/SYNAPSE_SYNTAX.md) | Примеры синтаксиса |
 | [TASKS.md](TASKS.md) | Трекер разработки |
 | [CHANGELOG.md](CHANGELOG.md) | История версий |
 
@@ -173,10 +162,11 @@ SYNAPSE/
 ```
 v0.1.0 ✅ Lexer (INDENT/DEDENT)
 v0.2.0 ✅ Parser (generics, blocks)
-v0.3.0 ✅ JIT + AVX2 (current)
-v0.4.0 🔄 MATMUL + MNIST
-v0.5.0 📋 Full type system
-v1.0.0 📋 Production release
+v0.3.0 ✅ JIT + AVX2
+v0.4.0 ✅ Neural Engine (MATMUL, MNIST)
+v0.5.0 ✅ Crypto Core (SHA-256) ← CURRENT
+v0.6.0 🔄 Blockchain Memory
+v1.0.0 📋 Production Release
 ```
 
 ---
@@ -187,14 +177,14 @@ MIT License — свободное использование с указани�
 
 ## 👥 Авторы
 
-- **mjojo (Vitaly.G)** — архитектура, ASM реализация
+- **mjojo (Vitaly.G)** — архитектура, ASM
 - **GLK-Dev** — AI-ассистент
 
 ---
 
 <div align="center">
 
-**SYNAPSE: Where Python meets Assembly**
+**SYNAPSE: Where Python meets Assembly meets Blockchain**
 
 *Built with ❤️ and pure x86-64 Assembly*
 

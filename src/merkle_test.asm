@@ -49,22 +49,23 @@ section '.idata' import data readable
 section '.data' data readable writeable
 
     banner      db '================================================',13,10
-                db '  SYNAPSE Merkle Ledger Test - Phase 3.2',13,10
-                db '  Blockchain Memory with Tamper Detection',13,10
+                db '  SYNAPSE Chain of Trust - Phase 3.3',13,10
+                db '  Blockchain Memory with XOR Linking',13,10
                 db '================================================',13,10,13,10,0
     
     msg_init    db '[INIT] Initializing Ledger Heap...',13,10,0
     msg_alloc_a db '[MEM] Allocated Block A: "Hello"',13,10,0
     msg_alloc_b db '[MEM] Allocated Block B: "World"',13,10,0
-    msg_commit1 db 13,10,'[CHAIN] Committing state...',13,10,0
-    msg_hash1   db 'Root Hash 1: ',0
-    msg_hack    db 13,10,'[HACK] ALERT! Unauthorized modification!',13,10
+    msg_commit1 db 13,10,'[CHAIN] Building blockchain state...',13,10,0
+    msg_hash1   db 'Root Hash (Clean): ',0
+    msg_hack    db 13,10,'[HACK] ALERT! Modifying OLD Block A...',13,10
                 db '       Changing "Hello" -> "Hxllo"',13,10,0
-    msg_commit2 db 13,10,'[CHAIN] Re-committing...',13,10,0
-    msg_hash2   db 'Root Hash 2: ',0
-    msg_success db 13,10,'*** SUCCESS! TAMPERING DETECTED! ***',13,10
-                db '    Hashes differ - Memory integrity verified!',13,10,0
-    msg_fail    db 13,10,'[FAIL] Hashes match - Tampering undetected!',13,10,0
+    msg_commit2 db 13,10,'[CHAIN] Rebuilding blockchain state...',13,10,0
+    msg_hash2   db 'Root Hash (Dirty): ',0
+    msg_success db 13,10,'*** SUCCESS! CHAIN REACTION CONFIRMED! ***',13,10
+                db '    Changing old block invalidated GLOBAL Root Hash!',13,10
+                db '    This is TRUE Blockchain Memory.',13,10,0
+    msg_fail    db 13,10,'[FAIL] No chain reaction - hashes match!',13,10,0
     msg_debug_hash db '  [DEBUG] Hashing block, size=',0
     newline     db 13,10,0
     
@@ -112,6 +113,9 @@ section '.bss' data readable writeable
     
     ; Saved hash for comparison
     saved_hash      rb 32
+    
+    ; Global Root Hash (XOR of all block hashes)
+    root_hash       rb 32
     
     ; SHA-256 working area
     sha_state       rd 8
@@ -172,23 +176,21 @@ start:
     call print_string
     
     ; ===========================================
-    ; COMMIT 1: Calculate and save hash
+    ; COMMIT 1: Build blockchain state
     ; ===========================================
     lea rcx, [msg_commit1]
     call print_string
     
     call merkle_commit
     
-    ; Save hash OF BLOCK A (which we will modify)
-    ; Block A header is at ptr_a - 48, hash is at offset 16
-    mov rax, [ptr_a]
-    sub rax, BLOCK_HEADER_SIZE
-    lea rsi, [rax+16]           ; Hash of Block A
+    ; Save GLOBAL ROOT HASH (XOR of all block hashes)
+    ; merkle_commit now returns ptr to root_hash
+    mov rsi, rax
     lea rdi, [saved_hash]
     mov rcx, 4
     rep movsq
     
-    ; Print Hash 1
+    ; Print Root Hash 1
     lea rcx, [msg_hash1]
     call print_string
     lea rsi, [saved_hash]
@@ -197,7 +199,7 @@ start:
     call print_string
     
     ; ===========================================
-    ; TAMPERING: Modify Block A
+    ; TAMPERING: Modify OLD Block A
     ; ===========================================
     lea rcx, [msg_hack]
     call print_string
@@ -206,19 +208,15 @@ start:
     mov byte [rax+1], 'x'       ; "Hello" -> "Hxllo"
     
     ; ===========================================
-    ; COMMIT 2: Recalculate hash
+    ; COMMIT 2: Rebuild blockchain state
     ; ===========================================
     lea rcx, [msg_commit2]
     call print_string
     
     call merkle_commit
+    mov r12, rax                ; New root hash ptr
     
-    ; Get Hash of Block A again
-    mov rax, [ptr_a]
-    sub rax, BLOCK_HEADER_SIZE
-    lea r12, [rax+16]
-    
-    ; Print Hash 2
+    ; Print Root Hash 2
     lea rcx, [msg_hash2]
     call print_string
     mov rsi, r12
@@ -227,7 +225,7 @@ start:
     call print_string
     
     ; ===========================================
-    ; COMPARE: Check if tampering detected
+    ; COMPARE: Chain Reaction Detection
     ; ===========================================
     lea rsi, [saved_hash]
     mov rdi, r12
@@ -235,7 +233,7 @@ start:
     repe cmpsb
     je .fail
     
-    ; SUCCESS - Hashes differ!
+    ; SUCCESS - Global Root Hash changed!
     lea rcx, [msg_success]
     call print_string
     jmp .exit
@@ -315,53 +313,96 @@ merkle_alloc:
     ret
 
 merkle_commit:
-    ; Walk chain and compute hashes
+    ; ==========================================================
+    ; CHAIN OF TRUST (Phase 3.3)
+    ; Two-pass algorithm:
+    ;   Pass 1: Compute SHA-256 of each block's data
+    ;   Pass 2: XOR all block hashes into global Root Hash
+    ; Result: Changing ANY block changes the Root Hash
+    ; ==========================================================
     push rbx
     push rsi
     push rdi
     push r12
     push r13
     push r14
-    push r15                    ; 7 pushes = 56 bytes (odd, for alignment)
-    sub rsp, 40                 ; Shadow space
+    push r15
+    sub rsp, 40
     
+    ; ==================== PASS 1: Compute Block Hashes ====================
     mov r12, [last_block_ptr]
     
-.walk:
+.pass1_loop:
     test r12, r12
-    jz .done
+    jz .pass1_done
     
-    ; Save next block ptr to stack (sha256 may trash r12/r13)
+    ; Save next block ptr
     mov rax, [r12+8]
-    mov [rsp+32], rax           ; Save next ptr on stack
+    mov [rsp+32], rax
     
     ; Get size
     mov r14d, [r12+4]
     
-    ; Call sha256_compute(input, size, output)
+    ; sha256_compute(data, size, hash_field)
     lea rcx, [r12+48]           ; input = data
     mov rdx, r14                ; size
-    lea r8, [r12+16]            ; output = hash field
+    lea r8, [r12+16]            ; output = hash field in header
     
-    ; Save r12 before call
-    mov [rsp+24], r12
-    
+    mov [rsp+24], r12           ; Save r12
     call sha256_compute
     
-    ; Restore and get next block
-    mov r12, [rsp+32]           ; Next block ptr
-    jmp .walk
+    ; Next block
+    mov r12, [rsp+32]
+    jmp .pass1_loop
+
+.pass1_done:
+    
+    ; ==================== PASS 2: XOR Chain (Build Root Hash) ====================
+    ; RootHash = H(Block_1) XOR H(Block_2) XOR ... XOR H(Block_N)
+    ; Changing ANY block changes the final Root Hash!
+    
+    ; Clear root_hash
+    lea rdi, [root_hash]
+    xor rax, rax
+    mov [rdi], rax
+    mov [rdi+8], rax
+    mov [rdi+16], rax
+    mov [rdi+24], rax
+    
+    mov r12, [last_block_ptr]
+
+.xor_loop:
+    test r12, r12
+    jz .done
+    
+    ; XOR 32 bytes (4 qwords) from block hash into root_hash
+    ; root_hash ^= block_hash
+    
+    ; Load from root_hash, XOR with block hash, store back
+    mov rax, [rdi]              ; rdi = root_hash
+    xor rax, [r12+16]
+    mov [rdi], rax
+    
+    mov rax, [rdi+8]
+    xor rax, [r12+24]
+    mov [rdi+8], rax
+    
+    mov rax, [rdi+16]
+    xor rax, [r12+32]
+    mov [rdi+16], rax
+    
+    mov rax, [rdi+24]
+    xor rax, [r12+40]
+    mov [rdi+24], rax
+    
+    ; Next block
+    mov r12, [r12+8]
+    jmp .xor_loop
 
 .done:
-    ; Return ptr to last block's hash
-    mov rax, [last_block_ptr]
-    test rax, rax
-    jz .empty
-    lea rax, [rax+16]
-    jmp .exit
-.empty:
-    xor eax, eax
-.exit:
+    ; Return pointer to global Root Hash
+    lea rax, [root_hash]
+    
     add rsp, 40
     pop r15
     pop r14

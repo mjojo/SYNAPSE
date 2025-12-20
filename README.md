@@ -2,14 +2,14 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/Version-0.6.0--alpha-blue)
+![Version](https://img.shields.io/badge/Version-0.7.0--alpha-blue)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20x64-green)
 ![Assembler](https://img.shields.io/badge/Built%20with-FASM-red)
 
-**Современный системный язык с Python-синтаксисом, JIT-компиляцией и Blockchain-памятью**
+**Системный язык с Python-синтаксисом, JIT-компиляцией и TRUE Blockchain-памятью**
 
-[Особенности](#-особенности) • [Быстрый старт](#-быстрый-старт) • [Документация](#-документация) • [Roadmap](#-roadmap)
+[Особенности](#-особенности) • [Быстрый старт](#-быстрый-старт) • [Blockchain Memory](#-blockchain-memory) • [Roadmap](#-roadmap)
 
 </div>
 
@@ -19,40 +19,50 @@
 
 | Компонент | Версия | Статус |
 |-----------|--------|--------|
-| **SYNAPSE Core** | `0.6.0-alpha` | 🔄 Active Development |
+| **SYNAPSE Core** | `0.7.0-alpha` | 🔄 Active Development |
 | Lexer | `2.0` | ✅ Stable |
 | Parser | `2.0` | ✅ Stable |
 | JIT Compiler | `2.0` | ✅ Stable |
 | AVX2 Engine | `1.0` | ✅ Stable |
 | Neural Engine | `1.0` | ✅ Stable |
 | Crypto Core | `1.0` | ✅ Stable |
-| **Ledger Memory** | `1.0` | ✅ **NEW!** |
-
-**Стадия:** `ALPHA` — базовый функционал работает, API может меняться.
+| Ledger Memory | `1.0` | ✅ Stable |
+| **Chain of Trust** | `2.0` | ✅ **NEW!** |
 
 ---
 
 ## ⚡ Особенности
 
-### ✅ Реализовано (v0.6.0-alpha)
+### ✅ Реализовано (v0.7.0-alpha)
 
 | Категория | Возможность | Описание |
 |-----------|-------------|----------|
 | **Синтаксис** | Python-like | Отступы, INDENT/DEDENT токены |
-| **Типы** | Generics | `tensor<f32, [784, 128]>` |
 | **JIT** | x64 Codegen | VirtualAlloc, машинный код |
-| **SIMD** | AVX2/FMA | VMOVAPS, VADDPS, VMULPS, VFMADD |
-| **CPU** | Detection | CPUID/XGETBV для Tier 1/2/3 |
-| **Neural** | MATMUL+ReLU | Полносвязные слои, MNIST inference |
-| **Crypto** | SHA-256 | Чистый ASM, без зависимостей |
-| **Blockchain** | Ledger Memory | Tamper detection, integrity verification |
+| **SIMD** | AVX2/FMA | VMOVAPS, VADDPS, VFMADD231PD |
+| **Neural** | MATMUL+ReLU | MNIST inference 784→128→10 |
+| **Crypto** | SHA-256 | Чистый ASM, FIPS 180-4 |
+| **Blockchain** | XOR Linking | Global Root Hash, chain reaction |
 
-### 🔥 Ключевые возможности
+### 🔐 Blockchain Memory
 
-- **Neural Network Inference** — 784→128→10 на чистом ASM
-- **Blockchain Memory** — каждый блок защищён SHA-256
-- **Tamper Detection** — изменение любого байта детектируется
-- **~33 KB Total** — весь компилятор в 33 килобайтах!
+SYNAPSE — первый язык с **TRUE Blockchain Memory**:
+
+```
+Block A: "Hello" → SHA-256 → Hash_A
+Block B: "World" → SHA-256 → Hash_B
+Root Hash = Hash_A ⊕ Hash_B
+
+[HACK] Block A: "Hello" → "Hxllo"
+       Hash_A changes → Root Hash CHANGES!
+       
+*** CHAIN REACTION CONFIRMED! ***
+```
+
+- ✅ Каждый блок памяти защищён SHA-256
+- ✅ Все хеши связаны через XOR
+- ✅ Изменение ЛЮБОГО блока меняет глобальный Root Hash
+- ✅ Это настоящий блокчейн в оперативной памяти!
 
 ---
 
@@ -67,9 +77,9 @@
 ```batch
 cd d:\Projects\SYNAPSE
 
-# JIT тест
-D:\fasmw17334\fasm.exe src\jit_test.asm src\jit_test.exe
-.\src\jit_test.exe
+# Chain of Trust (Blockchain Memory)
+D:\fasmw17334\fasm.exe src\merkle_test.asm src\merkle_test.exe
+.\src\merkle_test.exe
 
 # Neural Network (MNIST)
 D:\fasmw17334\fasm.exe src\mnist_infer.asm src\mnist_infer.exe
@@ -78,10 +88,6 @@ D:\fasmw17334\fasm.exe src\mnist_infer.asm src\mnist_infer.exe
 # SHA-256 Crypto
 D:\fasmw17334\fasm.exe src\crypto_test.asm src\crypto_test.exe
 .\src\crypto_test.exe
-
-# Blockchain Memory (Tamper Detection)
-D:\fasmw17334\fasm.exe src\merkle_test.asm src\merkle_test.exe
-.\src\merkle_test.exe
 ```
 
 ---
@@ -91,22 +97,18 @@ D:\fasmw17334\fasm.exe src\merkle_test.asm src\merkle_test.exe
 ```
 SYNAPSE/
 ├── src/
-│   ├── jit_test.asm        # JIT: return 42
-│   ├── jit_vars.asm        # JIT: переменные
-│   ├── cpu_test.asm        # CPU detection
-│   ├── avx_test.asm        # AVX2 tensors
-│   ├── dot_test.asm        # Dot product
-│   ├── matmul_test.asm     # MATMUL + ReLU
-│   ├── mnist_infer.asm     # MNIST inference
+│   ├── merkle_test.asm     # Chain of Trust ⭐
 │   ├── crypto_test.asm     # SHA-256
-│   ├── merkle_test.asm     # Blockchain Memory ⭐
+│   ├── mnist_infer.asm     # MNIST inference
+│   ├── matmul_test.asm     # Neural layer
+│   ├── dot_test.asm        # Dot product
+│   ├── avx_test.asm        # AVX2 tensors
+│   ├── cpu_test.asm        # CPU detection
+│   ├── jit_test.asm        # Basic JIT
 │   └── lexer/parser_*.asm
 ├── include/
-│   ├── synapse_tokens.inc
-│   ├── ast.inc
-│   └── version.inc
-├── neural/                  # MNIST weights
-├── docs/                    # Documentation
+├── neural/
+├── docs/
 ├── TASKS.md
 ├── CHANGELOG.md
 └── README.md
@@ -114,41 +116,14 @@ SYNAPSE/
 
 ---
 
-## 📊 Размеры компонентов
+## 📊 Размеры
 
-| Компонент | Размер | Описание |
-|-----------|--------|----------|
-| jit_test | 4,608 B | Базовый JIT |
-| cpu_test | 3,072 B | CPUID |
-| avx_test | 3,584 B | AVX2 add |
-| dot_test | 4,096 B | Dot product |
-| matmul_test | 4,096 B | Neural layer |
-| mnist_infer | 4,096 B | MNIST |
-| crypto_test | ~4 KB | SHA-256 |
-| merkle_test | 4,096 B | Blockchain |
-| **TOTAL** | **~37 KB** | Весь движок! |
-
----
-
-## 🔬 Технологии
-
-- **Ассемблер:** FASM (Flat Assembler)
-- **Архитектура:** x86-64 (Windows PE64)
-- **JIT:** VirtualAlloc + PAGE_EXECUTE_READWRITE
-- **SIMD:** AVX2/FMA (256-bit YMM)
-- **Crypto:** SHA-256 (FIPS 180-4)
-- **Memory:** Merkle Tree Ledger
-
----
-
-## 📖 Документация
-
-| Документ | Описание |
-|----------|----------|
-| [SYNAPSE_SPEC.md](docs/SYNAPSE_SPEC.md) | Спецификация языка |
-| [SYNAPSE_GRAMMAR.md](docs/SYNAPSE_GRAMMAR.md) | BNF грамматика |
-| [TASKS.md](TASKS.md) | Трекер разработки |
-| [CHANGELOG.md](CHANGELOG.md) | История версий |
+| Компонент | Размер |
+|-----------|--------|
+| merkle_test (blockchain) | 4,096 B |
+| crypto_test (SHA-256) | ~4 KB |
+| mnist_infer | 4,096 B |
+| **TOTAL** | **~40 KB** |
 
 ---
 
@@ -158,10 +133,11 @@ SYNAPSE/
 v0.1.0 ✅ Lexer (INDENT/DEDENT)
 v0.2.0 ✅ Parser (generics, blocks)
 v0.3.0 ✅ JIT + AVX2
-v0.4.0 ✅ Neural Engine (MATMUL, MNIST)
+v0.4.0 ✅ Neural Engine (MNIST)
 v0.5.0 ✅ Crypto Core (SHA-256)
-v0.6.0 ✅ Blockchain Memory ← CURRENT
-v0.7.0 🔄 Smart Contracts
+v0.6.0 ✅ Blockchain Memory
+v0.7.0 ✅ Chain of Trust ← CURRENT
+v0.8.0 🔄 Smart Contracts
 v1.0.0 📋 Production Release
 ```
 
@@ -169,7 +145,7 @@ v1.0.0 📋 Production Release
 
 ## 📜 Лицензия
 
-MIT License — свободное использование с указанием авторства.
+MIT License
 
 ## 👥 Авторы
 
@@ -180,8 +156,6 @@ MIT License — свободное использование с указани�
 
 <div align="center">
 
-**SYNAPSE: Where Python meets Assembly meets Blockchain**
-
-*Built with ❤️ and pure x86-64 Assembly*
+**SYNAPSE: TRUE Blockchain Memory in Pure Assembly**
 
 </div>

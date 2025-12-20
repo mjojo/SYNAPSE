@@ -137,7 +137,14 @@
 - [x] Tamper detection: изменение данных меняет хеш
 - [x] **Результат:** "Hello" → "Hxllo" детектировано ✅
 
-### 3.3 Memory Integrity
+### 3.3 Chain of Trust ✅ COMPLETE
+- [x] Two-pass algorithm в `merkle_commit()`
+- [x] Pass 1: SHA-256 для каждого блока
+- [x] Pass 2: XOR всех хешей в глобальный Root Hash
+- [x] **Chain Reaction**: изменение ЛЮБОГО блока меняет глобальный хеш
+- [x] **Результат:** "Hello" → "Hxllo" инвалидировало весь blockchain ✅
+
+### 3.4 Memory Integrity
 - [ ] Tensor operations → SIMD instructions
 - [ ] <dot> → MATMUL
 - [ ] <+>, <-> → Vectorized add/sub

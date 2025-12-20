@@ -1,8 +1,8 @@
 ; =============================================================================
-; SYNAPSE MNIST Inference Engine v1.1 - Double Precision
+; SYNAPSE MNIST Inference Engine v1.2 - With Biases
 ; (c) 2025 mjojo (Vitaly.G) & GLK-Dev
 ;
-; Fixed: Uses f64 (double) format for weights and inputs
+; Full equation: output = ReLU(input * weights + bias)
 ; Network: 784 → 128 (ReLU) → 10
 ; =============================================================================
 
@@ -56,30 +56,35 @@ section '.idata' import data readable
 section '.data' data readable writeable
 
     banner      db '================================================',13,10
-                db '  SYNAPSE MNIST Inference v1.1 (f64)',13,10
-                db '  784 -> 128 (ReLU) -> 10',13,10
+                db '  SYNAPSE MNIST Inference v1.2 (with Biases)',13,10
+                db '  output = ReLU(input * weights + bias)',13,10
                 db '================================================',13,10,13,10,0
     
-    msg_alloc   db '[MEM] Allocating tensors (double precision)...',13,10,0
-    msg_load    db '[IO] Loading weights...',13,10,0
-    msg_w1      db '  w1.bin: ',0
-    msg_w2      db '  w2.bin: ',0
-    msg_img     db '  digit:  ',0
+    msg_alloc   db '[MEM] Allocating tensors...',13,10,0
+    msg_load    db '[IO] Loading network:',13,10,0
+    msg_w1      db '  w1.bin (784x128): ',0
+    msg_b1      db '  b1.bin (128):     ',0
+    msg_w2      db '  w2.bin (128x10):  ',0
+    msg_b2      db '  b2.bin (10):      ',0
+    msg_img     db '  digit image:      ',0
     msg_ok      db 'OK',13,10,0
     msg_fail    db 'FAILED',13,10,0
     
-    msg_exec    db '[EXEC] Running inference...',13,10,0
-    msg_result  db 13,10,'[OUTPUT] Scores:',13,10,0
+    msg_exec    db 13,10,'[EXEC] Running inference...',13,10,0
+    msg_result  db 13,10,'[OUTPUT] Scores (scaled x100):',13,10,0
     msg_digit   db '  [',0
     msg_close   db '] ',0
     msg_predict db 13,10,'==> PREDICTION: ',0
     
-    msg_success db 13,10,'*** MNIST INFERENCE SUCCESS! ***',13,10,0
+    msg_success db 13,10,'*** MNIST INFERENCE COMPLETE! ***',13,10,0
     newline     db 13,10,0
+    space       db ' ',0
     
     path_w1     db 'neural\w1.bin',0
+    path_b1     db 'neural\b1.bin',0
     path_w2     db 'neural\w2.bin',0
-    path_img    db 'neural\digit_9_7.bin',0
+    path_b2     db 'neural\b2.bin',0
+    path_img    db 'neural\digit_0_25.bin',0
 
 ; =============================================================================
 ; BSS
@@ -94,12 +99,14 @@ section '.bss' data readable writeable
     heap_base       dq ?
     heap_ptr        dq ?
     
-    ; Network tensors (DOUBLE = 8 bytes each!)
-    ptr_input       dq ?    ; 784 * 8 = 6272 bytes
-    ptr_w1          dq ?    ; 784 * 128 * 8 = 802816 bytes
-    ptr_hidden      dq ?    ; 128 * 8 = 1024 bytes
-    ptr_w2          dq ?    ; 128 * 10 * 8 = 10240 bytes
-    ptr_output      dq ?    ; 10 * 8 = 80 bytes
+    ; Network tensors (DOUBLE = 8 bytes)
+    ptr_input       dq ?        ; 784 doubles
+    ptr_w1          dq ?        ; 784 * 128 doubles
+    ptr_b1          dq ?        ; 128 doubles (biases!)
+    ptr_hidden      dq ?        ; 128 doubles
+    ptr_w2          dq ?        ; 128 * 10 doubles
+    ptr_b2          dq ?        ; 10 doubles (biases!)
+    ptr_output      dq ?        ; 10 doubles
 
 ; =============================================================================
 ; Code
@@ -117,7 +124,7 @@ start:
     call print_string
     
     ; ===========================================
-    ; ALLOCATE
+    ; ALLOCATE MEMORY
     ; ===========================================
     lea rcx, [msg_alloc]
     call print_string
@@ -126,31 +133,43 @@ start:
     test rax, rax
     jz .exit
     
-    ; Input: 784 doubles
+    ; Input
     mov rcx, INPUT_SIZE * 8
     mov rdx, 32
     call mem_alloc_aligned
     mov [ptr_input], rax
     
-    ; W1: 784 * 128 doubles
+    ; W1
     mov rcx, INPUT_SIZE * HIDDEN_SIZE * 8
     mov rdx, 32
     call mem_alloc_aligned
     mov [ptr_w1], rax
     
-    ; Hidden: 128 doubles
+    ; B1 (biases for layer 1)
+    mov rcx, HIDDEN_SIZE * 8
+    mov rdx, 32
+    call mem_alloc_aligned
+    mov [ptr_b1], rax
+    
+    ; Hidden
     mov rcx, HIDDEN_SIZE * 8
     mov rdx, 32
     call mem_alloc_aligned
     mov [ptr_hidden], rax
     
-    ; W2: 128 * 10 doubles
+    ; W2
     mov rcx, HIDDEN_SIZE * OUTPUT_SIZE * 8
     mov rdx, 32
     call mem_alloc_aligned
     mov [ptr_w2], rax
     
-    ; Output: 10 doubles
+    ; B2 (biases for layer 2)
+    mov rcx, OUTPUT_SIZE * 8
+    mov rdx, 32
+    call mem_alloc_aligned
+    mov [ptr_b2], rax
+    
+    ; Output
     mov rcx, OUTPUT_SIZE * 8
     mov rdx, 32
     call mem_alloc_aligned
@@ -162,6 +181,7 @@ start:
     lea rcx, [msg_load]
     call print_string
     
+    ; W1
     lea rcx, [msg_w1]
     call print_string
     lea rcx, [path_w1]
@@ -173,6 +193,19 @@ start:
     lea rcx, [msg_ok]
     call print_string
     
+    ; B1
+    lea rcx, [msg_b1]
+    call print_string
+    lea rcx, [path_b1]
+    mov rdx, [ptr_b1]
+    mov r8, HIDDEN_SIZE * 8
+    call file_read
+    cmp rax, -1
+    je .load_fail
+    lea rcx, [msg_ok]
+    call print_string
+    
+    ; W2
     lea rcx, [msg_w2]
     call print_string
     lea rcx, [path_w2]
@@ -184,6 +217,19 @@ start:
     lea rcx, [msg_ok]
     call print_string
     
+    ; B2
+    lea rcx, [msg_b2]
+    call print_string
+    lea rcx, [path_b2]
+    mov rdx, [ptr_b2]
+    mov r8, OUTPUT_SIZE * 8
+    call file_read
+    cmp rax, -1
+    je .load_fail
+    lea rcx, [msg_ok]
+    call print_string
+    
+    ; Image
     lea rcx, [msg_img]
     call print_string
     lea rcx, [path_img]
@@ -201,23 +247,22 @@ start:
     lea rcx, [msg_exec]
     call print_string
     
-    call layer1_forward_f64
-    call layer2_forward_f64
+    call layer1_forward_with_bias
+    call layer2_forward_with_bias
     
     ; ===========================================
-    ; RESULT
+    ; RESULTS
     ; ===========================================
     lea rcx, [msg_result]
     call print_string
     
     mov rsi, [ptr_output]
-    xor r12d, r12d          ; digit counter
-    xor r13d, r13d          ; best digit
+    xor r12d, r12d
+    xor r13d, r13d
     
-    ; Load negative infinity for comparison
-    mov rax, 0xFFF0000000000000  ; -inf in double
+    mov rax, 0xFFF0000000000000
     mov [rsp+64], rax
-    movsd xmm7, [rsp+64]    ; xmm7 = best score
+    movsd xmm7, [rsp+64]
     
 .show_loop:
     cmp r12d, 10
@@ -230,17 +275,18 @@ start:
     lea rcx, [msg_close]
     call print_string
     
-    ; Load output[i]
     movsd xmm0, [rsi + r12*8]
     
-    ; Compare with best
     ucomisd xmm0, xmm7
-    jbe .not_best_d
+    jbe .not_best
     movsd xmm7, xmm0
     mov r13d, r12d
-.not_best_d:
+.not_best:
     
-    ; Print score (convert to int for display)
+    ; Scale by 100 for display
+    mov rax, 100
+    cvtsi2sd xmm1, rax
+    mulsd xmm0, xmm1
     cvttsd2si rax, xmm0
     call print_num_signed
     
@@ -269,44 +315,50 @@ start:
     call [ExitProcess]
 
 ; =============================================================================
-; Layer 1: 784 -> 128 with ReLU (DOUBLE PRECISION)
+; Layer 1: 784 -> 128 with BIAS and ReLU
+; output = ReLU(input * weights + bias)
 ; =============================================================================
-layer1_forward_f64:
+layer1_forward_with_bias:
     push rbx
     push r12
     push r13
     push r14
     push r15
+    push rdi
     sub rsp, 32
     
     mov r12, [ptr_input]
     mov r13, [ptr_w1]
     mov r14, [ptr_hidden]
-    mov r15d, HIDDEN_SIZE
+    mov r15, [ptr_b1]           ; Bias pointer!
+    mov edi, HIDDEN_SIZE
     
 .neuron_loop:
-    test r15d, r15d
+    test edi, edi
     jz .done
     
-    ; Dot product with AVX (4 doubles at a time)
+    ; Dot product
     vxorpd ymm0, ymm0, ymm0
-    mov rcx, INPUT_SIZE / 4     ; 784 / 4 = 196
+    mov rcx, INPUT_SIZE / 4
     mov rsi, r12
-    mov rdi, r13
+    mov rbx, r13
     
 .dot_loop:
-    vmovupd ymm1, [rsi]         ; Load 4 doubles from input
-    vmovupd ymm2, [rdi]         ; Load 4 doubles from weights
-    vfmadd231pd ymm0, ymm1, ymm2  ; ymm0 += ymm1 * ymm2
+    vmovupd ymm1, [rsi]
+    vmovupd ymm2, [rbx]
+    vfmadd231pd ymm0, ymm1, ymm2
     add rsi, 32
-    add rdi, 32
+    add rbx, 32
     dec rcx
     jnz .dot_loop
     
-    ; Horizontal sum (4 doubles -> 1 double)
+    ; Horizontal sum
     vextractf128 xmm1, ymm0, 1
     vaddpd xmm0, xmm0, xmm1
     vhaddpd xmm0, xmm0, xmm0
+    
+    ; ADD BIAS! (xmm0 += bias[i])
+    vaddsd xmm0, xmm0, [r15]
     
     ; ReLU
     vxorpd xmm1, xmm1, xmm1
@@ -315,14 +367,17 @@ layer1_forward_f64:
     ; Store
     vmovsd [r14], xmm0
     
+    ; Advance pointers
     add r13, INPUT_SIZE * 8
     add r14, 8
-    dec r15d
+    add r15, 8                  ; Next bias!
+    dec edi
     jmp .neuron_loop
 
 .done:
     vzeroupper
     add rsp, 32
+    pop rdi
     pop r15
     pop r14
     pop r13
@@ -331,36 +386,38 @@ layer1_forward_f64:
     ret
 
 ; =============================================================================
-; Layer 2: 128 -> 10 (DOUBLE PRECISION)
+; Layer 2: 128 -> 10 with BIAS (no ReLU on output)
 ; =============================================================================
-layer2_forward_f64:
+layer2_forward_with_bias:
     push rbx
     push r12
     push r13
     push r14
     push r15
+    push rdi
     sub rsp, 32
     
     mov r12, [ptr_hidden]
     mov r13, [ptr_w2]
     mov r14, [ptr_output]
-    mov r15d, OUTPUT_SIZE
+    mov r15, [ptr_b2]           ; Bias pointer!
+    mov edi, OUTPUT_SIZE
     
 .neuron_loop:
-    test r15d, r15d
+    test edi, edi
     jz .done
     
     vxorpd ymm0, ymm0, ymm0
-    mov rcx, HIDDEN_SIZE / 4    ; 128 / 4 = 32
+    mov rcx, HIDDEN_SIZE / 4
     mov rsi, r12
-    mov rdi, r13
+    mov rbx, r13
     
 .dot_loop:
     vmovupd ymm1, [rsi]
-    vmovupd ymm2, [rdi]
+    vmovupd ymm2, [rbx]
     vfmadd231pd ymm0, ymm1, ymm2
     add rsi, 32
-    add rdi, 32
+    add rbx, 32
     dec rcx
     jnz .dot_loop
     
@@ -368,16 +425,23 @@ layer2_forward_f64:
     vaddpd xmm0, xmm0, xmm1
     vhaddpd xmm0, xmm0, xmm0
     
+    ; ADD BIAS!
+    vaddsd xmm0, xmm0, [r15]
+    
+    ; No ReLU on output layer
+    
     vmovsd [r14], xmm0
     
     add r13, HIDDEN_SIZE * 8
     add r14, 8
-    dec r15d
+    add r15, 8
+    dec edi
     jmp .neuron_loop
 
 .done:
     vzeroupper
     add rsp, 32
+    pop rdi
     pop r15
     pop r14
     pop r13

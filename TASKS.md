@@ -86,7 +86,14 @@
 - [x] Скомпилировать и протестировать ✅ 3584 bytes
 - [x] **Результат:** Сеть работает, даёт разные выходы для разных изображений
 
-### 2.6 Expression Evaluation
+### 2.6 Biases Support ✅ COMPLETE
+- [x] Загрузка b1.bin (128 doubles) и b2.bin (10 doubles)
+- [x] VADDSD для сложения bias после dot product
+- [x] Полное уравнение: output = ReLU(W*x + b)
+- [x] Скомпилировать и протестировать ✅ 4096 bytes
+- [x] **Результат:** Сеть даёт разные scores для разных изображений
+
+### 2.7 Expression Evaluation
 - [ ] Парсинг арифметических выражений (a + b * c)
 - [ ] Приоритет операторов (Shunting-yard или Pratt parsing)
 - [ ] Унарные операторы (-x, not x)

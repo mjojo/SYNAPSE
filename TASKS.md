@@ -52,7 +52,32 @@
 - [x] Скомпилировать и протестировать ✅ 3072 bytes
 - [x] **Результат:** AuthenticAMD, TIER 2 (AVX2)
 
-### 2.2 Expression Evaluation
+### 2.2 AVX2 Tensor Engine ✅ COMPLETE
+- [x] Создать aligned memory allocator (32-byte alignment)
+- [x] Создать JIT emit для AVX2 инструкций
+- [x] VMOVAPS ymm0, [mem] — загрузка 8 float
+- [x] VADDPS ymm0, ymm0, ymm1 — сложение векторов
+- [x] VZEROUPPER — очистка состояния YMM
+- [x] Скомпилировать и протестировать ✅ 3584 bytes
+- [x] **Результат:** 1.0 + 2.0 = 3.0 (8 чисел за 1 такт!)
+
+### 2.3 Dot Product (Scalar) ✅ COMPLETE
+- [x] Создать `src/dot_test.asm` — тест dot product
+- [x] VMULPS — вертикальное умножение
+- [x] VEXTRACTF128 — разделение 256 → 128 бит
+- [x] VHADDPS x2 — горизонтальная сумма (редукция)
+- [x] Скомпилировать и протестировать ✅ 4096 bytes
+- [x] **Результат:** 1.0 * 0.5 * 8 = 4.0 ✅
+
+### 2.4 Neural Layer (MATMUL + ReLU) ✅ COMPLETE
+- [x] Создать `src/matmul_test.asm` — тест нейронного слоя
+- [x] Loop generator — JNZ цикл для множественных DOT
+- [x] ReLU activation — VXORPS + VMAXSS
+- [x] 4 нейрона × 8 входов = правильный результат
+- [x] Скомпилировать и протестировать ✅ 4096 bytes
+- [x] **Результат:** 4.0, 8.0, 0.0 (ReLU!), 16.0 ✅
+
+### 2.5 Expression Evaluation
 - [ ] Парсинг арифметических выражений (a + b * c)
 - [ ] Приоритет операторов (Shunting-yard или Pratt parsing)
 - [ ] Унарные операторы (-x, not x)

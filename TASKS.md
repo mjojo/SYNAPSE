@@ -129,7 +129,15 @@
 - [x] Скомпилировать и протестировать
 - [x] **Результат:** SHA256("abc") = ba7816bf...f20015ad ✅
 
-### 3.2 Merkle Tree Allocator
+### 3.2 Merkle Tree Allocator ✅ COMPLETE
+- [x] Создать `src/merkle_test.asm` — blockchain memory test
+- [x] Block Header: MAGIC + SIZE + PREV_PTR + HASH
+- [x] `merkle_alloc()` — выделение блока с заголовком
+- [x] `merkle_commit()` — пересчёт SHA-256 хешей
+- [x] Tamper detection: изменение данных меняет хеш
+- [x] **Результат:** "Hello" → "Hxllo" детектировано ✅
+
+### 3.3 Memory Integrity
 - [ ] Tensor operations → SIMD instructions
 - [ ] <dot> → MATMUL
 - [ ] <+>, <-> → Vectorized add/sub

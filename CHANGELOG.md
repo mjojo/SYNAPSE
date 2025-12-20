@@ -12,12 +12,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0-alpha] - 2025-12-20
+
+### Added
+- **Merkle Ledger Allocator** (Blockchain Memory)
+  - Block headers with MAGIC, SIZE, PREV_PTR, HASH
+  - `merkle_alloc()` — allocates blocks with 48-byte headers
+  - `merkle_commit()` — recalculates SHA-256 for all blocks
+  - **Tamper detection** — modifying any byte changes the hash
+  - Test: "Hello" → "Hxllo" successfully detected!
+
+### Files Added
+- `src/merkle_test.asm` - Blockchain memory test (4,096 bytes)
+
+---
+
+## [0.5.0-alpha] - 2025-12-20
+
+### Added
+- **SHA-256 Crypto Core** (pure assembly)
+  - K constants (64 dwords from cube roots of primes)
+  - Message schedule expansion W[0..63]
+  - 64 compression rounds (Sigma0, Sigma1, Ch, Maj)
+  - Big-endian conversion with BSWAP
+  - Verified: SHA256("abc") = ba7816bf...f20015ad
+
+### Files Added
+- `src/crypto_test.asm` - SHA-256 test
+
+---
+
+## [0.4.0-alpha] - 2025-12-20
+
+### Added
+- **Neural Engine** (MATMUL + ReLU)
+  - Loop generator for multiple neurons
+  - ReLU activation (VXORPS + VMAXSS)
+  - 4 neurons × 8 inputs test
+- **MNIST Inference**
+  - 784 → 128 → 10 network architecture
+  - File I/O for weight loading (.bin files)
+  - Double precision (f64) with VFMADD231PD
+  - Biases support (b1.bin, b2.bin)
+
+### Files Added
+- `src/matmul_test.asm` - Neural layer test (4,096 bytes)
+- `src/mnist_infer.asm` - MNIST inference (4,096 bytes)
+
+---
+
 ## [0.3.0-alpha] - 2025-12-20
 
 ### Added
 - **AVX2 Dot Product** (`<dot>` operator)
   - VMULPS for vertical multiplication
-  - VEXTRACTF128 + VHADDPS for horizontal sum (reduction)
+  - VEXTRACTF128 + VHADDPS for horizontal sum
   - Full test: `1.0 * 0.5 * 8 = 4.0`
 - **AVX2 Tensor Addition** (`<+>` operator)
   - VMOVAPS for aligned load/store
@@ -94,19 +143,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Upcoming
 
-### [0.4.0-alpha] - Planned
-- MATMUL (Matrix Multiplication)
-- Full expression parser with operator precedence
-- Control flow code generation (if/else → jumps)
-- MNIST inference demo
+### [0.7.0-alpha] - Planned
+- Smart contract primitives
+- Chain state management
+- World state verification
 
-### [0.5.0-beta] - Planned
+### [0.8.0-beta] - Planned
 - Full type system with inference
 - Error handling and diagnostics
-- Linux support (mmap instead of VirtualAlloc)
+- Performance optimizations
 
 ### [1.0.0] - Planned
 - Production-ready release
 - AVX-512 support (Tier 3)
-- Blockchain memory contracts
+- Linux support (mmap)
 - Standard library

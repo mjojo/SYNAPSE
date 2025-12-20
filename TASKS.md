@@ -43,9 +43,16 @@
 
 ---
 
-## 🔄 Phase 2: Full Language (IN PROGRESS)
+## 🔄 Phase 2: Adaptive AI Engine (IN PROGRESS)
 
-### 2.1 Expression Evaluation
+### 2.1 Hardware Awareness ✅ COMPLETE
+- [x] Создать `src/cpu_test.asm` — детектор CPU
+- [x] CPUID + XGETBV для определения SSE/AVX2/AVX-512
+- [x] Автоматическое определение Tier: 1 (SSE), 2 (AVX2), 3 (AVX-512)
+- [x] Скомпилировать и протестировать ✅ 3072 bytes
+- [x] **Результат:** AuthenticAMD, TIER 2 (AVX2)
+
+### 2.2 Expression Evaluation
 - [ ] Парсинг арифметических выражений (a + b * c)
 - [ ] Приоритет операторов (Shunting-yard или Pratt parsing)
 - [ ] Унарные операторы (-x, not x)

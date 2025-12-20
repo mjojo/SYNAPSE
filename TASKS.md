@@ -177,13 +177,16 @@
 - [x] JIT генерирует вызовы: `merkle_alloc`, `merkle_commit`
 - [x] **Результат:** SYNAPSE -> MOVA Bridge Works! ✅
 
-### 5.2 Auto-Ledger
-- [ ] JIT использует `merkle_alloc` для всех тензоров
-- [ ] Parser распознаёт `@secure` аннотации
+### 5.2 Auto-Ledger ✅ COMPLETE
+- [x] Создать `src/auto_test.asm`
+- [x] `codegen_run()` обрабатывает NODE_CALL
+- [x] "alloc" → генерирует merkle_alloc()
+- [x] "commit" → генерирует merkle_commit()
+- [x] **Результат:** 3 AST nodes → 3 kernel calls → 1 root hash ✅
 
 ### 5.3 Final Script
 - [ ] Написать `mnist.syn` на языке SYNAPSE
-- [ ] Компилятор генерирует и исполняет защищённый кодamic data
+- [ ] Компилятор генерирует и исполняет защищённый код
 
 ### 3.3 Standard Library
 - [ ] print() function

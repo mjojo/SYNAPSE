@@ -1,6 +1,6 @@
 # SYNAPSE Development Tasks
 
-## Phase 1: Рефакторинг и Новое Лицо
+## ✅ Phase 1: Foundation (COMPLETE)
 
 ### 1.1 Platform Abstraction Layer (PAL)
 - [ ] Создать `src/sys_interface.asm`
@@ -15,8 +15,7 @@
 - [x] Добавить новые ключевые слова (fn, let, mut, tensor, chain, contract)
 - [x] Добавить новые операторы (->, <dot>, <+>, ..)
 - [x] Создать `src/lexer_test.asm` — тестовый драйвер
-- [x] Создать `examples/test_syntax.syn` — тестовый файл
-- [x] Скомпилировать и протестировать лексер ✅ 5120 bytes
+- [x] Скомпилировать и протестировать ✅ 5,120 bytes
 
 ### 1.3 Парсер Типов ✅ COMPLETE
 - [x] Создать `src/parser_v2.asm` — парсер
@@ -24,67 +23,90 @@
 - [x] Реализовать парсинг `let x: type = value`
 - [x] Реализовать парсинг `tensor<T, [shape]>` — дженерики!
 - [x] Реализовать парсинг `fn name():` — функции
-- [x] Скомпилировать и протестировать ✅ 5632 bytes
+- [x] Скомпилировать и протестировать ✅ 5,632 bytes
 
-### 1.4 Синтаксис v0.1
-- [ ] Парсинг `fn name():` → вызов парсера блока
-- [ ] Парсинг `if/elif/else:`
-- [ ] Парсинг `for x in range:`
-- [ ] Парсинг `return value`
+### 1.4 Синтаксис v0.1 ✅ COMPLETE
+- [x] Создать `include/ast.inc` — структуры AST
+- [x] Парсинг `fn name():` → вызов парсера блока
+- [x] Парсинг `if/elif/else:`
+- [x] Парсинг `for x in range:` / `while:`
+- [x] Парсинг `return value` / `pass` / `break`
+- [x] **Рекурсивный разбор вложенных блоков** — РАБОТАЕТ!
+- [x] Скомпилировать и протестировать ✅ 6,144 bytes
 
-### 1.5 JIT-адаптация
-- [ ] Модифицировать `jit_emit.asm` для нового AST
-- [ ] Генерация кода для функций
-- [ ] Генерация кода для блоков
-
----
-
-## Документация (Готово)
-
-- [x] `docs/SYNAPSE_SPEC.md` — Спецификация языка
-- [x] `docs/SYNAPSE_ROADMAP.md` — Дорожная карта
-- [x] `docs/SYNAPSE_SYNTAX.md` — Спецификация синтаксиса
-- [x] `docs/SYNAPSE_GRAMMAR.md` — Формальная BNF грамматика
-- [x] `docs/TITAN_ANALYSIS.md` — Анализ базы TITAN
+### 1.5 JIT-адаптация ✅ COMPLETE
+- [x] Создать `src/jit_test.asm` — полный pipeline
+- [x] Lexer → Parser → CodeGen → Execute
+- [x] VirtualAlloc с PAGE_EXECUTE_READWRITE
+- [x] Генерация x64 машинного кода
+- [x] **"The 42 Test" — PASSED!** ✅ 4,608 bytes
 
 ---
 
-## Файлы Phase 1.2
+## 🔄 Phase 2: Full Language (IN PROGRESS)
 
-| Файл | Статус | Описание |
-|------|--------|----------|
-| `include/synapse_tokens.inc` | ✅ | Константы токенов SYNAPSE |
-| `src/lexer_v2.asm` | ✅ | Основной лексер с INDENT/DEDENT |
-| `src/lexer_test.asm` | ✅ | Тестовый драйвер |
-| `examples/test_syntax.syn` | ✅ | Пример SYNAPSE кода |
+### 2.1 Expression Evaluation
+- [ ] Парсинг арифметических выражений (a + b * c)
+- [ ] Приоритет операторов (Shunting-yard или Pratt parsing)
+- [ ] Унарные операторы (-x, not x)
+- [ ] Скобки и вложенные выражения
+
+### 2.2 Variable Management
+- [ ] Таблица символов (Symbol Table)
+- [ ] Область видимости (Scope)
+- [ ] Локальные переменные (стек)
+- [ ] Глобальные переменные
+
+### 2.3 Control Flow Codegen
+- [ ] if/else → JIT conditional jumps
+- [ ] for/while → JIT loops
+- [ ] break/continue
+- [ ] Function calls
+
+### 2.4 Type System
+- [ ] Type checking
+- [ ] Implicit conversions
+- [ ] Tensor shape validation
 
 ---
 
-## Следующие шаги
+## 📋 Phase 3: Advanced Features (PLANNED)
 
-1. **Сборка лексера:**
-   ```cmd
-   cd src
-   fasm lexer_test.asm lexer_test.exe
-   ```
+### 3.1 SIMD/AVX Operations
+- [ ] Tensor operations → SIMD instructions
+- [ ] <dot> → MATMUL
+- [ ] <+>, <-> → Vectorized add/sub
 
-2. **Тестирование:**
-   ```cmd
-   lexer_test.exe
-   ```
+### 3.2 Memory Management
+- [ ] Arena allocator
+- [ ] Stack-based locals
+- [ ] Heap for dynamic data
 
-3. **Ожидаемый вывод:**
-   ```
-   [KEYWORD=fn L1:C0]
-   [IDENT=main L1:C3]
-   [OPERATOR=40 L1:C7]    ; (
-   [OPERATOR=41 L1:C8]    ; )
-   [OPERATOR=52 L1:C9]    ; :
-   [NEWLINE L1:C10]
-   [INDENT L2:C0]
-   [KEYWORD=let L2:C4]
-   ...
-   ```
+### 3.3 Standard Library
+- [ ] print() function
+- [ ] File I/O
+- [ ] String operations
+
+---
+
+## 📂 Project Structure
+
+```
+src/
+├── jit_test.asm       # Main JIT compiler test ⭐
+├── lexer_v2.asm       # Indentation lexer
+├── lexer_test.asm     # Lexer standalone test
+├── parser_v2.asm      # Type/generics parser
+├── parser_test.asm    # Parser standalone test
+├── block_test.asm     # Recursive block test
+└── build_*.bat        # Build scripts
+
+include/
+├── synapse_tokens.inc # Token constants
+└── ast.inc            # AST structures
+
+docs/archive/          # TITAN legacy code (reference)
+```
 
 ---
 

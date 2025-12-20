@@ -1,0 +1,18 @@
+# SYNAPSE Build Artifacts
+*.exe
+*.obj
+*.o
+*.bin
+
+# Backup files
+*.bak
+*_backup.*
+*_restore.*
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store

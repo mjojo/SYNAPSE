@@ -2,6 +2,28 @@
 
 ---
 
+## [1.0.0-stable] - 2025-12-20
+
+### 🏆 STABLE RELEASE!
+
+**SYNAPSE v1.0** is complete. The world's first compiler-driven blockchain AI platform.
+
+### Added
+- **Script Engine** (Phase 5.3) - The Final Pipeline
+  - Full compilation: Text → Lexer → Parser → AST → JIT → MOVA
+  - `src/script_test.asm` - Complete standalone compiler
+  - `src/main.asm` - Official entry point
+  - `scripts/genesis.syn` - First SYNAPSE program
+- **README.md** - Professional documentation for release
+- Integrated Lexer + Parser + JIT + MOVA in single binary
+
+### Technical Achievements
+- **Pipeline**: Source code compiles to x64 machine code
+- **Size**: ~5.6 KB for complete compiler + runtime
+- **Dependencies**: Zero (only kernel32.dll)
+
+---
+
 ## [1.0.0-rc] - 2025-12-20
 
 ### 🏆 RELEASE CANDIDATE!

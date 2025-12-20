@@ -1,0 +1,44 @@
+// ============================================================================
+// SYNAPSE GENESIS BLOCK
+// The First Script Executed on MOVA Engine
+// (c) 2025 mjojo (Vitaly.G) & GLK-Dev
+// ============================================================================
+//
+// This is the first official program written in SYNAPSE language.
+// It demonstrates the core blockchain memory allocation system.
+//
+// Every alloc() creates a new block in the Merkle Tree.
+// Every commit() seals the chain with a SHA-256 root hash.
+// Any tampering with allocated memory will invalidate the entire chain.
+//
+// ============================================================================
+
+// 1. Allocate Neural Weights (Input Layer)
+// This creates Block #1 in the Merkle Tree
+// 784 bytes = 28x28 pixels (MNIST input size)
+alloc(784)
+
+// 2. Allocate Hidden Layer Weights
+// This creates Block #2, cryptographically linked to Block #1
+// 128 neurons in the hidden layer
+alloc(128)
+
+// 3. Allocate Output Layer
+// This creates Block #3, linked to the chain
+// 10 outputs for digit classification (0-9)
+alloc(10)
+
+// 4. Seal the Chain
+// Computes the Global Root Hash
+// This hash proves the integrity of ALL allocated memory
+// If any byte changes, this hash changes
+commit()
+
+// ============================================================================
+// Expected Output:
+// 
+// [DONE] Execution complete!
+//   Root Hash: [32-byte SHA-256 hash]
+//
+// *** SUCCESS! From Text to Blockchain! ***
+// ============================================================================

@@ -77,7 +77,16 @@
 - [x] Скомпилировать и протестировать ✅ 4096 bytes
 - [x] **Результат:** 4.0, 8.0, 0.0 (ReLU!), 16.0 ✅
 
-### 2.5 Expression Evaluation
+### 2.5 MNIST Inference ✅ COMPLETE
+- [x] Создать `src/mnist_infer.asm` — полный inference engine
+- [x] File I/O — CreateFileA, ReadFile, CloseHandle
+- [x] Double precision — VFMADD231PD для FMA
+- [x] 784 → 128 (ReLU) → 10 network
+- [x] Загрузка весов из .bin файлов
+- [x] Скомпилировать и протестировать ✅ 3584 bytes
+- [x] **Результат:** Сеть работает, даёт разные выходы для разных изображений
+
+### 2.6 Expression Evaluation
 - [ ] Парсинг арифметических выражений (a + b * c)
 - [ ] Приоритет операторов (Shunting-yard или Pratt parsing)
 - [ ] Унарные операторы (-x, not x)

@@ -1,0 +1,15 @@
+// fib_simple.syn - Simple recursion test
+
+fn fib(n) {
+    if (n < 2) {
+        return n
+    }
+    return n
+}
+
+fn main() {
+    print(fib(1))       // Should be 1 (base case)
+    print(fib(5))       // Should be 5 (returns n, no recursion yet)
+    
+    return 0
+}

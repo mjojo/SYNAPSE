@@ -1,0 +1,23 @@
+// rec_order.syn - Test: define fib first, then main
+
+fn helper(x) {
+    print(x)
+    return x
+}
+
+fn rec(n) {
+    print(n)
+    if (n < 1) {
+        return 0
+    }
+    // rec is already defined above, so this should work
+    let r = helper(n - 1)
+    return rec(r)
+}
+
+fn main() {
+    print(555)
+    let x = rec(3)
+    print(x)
+    return 0
+}

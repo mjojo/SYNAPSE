@@ -1,0 +1,21 @@
+// fib_debug.syn - Debug recursion
+
+fn fib(n) {
+    print(n)            // Debug: show what n we received
+    
+    if (n < 2) {
+        return n
+    }
+    
+    // Try simple recursive call
+    let x = fib(n - 1)
+    return x
+}
+
+fn main() {
+    print(999)          // Marker
+    let result = fib(3)
+    print(result)
+    
+    return 0
+}

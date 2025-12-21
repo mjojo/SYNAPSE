@@ -1,0 +1,14 @@
+// if_ret_test.syn - Simple if return test
+
+fn check(n) {
+    if (n < 2) {
+        return 111
+    }
+    return 222
+}
+
+fn main() {
+    let r = check(1)
+    print(r)
+    return 0
+}

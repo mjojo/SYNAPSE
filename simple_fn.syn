@@ -1,0 +1,10 @@
+// simple_fn.syn - Simple function that returns constant
+
+fn answer(n) {
+    return 42
+}
+
+fn main() {
+    print(answer(0))
+    return 0
+}

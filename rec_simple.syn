@@ -1,0 +1,20 @@
+// rec_simple.syn - Simple recursion without if
+
+fn countdown(n) {
+    print(n)
+    
+    if (n < 1) {
+        return 0
+    }
+    
+    return countdown(n - 1)
+}
+
+fn main() {
+    print(888)
+    
+    let x = countdown(3)
+    print(x)            // Should be 0 (final return)
+    
+    return 0
+}

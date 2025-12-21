@@ -1,0 +1,13 @@
+// if_simple.syn - Simple if test
+
+fn test(n) {
+    if (1) {
+        return 88
+    }
+    return 99
+}
+
+fn main() {
+    print(test(0))
+    return 0
+}

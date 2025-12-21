@@ -1,0 +1,21 @@
+// param_test.syn - Test function parameters
+// Phase 17.1: Basic parameter passing
+
+fn double(x) {
+    return x * 2
+}
+
+fn add(a) {
+    return a + 10
+}
+
+fn main() {
+    print(100)          // Marker: 100
+    
+    let y = double(5)   // Should be 10
+    print(y)
+    
+    print(add(7))       // Should be 17
+    
+    return 0
+}

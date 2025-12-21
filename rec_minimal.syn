@@ -1,0 +1,15 @@
+// rec_minimal.syn - Minimal recursion test
+
+fn rec(n) {
+    if (n < 1) {
+        return n
+    }
+    
+    let m = n - 1
+    return rec(m)
+}
+
+fn main() {
+    print(rec(3))
+    return 0
+}

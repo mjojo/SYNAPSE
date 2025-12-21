@@ -1,0 +1,10 @@
+// nonrec.syn - Test non-recursive function call
+
+fn test(x) {
+    return x * 2
+}
+
+fn main() {
+    print(test(5))
+    return 0
+}

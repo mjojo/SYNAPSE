@@ -81,7 +81,23 @@ section '.data' data readable writeable
     dbg_found_fn db '[DEBUG] Found fn keyword',13,10,0
     dbg_parsing_fn db '[DEBUG] Parsing fn: ',0
     dbg_sym_add db '[DEBUG] sym_add: ',0
+    dbg_if_token db '[IF] Type: ',0
+    dbg_if_val db ' Val: ',0
     dbg_sym_offset db '[DEBUG]   offset: ',0
+    dbg_term_type db '[TERM] type=',0
+    dbg_term_value db ' value=',0
+    dbg_tok_lexed db '[LEX] type=',0
+    dbg_tok_val_str db ' val=',0
+    dbg_check_char db '[CHR] ',0
+    dbg_if_enter db '[IF] Entering compile_if',13,10,0
+    dbg_if_body db '[IF] Body token type=',0
+    dbg_if_loop db '[IF-LOOP] type=',0
+    dbg_kw_check db '[KW] Checking keyword value=',0
+    dbg_if_return db '[IF] Matched RETURN!',13,10,0
+    dbg_ret_enter db '[RET] Entering compile_return',13,10,0
+    dbg_ret_done db '[RET] compile_expr done',13,10,0
+    dbg_expr_start db '[EXPR] Starting',13,10,0
+    dbg_expr_tok db '[EXPR] After next_token: type=',0
     hex_chars      db '0123456789ABCDEF',0
     
     ; Intrinsics strings
@@ -92,7 +108,7 @@ section '.data' data readable writeable
     dbg_print_enter db '[PRINT] Entering intrinsic_print',13,10,0
     dbg_print_addr  db '[PRINT] global_sym_find returned: ',0
     
-    default_file db '..\fib_new.syn',0
+    default_file db '..\fib_rec.syn',0
     
     ; Token types for internal use
     TOK_EOF     = 0
@@ -121,6 +137,7 @@ section '.data' data readable writeable
     OP_LBRACE   = 9
     OP_RBRACE   = 10
     OP_ASSIGN   = 11
+    OP_COMMA    = 12
     
     ; Keyword table
     kw_fn       db 'fn',0
@@ -157,6 +174,11 @@ section '.bss' data readable writeable
     cur_tok_type    dd ?
     cur_tok_value   dq ?
     cur_tok_len     dd ?
+    
+    ; Peeked token (saved by peek_token)
+    peek_tok_type   dd ?
+    peek_tok_value  dq ?
+    
     tok_buffer      rb 256
     func_call_name  rb 64       ; Buffer for function call name
     var_name_buf    rb 64       ; Buffer for variable name in let
@@ -164,7 +186,8 @@ section '.bss' data readable writeable
     ; Symbol table (simple: name_ptr, offset pairs) - LOCAL to each function
     sym_table       rb 2048     ; 64 entries * 32 bytes (24 name + 8 offset)
     sym_count       dd ?
-    sym_offset      dd ?
+    sym_offset      dd ?        ; Next local variable offset (negative, grows down)
+    param_offset    dd ?        ; Next parameter offset (positive, +16, +24...)
     
     ; GLOBAL symbol table - shared across functions
     ; Format: name (24 bytes) + address in global_vars (8 bytes) = 32 bytes per entry
@@ -442,7 +465,46 @@ compile_program:
     
     call next_token
     
-    ; Expect ')'
+    ; =========================================================================
+    ; PARSE FUNCTION PARAMETERS: fn name(a, b, c)
+    ; Parameters get POSITIVE offsets: +16, +24, +32...
+    ; =========================================================================
+.parse_params:
+    ; If immediately ')', no parameters
+    cmp dword [cur_tok_type], TOK_OP
+    jne .check_param_ident
+    cmp qword [cur_tok_value], OP_RPAREN
+    je .params_done
+    
+.check_param_ident:
+    ; Expect identifier (parameter name)
+    cmp dword [cur_tok_type], TOK_IDENT
+    jne .params_done            ; Not an identifier, assume end
+    
+    ; Register this parameter in symbol table with positive offset
+    lea rcx, [tok_buffer]
+    call sym_add_param
+    
+    ; Advance past parameter name
+    call next_token
+    
+    ; Check for comma (more parameters) or ')' (end)
+    cmp dword [cur_tok_type], TOK_OP
+    jne .params_done
+    
+    cmp qword [cur_tok_value], OP_COMMA
+    jne .check_rparen
+    
+    ; Skip comma and continue parsing params
+    call next_token
+    jmp .parse_params
+    
+.check_rparen:
+    cmp qword [cur_tok_value], OP_RPAREN
+    jne .params_done
+    
+.params_done:
+    ; Current token should be ')'
     cmp dword [cur_tok_type], TOK_OP
     jne .error
     cmp qword [cur_tok_value], OP_RPAREN
@@ -468,6 +530,12 @@ compile_program:
     jmp .skip_to_brace
 
 .parse_body:
+    ; CRITICAL: Register function BEFORE parsing body!
+    ; This enables recursion (self-calls)
+    lea rcx, [cur_func_name]
+    mov rdx, r14                ; Function start address (saved earlier)
+    call func_add
+    
     call parse_block
     
     ; Generate function epilogue: ADD RSP, 256; POP RBP; RET
@@ -490,10 +558,7 @@ compile_program:
     
     mov [jit_cursor], rdi
     
-    ; Register this function in the function table
-    lea rcx, [cur_func_name]
-    mov rdx, r14                ; Function start address
-    call func_add
+    ; Function was already registered before parse_block for recursion support
     
     jmp .main_loop
 
@@ -814,14 +879,27 @@ compile_while:
     jne .skip_unknown
     
     mov rax, [cur_tok_value]
+    
+    ; Handle LET
     cmp rax, KW_LET
-    jne .skip_unknown
+    jne .check_return
     
     ; peek_token only looked at 'let' but didn't consume it
     ; Call next_token to actually advance past 'let'
     call next_token
     ; Now compile_let's first next_token will read the identifier
     call compile_let
+    jmp .body_loop
+
+.check_return:
+    ; Handle RETURN
+    cmp rax, KW_RETURN
+    jne .skip_unknown
+    
+    ; Consume 'return' keyword
+    call next_token
+    ; compile_return will read the expression
+    call compile_return
     jmp .body_loop
 
 .while_func_call:
@@ -943,14 +1021,15 @@ compile_if:
     push rbx
     push r12
     
-    ; Skip 'if' and '('
-    call next_token
+    ; Skip 'if' - cur_tok becomes '('
+    ; compile_expr will call next_token to skip '(' and read the actual expression
     call next_token
     
     ; Compile condition
+    ; compile_expr will first call next_token (skips '('), then read expression
     call compile_expr
     
-    ; Skip ')'
+    ; Skip ')' - compile_expr leaves us at ')'
     call next_token
     
     ; Generate: TEST RAX, RAX
@@ -966,13 +1045,23 @@ compile_if:
     mov dword [rdi+2], 0
     add qword [jit_cursor], 4
     
-    ; Skip '{'
+    ; After compile_expr, we need to skip to '{'
+    ; Keep calling next_token until we find '{'
+.find_lbrace:
+    cmp dword [cur_tok_type], TOK_OP
+    jne .skip_to_lbrace
+    cmp qword [cur_tok_value], OP_LBRACE
+    je .found_lbrace
+.skip_to_lbrace:
+    call next_token
+    jmp .find_lbrace
+.found_lbrace:
+    ; Now cur_tok is '{', skip it
     call next_token
     
-    ; Compile body (simple: single let statement)
+    ; Compile body
 .if_body:
-    call next_token
-    
+    ; Check for '}' - end of if body
     cmp dword [cur_tok_type], TOK_OP
     jne .check_if_stmt
     cmp qword [cur_tok_value], OP_RBRACE
@@ -982,13 +1071,38 @@ compile_if:
     cmp dword [cur_tok_type], TOK_EOF
     je .if_done
     cmp dword [cur_tok_type], TOK_NEWLINE
-    je .if_body
+    je .if_skip_newline
     cmp dword [cur_tok_type], TOK_KEYWORD
-    jne .if_body
+    jne .if_skip_unknown
     
-    cmp qword [cur_tok_value], KW_LET
-    jne .if_body
+    mov rax, [cur_tok_value]
+    
+    cmp rax, KW_LET
+    je .if_let
+    
+    cmp rax, KW_RETURN
+    je .if_return
+    
+    jmp .if_skip_unknown
+    
+.if_skip_newline:
+    call next_token
+    jmp .if_body
+    
+.if_skip_unknown:
+    call next_token
+    jmp .if_body
+    
+.if_let:
+    call next_token      ; Consume 'let' keyword
     call compile_let
+    jmp .if_body
+    
+.if_return:
+    ; DON'T call next_token here!
+    ; compile_return -> compile_expr will call next_token
+    ; which will read past 'return' and get the expression
+    call compile_return
     jmp .if_body
 
 .if_done:
@@ -1232,10 +1346,8 @@ compile_term:
     ; This IS a function call! Discard saved lex state
     add rsp, 16
     
-    ; Skip '(' 
-    call next_token
-    ; Skip ')' - for now we don't support arguments
-    ; (cur_tok should be ')' or we parse args later)
+    ; DON'T skip '(' - compile_expr will read first token!
+    ; Current token is '('
     
     ; Find the function
     lea rcx, [func_call_name]
@@ -1244,26 +1356,40 @@ compile_term:
     test rax, rax
     jz .func_not_found
     
-    ; Generate function call with proper ABI
-    ; Save RAX (result) and align stack
-    mov rbx, rax
-    mov rdi, [jit_cursor]
+    ; Save function address
+    mov r15, rax
     
-    ; SUB RSP, 32 (shadow space for Windows x64 ABI)
-    mov dword [rdi], 0x20EC8348      ; SUB RSP, 32
-    add rdi, 4
+    ; Parse argument expression (like in parse_block)
+    ; compile_expr will call next_token to skip '(' and read argument
+    call compile_expr
+    
+    ; Generate: PUSH RAX (push argument onto stack)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50        ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Expect ')' and skip it
+    cmp dword [cur_tok_type], TOK_OP
+    jne .skip_call_paren
+    cmp qword [cur_tok_value], OP_RPAREN
+    jne .skip_call_paren
+    call next_token             ; Consume ')'
+.skip_call_paren:
+    
+    ; Generate function call
+    mov rdi, [jit_cursor]
     
     ; MOV RAX, func_addr
     mov word [rdi], 0xB848
-    mov [rdi+2], rbx
+    mov [rdi+2], r15
     add rdi, 10
     
     ; CALL RAX
     mov word [rdi], 0xD0FF
     add rdi, 2
     
-    ; ADD RSP, 32 (restore stack)
-    mov dword [rdi], 0x20C48348      ; ADD RSP, 32
+    ; ADD RSP, 8 (cleanup argument from stack)
+    mov dword [rdi], 0x08C48348
     add rdi, 4
     
     mov [jit_cursor], rdi
@@ -1518,6 +1644,8 @@ next_token:
     je .op_lbrace
     cmp al, '}'
     je .op_rbrace
+    cmp al, ','
+    je .op_comma
     
     ; Unknown - skip
     jmp next_token
@@ -1552,6 +1680,9 @@ next_token:
 .op_rbrace:
     mov qword [cur_tok_value], OP_RBRACE
     jmp .done
+.op_comma:
+    mov qword [cur_tok_value], OP_COMMA
+    jmp .done
 
 .done:
     pop rdi
@@ -1561,21 +1692,34 @@ next_token:
 
 ; =============================================================================
 ; peek_token - Look at next token without consuming
-; NOTE: lex_line is dd (4 bytes), so we must use register to avoid overwriting cur_tok_type
+; Reads next token and puts result in cur_tok_type/value AND peek_tok_type/value
+; Restores lexer position so next_token will re-read the same token
+; NOTE: cur_tok_type/value WILL BE MODIFIED to show peeked token!
 ; =============================================================================
 peek_token:
     push rax
+    
+    ; Save lexer position
     mov rax, [lex_pos]
     push rax
     mov eax, [lex_line]
     push rax
     
+    ; Read next token (modifies cur_tok_type/value)
     call next_token
     
+    ; Copy to peek_tok_* as well
+    mov eax, [cur_tok_type]
+    mov [peek_tok_type], eax
+    mov rax, [cur_tok_value]
+    mov [peek_tok_value], rax
+    
+    ; Restore lexer position only (cur_tok_* keeps peeked value)
     pop rax
     mov [lex_line], eax
     pop rax
     mov [lex_pos], rax
+    
     pop rax
     ret
 
@@ -1675,6 +1819,7 @@ str_eq:
 sym_init:
     mov dword [sym_count], 0
     mov dword [sym_offset], -8
+    mov dword [param_offset], 16    ; First param at [RBP+16]
     ret
 
 ; =============================================================================
@@ -1844,17 +1989,16 @@ intrinsic_print:
     push rdi
     sub rsp, 32                 ; Shadow space for Windows x64
     
-    ; Read argument from stack!
-    ; RSP now points after our pushes and sub
+    ; Read argument from stack and save it
     ; +32 (shadow) +8 (rdi) +8 (rsi) +8 (rbx) +8 (ret) = 64, then arg
-    mov rsi, [rsp + 64]         ; THE ARGUMENT!
+    mov rbx, [rsp + 64]         ; Save argument in RBX
     
     ; Print prefix "> "
     lea rcx, [print_prefix]
     call print_string
     
     ; Print the number
-    mov rax, rsi
+    mov rax, rbx                ; Restore from RBX
     call print_number
     
     ; Print newline
@@ -2034,6 +2178,53 @@ sym_add:
     ; Just return it
 
 .sym_done:
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; sym_add_param - Register function parameter with POSITIVE offset
+; RCX = name pointer
+; Parameters are at [RBP+16], [RBP+24], etc. (above return address)
+; -----------------------------------------------------------------------------
+sym_add_param:
+    push rbx
+    push rsi
+    push rdi
+    
+    mov rsi, rcx
+    
+    ; Add new entry (don't check if exists - params are always new)
+    mov eax, [sym_count]
+    shl eax, 5                  ; * 32 (entry size)
+    lea rdi, [sym_table]
+    add rdi, rax
+    
+    ; Copy name string (up to 24 chars)
+    push rdi
+    mov rcx, 24
+.copy_param_name:
+    mov al, [rsi]
+    mov [rdi], al
+    test al, al
+    jz .copy_param_done
+    inc rsi
+    inc rdi
+    dec rcx
+    jnz .copy_param_name
+.copy_param_done:
+    mov byte [rdi], 0
+    pop rdi
+    
+    ; Get current param offset (+16, +24, etc.)
+    mov eax, [param_offset]
+    mov [rdi + 24], eax         ; Store POSITIVE offset
+    
+    ; Update for next param
+    add dword [param_offset], 8
+    inc dword [sym_count]
+    
     pop rdi
     pop rsi
     pop rbx

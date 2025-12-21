@@ -1,0 +1,16 @@
+// args.syn - Test stack-based function arguments
+// Phase 16: print(expression)
+
+fn main() {
+    // Test 1: Literal
+    print(100)
+    
+    // Test 2: Variable
+    let x = 5
+    print(x)
+    
+    // Test 3: Expression!
+    print(x * 10 + 5)
+    
+    return 0
+}

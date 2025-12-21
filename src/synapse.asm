@@ -92,7 +92,7 @@ section '.data' data readable writeable
     dbg_print_enter db '[PRINT] Entering intrinsic_print',13,10,0
     dbg_print_addr  db '[PRINT] global_sym_find returned: ',0
     
-    default_file db '..\fib.syn',0
+    default_file db '..\fib_new.syn',0
     
     ; Token types for internal use
     TOK_EOF     = 0
@@ -580,40 +580,60 @@ parse_block:
     cmp qword [cur_tok_value], OP_LPAREN
     jne .stmt_loop
     
-    ; Skip '('
-    call next_token
-    ; Skip ')' - for now no arguments
-    ; TODO: parse arguments
+    ; DON'T skip '(' - compile_expr will read first token itself!
+    ; The current token is '('
     
-    ; Find and call the function
+    ; Find function first (save address)
     lea rcx, [func_call_name]
     call func_find
+    mov r12, rax                ; R12 = function address
     
-    test rax, rax
-    jz .stmt_loop               ; Function not found, skip
+    test r12, r12
+    jz .skip_call               ; Function not found
+    
+    ; Always parse argument (compile_expr handles everything)
+    ; compile_expr will call next_token to skip '(' and read the actual value
+    call compile_expr
+    
+    ; Generate: PUSH RAX (0x50) - push argument onto stack
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50        ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Expect ')'
+    cmp dword [cur_tok_type], TOK_OP
+    jne .skip_paren
+    cmp qword [cur_tok_value], OP_RPAREN
+    jne .skip_paren
+    call next_token             ; Consume ')'
+.skip_paren:
     
     ; Generate function call
-    mov rbx, rax
     mov rdi, [jit_cursor]
     
-    ; SUB RSP, 32 (shadow space)
-    mov dword [rdi], 0x20EC8348
-    add rdi, 4
-    
-    ; MOV RAX, func_addr
+    ; MOV RAX, func_addr (48 B8 + 8 bytes)
     mov word [rdi], 0xB848
-    mov [rdi+2], rbx
+    mov [rdi+2], r12
     add rdi, 10
     
-    ; CALL RAX
+    ; CALL RAX (FF D0)
     mov word [rdi], 0xD0FF
     add rdi, 2
     
-    ; ADD RSP, 32
-    mov dword [rdi], 0x20C48348
+    ; ADD RSP, 8 - cleanup argument from stack (48 83 C4 08)
+    mov dword [rdi], 0x08C48348
     add rdi, 4
     
     mov [jit_cursor], rdi
+    jmp .stmt_loop
+    
+.skip_call:
+    ; Skip to ')'
+    cmp dword [cur_tok_type], TOK_OP
+    jne .stmt_loop
+    cmp qword [cur_tok_value], OP_RPAREN
+    jne .stmt_loop
+    call next_token
     jmp .stmt_loop
 
 .parse_let:
@@ -830,38 +850,57 @@ compile_while:
     cmp qword [cur_tok_value], OP_LPAREN
     jne .body_loop
     
-    ; Skip '(' and ')'
-    call next_token             ; Should be ')'
+    ; DON'T skip '(' - compile_expr will read first token!
     
-    ; Find and call function
+    ; Find function (save address in R14)
     lea rcx, [func_call_name]
     call func_find
+    mov r14, rax                ; R14 = function address
     
-    test rax, rax
-    jz .body_loop
+    test r14, r14
+    jz .while_skip_call
     
-    ; Generate function call
-    mov rbx, rax
+    ; Always parse argument expression
+    call compile_expr
+    
+    ; Generate: PUSH RAX
     mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
     
-    ; SUB RSP, 32
-    mov dword [rdi], 0x20EC8348
-    add rdi, 4
+    ; Expect ')'
+    cmp dword [cur_tok_type], TOK_OP
+    jne .while_skip_paren
+    cmp qword [cur_tok_value], OP_RPAREN
+    jne .while_skip_paren
+    call next_token
+.while_skip_paren:
+    
+    ; Generate CALL
+    mov rdi, [jit_cursor]
     
     ; MOV RAX, func_addr
     mov word [rdi], 0xB848
-    mov [rdi+2], rbx
+    mov [rdi+2], r14
     add rdi, 10
     
     ; CALL RAX
     mov word [rdi], 0xD0FF
     add rdi, 2
     
-    ; ADD RSP, 32
-    mov dword [rdi], 0x20C48348
+    ; ADD RSP, 8
+    mov dword [rdi], 0x08C48348
     add rdi, 4
     
     mov [jit_cursor], rdi
+    jmp .body_loop
+    
+.while_skip_call:
+    cmp dword [cur_tok_type], TOK_OP
+    jne .body_loop
+    cmp qword [cur_tok_value], OP_RPAREN
+    jne .body_loop
+    call next_token
     jmp .body_loop
 
 .skip_unknown:
@@ -1782,35 +1821,34 @@ init_intrinsics:
     ret
 
 ; -----------------------------------------------------------------------------
-; intrinsic_print - Prints the value of global variable 'arg'
+; intrinsic_print - Prints argument passed via stack
 ; Usage in SYNAPSE:
-;    let arg = 42
-;    print()
+;    print(42)           // literal
+;    print(x)            // variable
+;    print(x * 10 + 5)   // expression
+;
+; Stack Layout at entry:
+;   [RSP]      = Return Address (8 bytes) - from CALL
+;   [RSP + 8]  = Argument 1 (pushed by caller before CALL)
+;
+; After our pushes:
+;   [RSP]      = saved RDI
+;   [RSP + 8]  = saved RSI  
+;   [RSP + 16] = saved RBX
+;   [RSP + 24] = Return Address
+;   [RSP + 32] = ARGUMENT!
 ; -----------------------------------------------------------------------------
 intrinsic_print:
-    push rbp
-    mov rbp, rsp
     push rbx
     push rsi
     push rdi
-    sub rsp, 40                 ; Shadow space + alignment
+    sub rsp, 32                 ; Shadow space for Windows x64
     
-    ; Find 'arg' in global symbol table
-    lea rcx, [str_arg]
-    call global_sym_find
+    ; Read argument from stack!
+    ; RSP now points after our pushes and sub
+    ; +32 (shadow) +8 (rdi) +8 (rsi) +8 (rbx) +8 (ret) = 64, then arg
+    mov rsi, [rsp + 64]         ; THE ARGUMENT!
     
-    test rax, rax
-    jz .try_direct
-    
-    ; RAX = address of 'arg' in global memory
-    mov rsi, [rax]              ; RSI = value of arg
-    jmp .do_print
-
-.try_direct:
-    ; Fallback: read from intrinsic_arg directly
-    mov rsi, [intrinsic_arg]
-    
-.do_print:
     ; Print prefix "> "
     lea rcx, [print_prefix]
     call print_string
@@ -1823,11 +1861,10 @@ intrinsic_print:
     lea rcx, [newline]
     call print_string
     
-    add rsp, 40
+    add rsp, 32
     pop rdi
     pop rsi
     pop rbx
-    pop rbp
     ret
 
 ; -----------------------------------------------------------------------------

@@ -1,0 +1,19 @@
+// fib_new.syn - Fibonacci with print(expression)
+// Phase 16: Stack-based arguments!
+
+fn main() {
+    let a = 0
+    let b = 1
+    let i = 0
+    
+    while (i < 10) {
+        print(a)
+        
+        let temp = a + b
+        let a = b
+        let b = temp
+        let i = i + 1
+    }
+    
+    return a
+}

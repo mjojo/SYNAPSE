@@ -84,7 +84,15 @@ section '.data' data readable writeable
     dbg_sym_offset db '[DEBUG]   offset: ',0
     hex_chars      db '0123456789ABCDEF',0
     
-    default_file db '..\program.syn',0
+    ; Intrinsics strings
+    str_print      db 'print',0
+    str_time       db 'time',0
+    str_arg        db 'arg',0
+    print_prefix   db '> ',0
+    dbg_print_enter db '[PRINT] Entering intrinsic_print',13,10,0
+    dbg_print_addr  db '[PRINT] global_sym_find returned: ',0
+    
+    default_file db '..\fib.syn',0
     
     ; Token types for internal use
     TOK_EOF     = 0
@@ -165,6 +173,9 @@ section '.bss' data readable writeable
     global_vars      rb 512     ; 64 global variables * 8 bytes each
     global_vars_ptr  dq ?
     
+    ; Fixed intrinsic argument location (for print, etc.)
+    intrinsic_arg    dq 0       ; Value passed to intrinsics like print()
+    
     ; Function table (name hash -> jit address)
     func_table      rb 2048     ; 64 entries * 32 bytes (name_ptr, jit_addr, arg_count)
     func_count      dd ?
@@ -203,6 +214,7 @@ start:
     call sym_init
     call global_sym_init
     call func_table_init
+    call init_intrinsics        ; Register built-in functions (print, time)
     call ast_init
     
     ; =========================================================================
@@ -521,6 +533,10 @@ parse_block:
     cmp dword [cur_tok_type], TOK_NEWLINE
     je .stmt_loop
     
+    ; Check for function call as statement (identifier followed by '(')
+    cmp dword [cur_tok_type], TOK_IDENT
+    je .maybe_func_call
+    
     cmp dword [cur_tok_type], TOK_KEYWORD
     jne .stmt_loop
     
@@ -538,6 +554,66 @@ parse_block:
     cmp rax, KW_RETURN
     je .parse_return
     
+    jmp .stmt_loop
+
+.maybe_func_call:
+    ; This could be a function call like print()
+    ; Save identifier name
+    lea rsi, [tok_buffer]
+    lea rdi, [func_call_name]
+    mov rcx, 60
+.copy_stmt_name:
+    mov al, [rsi]
+    mov [rdi], al
+    test al, al
+    jz .copy_stmt_done
+    inc rsi
+    inc rdi
+    dec rcx
+    jnz .copy_stmt_name
+.copy_stmt_done:
+    
+    ; Check if next token is '('
+    call next_token
+    cmp dword [cur_tok_type], TOK_OP
+    jne .stmt_loop
+    cmp qword [cur_tok_value], OP_LPAREN
+    jne .stmt_loop
+    
+    ; Skip '('
+    call next_token
+    ; Skip ')' - for now no arguments
+    ; TODO: parse arguments
+    
+    ; Find and call the function
+    lea rcx, [func_call_name]
+    call func_find
+    
+    test rax, rax
+    jz .stmt_loop               ; Function not found, skip
+    
+    ; Generate function call
+    mov rbx, rax
+    mov rdi, [jit_cursor]
+    
+    ; SUB RSP, 32 (shadow space)
+    mov dword [rdi], 0x20EC8348
+    add rdi, 4
+    
+    ; MOV RAX, func_addr
+    mov word [rdi], 0xB848
+    mov [rdi+2], rbx
+    add rdi, 10
+    
+    ; CALL RAX
+    mov word [rdi], 0xD0FF
+    add rdi, 2
+    
+    ; ADD RSP, 32
+    mov dword [rdi], 0x20C48348
+    add rdi, 4
+    
+    mov [jit_cursor], rdi
     jmp .stmt_loop
 
 .parse_let:
@@ -710,6 +786,10 @@ compile_while:
     jmp .body_loop
     
 .check_keyword:
+    ; Check for function call (identifier followed by '(')
+    cmp dword [cur_tok_type], TOK_IDENT
+    je .while_func_call
+    
     cmp dword [cur_tok_type], TOK_KEYWORD
     jne .skip_unknown
     
@@ -722,6 +802,66 @@ compile_while:
     call next_token
     ; Now compile_let's first next_token will read the identifier
     call compile_let
+    jmp .body_loop
+
+.while_func_call:
+    ; Consume the identifier (it was only peeked)
+    call next_token
+    
+    ; Save function name
+    lea rsi, [tok_buffer]
+    lea rdi, [func_call_name]
+    mov rcx, 60
+.copy_while_fname:
+    mov al, [rsi]
+    mov [rdi], al
+    test al, al
+    jz .copy_while_fdone
+    inc rsi
+    inc rdi
+    dec rcx
+    jnz .copy_while_fname
+.copy_while_fdone:
+    
+    ; Check for '('
+    call next_token
+    cmp dword [cur_tok_type], TOK_OP
+    jne .body_loop
+    cmp qword [cur_tok_value], OP_LPAREN
+    jne .body_loop
+    
+    ; Skip '(' and ')'
+    call next_token             ; Should be ')'
+    
+    ; Find and call function
+    lea rcx, [func_call_name]
+    call func_find
+    
+    test rax, rax
+    jz .body_loop
+    
+    ; Generate function call
+    mov rbx, rax
+    mov rdi, [jit_cursor]
+    
+    ; SUB RSP, 32
+    mov dword [rdi], 0x20EC8348
+    add rdi, 4
+    
+    ; MOV RAX, func_addr
+    mov word [rdi], 0xB848
+    mov [rdi+2], rbx
+    add rdi, 10
+    
+    ; CALL RAX
+    mov word [rdi], 0xD0FF
+    add rdi, 2
+    
+    ; ADD RSP, 32
+    mov dword [rdi], 0x20C48348
+    add rdi, 4
+    
+    mov [jit_cursor], rdi
     jmp .body_loop
 
 .skip_unknown:
@@ -1620,6 +1760,84 @@ global_sym_find:
 func_table_init:
     mov dword [func_count], 0
     mov qword [main_addr], 0
+    ret
+
+; =============================================================================
+; INTRINSICS - Built-in functions registered at startup
+; =============================================================================
+init_intrinsics:
+    push rbx
+    
+    ; Register 'print' intrinsic
+    lea rcx, [str_print]
+    lea rdx, [intrinsic_print]
+    call func_add
+    
+    ; Register 'time' intrinsic (returns CPU timestamp)
+    lea rcx, [str_time]
+    lea rdx, [intrinsic_time]
+    call func_add
+    
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_print - Prints the value of global variable 'arg'
+; Usage in SYNAPSE:
+;    let arg = 42
+;    print()
+; -----------------------------------------------------------------------------
+intrinsic_print:
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push rsi
+    push rdi
+    sub rsp, 40                 ; Shadow space + alignment
+    
+    ; Find 'arg' in global symbol table
+    lea rcx, [str_arg]
+    call global_sym_find
+    
+    test rax, rax
+    jz .try_direct
+    
+    ; RAX = address of 'arg' in global memory
+    mov rsi, [rax]              ; RSI = value of arg
+    jmp .do_print
+
+.try_direct:
+    ; Fallback: read from intrinsic_arg directly
+    mov rsi, [intrinsic_arg]
+    
+.do_print:
+    ; Print prefix "> "
+    lea rcx, [print_prefix]
+    call print_string
+    
+    ; Print the number
+    mov rax, rsi
+    call print_number
+    
+    ; Print newline
+    lea rcx, [newline]
+    call print_string
+    
+    add rsp, 40
+    pop rdi
+    pop rsi
+    pop rbx
+    pop rbp
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_time - Returns CPU timestamp (RDTSC) in RAX
+; Usage: let t = time()
+; -----------------------------------------------------------------------------
+intrinsic_time:
+    rdtsc
+    shl rdx, 32
+    or rax, rdx
     ret
 
 func_add:

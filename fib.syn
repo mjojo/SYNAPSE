@@ -1,0 +1,24 @@
+// fib.syn - Fibonacci sequence
+// Prints numbers directly to console!
+
+fn main() {
+    let a = 0
+    let b = 1
+    let i = 0
+    let max = 10
+    
+    while (i < max) {
+        // Output current number via intrinsic
+        let arg = a
+        print()
+        
+        // Fibonacci logic
+        let temp = a + b
+        let a = b
+        let b = temp
+        
+        let i = i + 1
+    }
+    
+    return a
+}

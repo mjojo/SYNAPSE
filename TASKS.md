@@ -1,9 +1,9 @@
 # SYNAPSE Development Tasks
 
-## 🎉 Phase 6 - Control Flow: COMPLETE! ✅
+## 🏆 Phase 7 - Variables & Memory: COMPLETE! ✅
 
-**Status:** v1.1.0 Released - Turing-Complete!
-**Achievement:** if/else/while + JIT backpatching (forward AND backward jumps)
+**Status:** v1.2.0 Released
+**Achievement:** Full variable support + real loops (while i < 5)
 
 ### 📋 Phase 6 Summary
 - ✅ Tokens: if, elif, else, while, loop, break, continue defined

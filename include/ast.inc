@@ -42,6 +42,12 @@ NODE_CONTRACT   = 25        ; contract fn
 NODE_NEURON     = 26        ; neuron fn
 NODE_ASM        = 27        ; unsafe asm:
 
+; Phase 7: Variable Support
+NODE_LET        = 28        ; let x = value (JIT stack write)
+NODE_VAR        = 29        ; variable reference (JIT stack read)
+NODE_OP_ADD     = 30        ; a + b (addition)
+NODE_OP_LT      = 31        ; a < b (less than comparison)
+
 ; =============================================================================
 ; Node Structure (48 bytes)
 ; =============================================================================

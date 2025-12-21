@@ -2,11 +2,11 @@
 
 ---
 
-## [1.1.0] - 2025-12-21
+## [1.2.0] - 2025-12-21
 
-### 🎉 TURING-COMPLETE RELEASE!
+### 🏆 VARIABLES & LOOPS RELEASE!
 
-**SYNAPSE v1.1** now supports **control flow**: if/else/while with JIT backpatching!
+**SYNAPSE v1.2** now has **full variable support** and **real loops**!
 
 ### Added - Phase 6: Control Flow (The Logic)
 - **Parser Extension** (Phase 6.1-6.2)
@@ -27,7 +27,10 @@
 ### Technical Achievements
 - **Backpatching**: Forward AND backward jumps work correctly
 - **Turing-Complete**: Full control flow (if/else/while)
-- **All Tests**: Parser 3/3 + JIT IF + JIT WHILE PASSED
+- **Symbol Table**: Mutable variable support (reuse existing offset)
+- **Stack Variables**: let/read with ADD and LT operations
+- **Real Loops**: `while (i < 5) { alloc(64); i = i + 1 }` — 5 iterations!
+- **All Tests**: Parser 3/3 + JIT IF/WHILE + SymTable 6/6 + LET/VAR/ADD/LT
 
 ---
 

@@ -1,9 +1,9 @@
 # SYNAPSE Development Tasks
 
-## 🏆 Phase 7 - Variables & Memory: COMPLETE! ✅
+## 🏆 Phase 8 - Functions: COMPLETE! ✅
 
-**Status:** v1.2.0 Released
-**Achievement:** Full variable support + real loops (while i < 5)
+**Status:** v1.3.0 Released
+**Achievement:** fn/return + CALL/RET generation
 
 ### 📋 Phase 6 Summary
 - ✅ Tokens: if, elif, else, while, loop, break, continue defined

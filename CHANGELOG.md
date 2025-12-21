@@ -2,11 +2,11 @@
 
 ---
 
-## [1.2.0] - 2025-12-21
+## [1.3.0] - 2025-12-21
 
-### 🏆 VARIABLES & LOOPS RELEASE!
+### 🎉 FUNCTIONS RELEASE!
 
-**SYNAPSE v1.2** now has **full variable support** and **real loops**!
+**SYNAPSE v1.3** now supports **user-defined functions** with CALL/RET!
 
 ### Added - Phase 6: Control Flow (The Logic)
 - **Parser Extension** (Phase 6.1-6.2)
@@ -30,7 +30,9 @@
 - **Symbol Table**: Mutable variable support (reuse existing offset)
 - **Stack Variables**: let/read with ADD and LT operations
 - **Real Loops**: `while (i < 5) { alloc(64); i = i + 1 }` — 5 iterations!
-- **All Tests**: Parser 3/3 + JIT IF/WHILE + SymTable 6/6 + LET/VAR/ADD/LT
+- **Function Table**: Register and lookup function JIT addresses
+- **CALL/RET**: `fn get_five() { return 5 }` → CALL rel32 + RET
+- **All Tests**: Parser + JIT IF/WHILE + SymTable + LET/VAR + Functions
 
 ---
 

@@ -48,6 +48,11 @@ NODE_VAR        = 29        ; variable reference (JIT stack read)
 NODE_OP_ADD     = 30        ; a + b (addition)
 NODE_OP_LT      = 31        ; a < b (less than comparison)
 
+; Phase 8: Function Support
+NODE_FUNC_DEF   = 32        ; fn name() { body }
+NODE_FUNC_RET   = 33        ; return value
+NODE_CALL_USER  = 34        ; call user-defined function
+
 ; =============================================================================
 ; Node Structure (48 bytes)
 ; =============================================================================

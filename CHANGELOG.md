@@ -2,11 +2,11 @@
 
 ---
 
-## [1.3.0] - 2025-12-21
+## [1.4.0] - 2025-12-21
 
-### 🎉 FUNCTIONS RELEASE!
+### 🎯 ARRAYS RELEASE!
 
-**SYNAPSE v1.3** now supports **user-defined functions** with CALL/RET!
+**SYNAPSE v1.4** now supports **arrays** with pointer arithmetic!
 
 ### Added - Phase 6: Control Flow (The Logic)
 - **Parser Extension** (Phase 6.1-6.2)
@@ -32,7 +32,8 @@
 - **Real Loops**: `while (i < 5) { alloc(64); i = i + 1 }` — 5 iterations!
 - **Function Table**: Register and lookup function JIT addresses
 - **CALL/RET**: `fn get_five() { return 5 }` → CALL rel32 + RET
-- **All Tests**: Parser + JIT IF/WHILE + SymTable + LET/VAR + Functions
+- **Arrays**: `ptr[0] = 42` read/write with pointer arithmetic
+- **All Tests**: Parser + JIT + SymTable + Functions + Arrays
 
 ---
 

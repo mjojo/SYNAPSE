@@ -1,9 +1,9 @@
 # SYNAPSE Development Tasks
 
-## 🏆 Phase 8 - Functions: COMPLETE! ✅
+## 🏆 Phase 9 - Arrays: COMPLETE! ✅
 
-**Status:** v1.3.0 Released
-**Achievement:** fn/return + CALL/RET generation
+**Status:** v1.4.0 Released
+**Achievement:** ptr[0] = 42 + pointer arithmetic
 
 ### 📋 Phase 6 Summary
 - ✅ Tokens: if, elif, else, while, loop, break, continue defined

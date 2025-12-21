@@ -2,19 +2,19 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.3.0--functions-green)
+![Version](https://img.shields.io/badge/version-1.4.0--arrays-green)
 ![Size](https://img.shields.io/badge/binary-6kb-blue)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 
-# 🧠 SYNAPSE v1.3
+# 🧠 SYNAPSE v1.4
 
 **Unhackable AI on Bare Metal Assembly**
 
 *The World's First Compiler-Driven Blockchain AI Platform*
 
-**Functions • Variables • Real Loops • CALL/RET • Turing-Complete!**
+**Arrays • Functions • Variables • Loops • Neural-Ready!**
 
 </div>
 
@@ -65,6 +65,7 @@ Unlike C++ or Rust, SYNAPSE doesn't use a standard heap.
 | **Variables (v1.2)** | let x = 10, let y = x, i = i + 1 |
 | **Real Loops** | while (i < 5) with counter increments |
 | **Functions (v1.3)** | fn name() { return } + CALL/RET |
+| **Arrays (v1.4)** | ptr[0] = 42 + pointer arithmetic |
 
 ---
 
@@ -223,9 +224,10 @@ SYNAPSE/
 | **5** | The Bridge | Self-Compiling Script Engine |
 | **6** | Control Flow | if/else/while + JIT Backpatching |
 | **7** | Variables | let/read + real loops (i < 5) |
-| **8** | **Functions** | **fn/return + CALL/RET** |
+| **8** | Functions | fn/return + CALL/RET |
+| **9** | **Arrays** | **ptr[0] = 42 + pointer access** |
 
-**13 major versions. Full Functions with CALL/RET!**
+**14 major versions. Full Arrays with Pointer Arithmetic!**
 
 ---
 
@@ -243,12 +245,13 @@ SYNAPSE/
 
 | Specification | Value |
 |---------------|-------|
-| **Language** | SYNAPSE v1.3 |
+| **Language** | SYNAPSE v1.4 |
 | **Engine** | MOVA v1.0 |
 | **Architecture** | x64 JIT Compiler |
 | **Control Flow** | if/else/while (Backpatching) |
 | **Variables** | let/var + ADD/LT operations |
 | **Functions** | fn/return + CALL/RET |
+| **Arrays** | ptr[index] read/write |
 | **SIMD** | AVX2/FMA |
 | **Crypto** | SHA-256 (native) |
 | **Dependencies** | 0 (only kernel32.dll) |
@@ -272,9 +275,9 @@ MIT License
 
 <div align="center">
 
-# 🧠 SYNAPSE v1.3
+# 🧠 SYNAPSE v1.4
 
-**Turing-Complete • Functions • Variables • Loops • Bare Metal**
+**Turing-Complete • Arrays • Functions • Variables • Bare Metal**
 
 *~6 KB of Pure x86-64 Assembly*
 

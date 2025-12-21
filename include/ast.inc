@@ -53,6 +53,10 @@ NODE_FUNC_DEF   = 32        ; fn name() { body }
 NODE_FUNC_RET   = 33        ; return value
 NODE_CALL_USER  = 34        ; call user-defined function
 
+; Phase 9: Array Support
+NODE_ARRAY_GET  = 35        ; ptr[index] read
+NODE_ARRAY_SET  = 36        ; ptr[index] = value write
+
 ; =============================================================================
 ; Node Structure (48 bytes)
 ; =============================================================================

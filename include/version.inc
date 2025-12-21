@@ -3,7 +3,7 @@
 ; =============================================================================
 
 SYNAPSE_VERSION_MAJOR = 1
-SYNAPSE_VERSION_MINOR = 3
+SYNAPSE_VERSION_MINOR = 4
 SYNAPSE_VERSION_PATCH = 0
 
 ; Stage: 1=alpha, 2=beta, 3=rc, 4=stable
@@ -27,5 +27,5 @@ SYNAPSE_SYMBOLS_VERSION = 1      ; NEW: Symbol Table
 SYNAPSE_FUNCTIONS_VERSION = 1    ; NEW: Function Table
 
 ; Version strings for display
-SYNAPSE_VERSION_STR equ 'v1.3.0-functions'
-SYNAPSE_FULL_NAME   equ 'SYNAPSE v1.3.0-functions (Turing Complete)'
+SYNAPSE_VERSION_STR equ 'v1.4.0-arrays'
+SYNAPSE_FULL_NAME   equ 'SYNAPSE v1.4.0-arrays (Full Data Support)'

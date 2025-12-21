@@ -2,11 +2,11 @@
 
 ---
 
-## [1.4.0] - 2025-12-21
+## [1.5.0] - 2025-12-21
 
-### 🎯 ARRAYS RELEASE!
+### 🧠 PERCEPTRON RELEASE!
 
-**SYNAPSE v1.4** now supports **arrays** with pointer arithmetic!
+**SYNAPSE v1.5** now supports **multiplication** for neural network calculations!
 
 ### Added - Phase 6: Control Flow (The Logic)
 - **Parser Extension** (Phase 6.1-6.2)
@@ -33,7 +33,8 @@
 - **Function Table**: Register and lookup function JIT addresses
 - **CALL/RET**: `fn get_five() { return 5 }` → CALL rel32 + RET
 - **Arrays**: `ptr[0] = 42` read/write with pointer arithmetic
-- **All Tests**: Parser + JIT + SymTable + Functions + Arrays
+- **Perceptron**: `5 * 10 = 50` IMUL instruction for neural math
+- **All Tests**: Parser + JIT + Functions + Arrays + IMUL
 
 ---
 

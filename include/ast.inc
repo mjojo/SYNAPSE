@@ -47,6 +47,7 @@ NODE_LET        = 28        ; let x = value (JIT stack write)
 NODE_VAR        = 29        ; variable reference (JIT stack read)
 NODE_OP_ADD     = 30        ; a + b (addition)
 NODE_OP_LT      = 31        ; a < b (less than comparison)
+NODE_OP_MUL     = 37        ; a * b (multiplication) - Phase 10
 
 ; Phase 8: Function Support
 NODE_FUNC_DEF   = 32        ; fn name() { body }

@@ -2,19 +2,19 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.5.0--perceptron-green)
+![Version](https://img.shields.io/badge/version-2.0.0--neural-gold)
 ![Size](https://img.shields.io/badge/binary-6kb-blue)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 
-# 🧠 SYNAPSE v1.5
+# 🧠 SYNAPSE v2.0
 
 **Unhackable AI on Bare Metal Assembly**
 
 *The World's First Compiler-Driven Blockchain AI Platform*
 
-**Perceptron • IMUL • Arrays • Functions • Neural-Ready!**
+**🏆 THE NEURON IS ALIVE! Dot Product = 200 🏆**
 
 </div>
 
@@ -67,6 +67,7 @@ Unlike C++ or Rust, SYNAPSE doesn't use a standard heap.
 | **Functions (v1.3)** | fn name() { return } + CALL/RET |
 | **Arrays (v1.4)** | ptr[0] = 42 + pointer arithmetic |
 | **Perceptron (v1.5)** | IMUL for input * weight calculations |
+| **Neural Network (v2.0)** | Full Dot Product: [2,3,4] * [10,20,30] = 200 |
 
 ---
 
@@ -227,9 +228,10 @@ SYNAPSE/
 | **7** | Variables | let/read + real loops (i < 5) |
 | **8** | Functions | fn/return + CALL/RET |
 | **9** | Arrays | ptr[0] = 42 + pointer access |
-| **10** | **Perceptron** | **IMUL: 5 * 10 = 50 → Neuron Works!** |
+| **10** | Perceptron | IMUL: 5 * 10 = 50 |
+| **11** | **NEURAL NETWORK** | **Dot Product = 200 → ALIVE!** |
 
-**15 major versions. Neural Network Ready with IMUL!**
+**16 major versions. THE NEURON IS ALIVE!**
 
 ---
 
@@ -247,7 +249,7 @@ SYNAPSE/
 
 | Specification | Value |
 |---------------|-------|
-| **Language** | SYNAPSE v1.5 |
+| **Language** | SYNAPSE v2.0 |
 | **Engine** | MOVA v1.0 |
 | **Architecture** | x64 JIT Compiler |
 | **Control Flow** | if/else/while (Backpatching) |
@@ -255,6 +257,7 @@ SYNAPSE/
 | **Functions** | fn/return + CALL/RET |
 | **Arrays** | ptr[index] read/write |
 | **Math** | IMUL for neural calculations |
+| **Neural** | Dot Product = 200 |
 | **SIMD** | AVX2/FMA |
 | **Crypto** | SHA-256 (native) |
 | **Dependencies** | 0 (only kernel32.dll) |
@@ -278,11 +281,11 @@ MIT License
 
 <div align="center">
 
-# 🧠 SYNAPSE v1.5
+# 🧠 SYNAPSE v2.0
 
-**Turing-Complete • Perceptron • Arrays • Functions • Bare Metal**
+**🏆 THE NEURON IS ALIVE! 🏆**
 
-*~6 KB of Pure x86-64 Assembly*
+*Dot Product = 200 on ~6 KB of Pure x86-64 Assembly*
 
 ---
 

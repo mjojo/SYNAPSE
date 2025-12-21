@@ -2,11 +2,11 @@
 
 ---
 
-## [1.5.0] - 2025-12-21
+## [2.0.0] - 2025-12-21
 
-### 🧠 PERCEPTRON RELEASE!
+### 🏆 THE NEURON IS ALIVE!
 
-**SYNAPSE v1.5** now supports **multiplication** for neural network calculations!
+**SYNAPSE v2.0** runs a **full neural network** dot product calculation!
 
 ### Added - Phase 6: Control Flow (The Logic)
 - **Parser Extension** (Phase 6.1-6.2)
@@ -34,7 +34,8 @@
 - **CALL/RET**: `fn get_five() { return 5 }` → CALL rel32 + RET
 - **Arrays**: `ptr[0] = 42` read/write with pointer arithmetic
 - **Perceptron**: `5 * 10 = 50` IMUL instruction for neural math
-- **All Tests**: Parser + JIT + Functions + Arrays + IMUL
+- **Neural Network**: `[2,3,4] * [10,20,30] = 200` Full Dot Product!
+- **All Tests**: Parser + JIT + Functions + Arrays + IMUL + Neural
 
 ---
 

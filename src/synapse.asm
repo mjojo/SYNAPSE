@@ -103,12 +103,13 @@ section '.data' data readable writeable
     ; Intrinsics strings
     str_print      db 'print',0
     str_time       db 'time',0
+    str_alloc      db 'alloc',0
     str_arg        db 'arg',0
     print_prefix   db '> ',0
     dbg_print_enter db '[PRINT] Entering intrinsic_print',13,10,0
     dbg_print_addr  db '[PRINT] global_sym_find returned: ',0
     
-    default_file db '..\fib_rec.syn',0
+    default_file db 'arrays.syn',0
     
     ; Token types for internal use
     TOK_EOF     = 0
@@ -124,6 +125,7 @@ section '.data' data readable writeable
     KW_WHILE    = 3
     KW_IF       = 4
     KW_RETURN   = 5
+    KW_ELSE     = 6
     
     ; Operators
     OP_PLUS     = 1
@@ -138,6 +140,8 @@ section '.data' data readable writeable
     OP_RBRACE   = 10
     OP_ASSIGN   = 11
     OP_COMMA    = 12
+    OP_LBRACKET = 13
+    OP_RBRACKET = 14
     
     ; Keyword table
     kw_fn       db 'fn',0
@@ -145,6 +149,7 @@ section '.data' data readable writeable
     kw_while    db 'while',0
     kw_if       db 'if',0
     kw_return   db 'return',0
+    kw_else     db 'else',0
     str_factorial db 'factorial',0
 
 section '.bss' data readable writeable
@@ -198,6 +203,10 @@ section '.bss' data readable writeable
     
     ; Fixed intrinsic argument location (for print, etc.)
     intrinsic_arg    dq 0       ; Value passed to intrinsics like print()
+    
+    ; Param parsing temp storage (for reverse registration)
+    param_names      rb 512     ; 16 params * 32 bytes each (name strings)
+    param_count      dd ?       ; Number of parameters found
     
     ; Function table (name hash -> jit address)
     func_table      rb 2048     ; 64 entries * 32 bytes (name_ptr, jit_addr, arg_count)
@@ -299,11 +308,11 @@ start:
     lea rcx, [newline]
     call print_string
     
-    ; DEBUG: Dump first 78 bytes of main() JIT code (full function)
+    ; DEBUG: Dump first 220 bytes of main() JIT code (full function)
     lea rcx, [dbg_jit_dump]
     call print_string
     mov rsi, [main_addr]
-    mov rcx, 78
+    mov rcx, 220
     call dump_hex
     lea rcx, [newline]
     call print_string
@@ -468,29 +477,53 @@ compile_program:
     ; =========================================================================
     ; PARSE FUNCTION PARAMETERS: fn name(a, b, c)
     ; Parameters get POSITIVE offsets: +16, +24, +32...
+    ; BUT: Arguments are pushed L-to-R, so last arg is at lowest offset!
+    ; We collect params first, then register in REVERSE order.
     ; =========================================================================
+    mov dword [param_count], 0  ; Reset param counter
+    
 .parse_params:
     ; If immediately ')', no parameters
     cmp dword [cur_tok_type], TOK_OP
     jne .check_param_ident
     cmp qword [cur_tok_value], OP_RPAREN
-    je .params_done
+    je .register_params_reverse
     
 .check_param_ident:
     ; Expect identifier (parameter name)
     cmp dword [cur_tok_type], TOK_IDENT
-    jne .params_done            ; Not an identifier, assume end
+    jne .register_params_reverse ; Not an identifier, assume end
     
-    ; Register this parameter in symbol table with positive offset
-    lea rcx, [tok_buffer]
-    call sym_add_param
+    ; Copy param name to param_names buffer
+    ; Destination = param_names + param_count * 32
+    mov eax, [param_count]
+    shl eax, 5                  ; * 32
+    lea rdi, [param_names]
+    add rdi, rax
+    lea rsi, [tok_buffer]
+    
+    ; Copy name string
+    mov rcx, 31
+.copy_pname:
+    mov al, [rsi]
+    mov [rdi], al
+    test al, al
+    jz .copy_pname_done
+    inc rsi
+    inc rdi
+    dec rcx
+    jnz .copy_pname
+.copy_pname_done:
+    mov byte [rdi], 0
+    
+    inc dword [param_count]
     
     ; Advance past parameter name
     call next_token
     
     ; Check for comma (more parameters) or ')' (end)
     cmp dword [cur_tok_type], TOK_OP
-    jne .params_done
+    jne .register_params_reverse
     
     cmp qword [cur_tok_value], OP_COMMA
     jne .check_rparen
@@ -501,7 +534,34 @@ compile_program:
     
 .check_rparen:
     cmp qword [cur_tok_value], OP_RPAREN
-    jne .params_done
+    jne .register_params_reverse
+    
+.register_params_reverse:
+    ; Now we have param_count params in param_names buffer
+    ; Register in REVERSE order: last param gets +16, second-to-last +24, etc.
+    
+    mov dword [param_offset], 16
+    mov eax, [param_count]
+    test eax, eax
+    jz .params_done
+    
+    dec eax                     ; Start from last param (index = count - 1)
+    
+.reg_param_loop:
+    cmp eax, 0
+    jl .params_done
+    
+    ; Get pointer to param name: param_names + eax * 32
+    push rax
+    shl eax, 5                  ; * 32
+    lea rcx, [param_names]
+    add rcx, rax
+    
+    call sym_add_param          ; Register with current offset (+16, +24, ...)
+    
+    pop rax
+    dec eax                     ; Move to previous param
+    jmp .reg_param_loop
     
 .params_done:
     ; Current token should be ')'
@@ -643,8 +703,103 @@ parse_block:
     cmp dword [cur_tok_type], TOK_OP
     jne .stmt_loop
     cmp qword [cur_tok_value], OP_LPAREN
-    jne .stmt_loop
+    je .is_func_call
+    cmp qword [cur_tok_value], OP_LBRACKET
+    je .is_array_assign
+    jmp .stmt_loop
+
+.is_array_assign:
+    ; Handle: ptr[index] = value
+    ; func_call_name contains the variable name (ptr)
+    ; Current token is '['
     
+    ; First, get the base pointer from local variable
+    lea rcx, [func_call_name]
+    call sym_find
+    test rax, rax
+    jz .arr_try_global
+    mov r13b, al            ; R13 = local offset
+    mov r14d, 1             ; R14 = 1 means local
+    jmp .arr_parse_index
+    
+.arr_try_global:
+    lea rcx, [func_call_name]
+    call global_sym_find
+    test rax, rax
+    jz .stmt_loop           ; Not found - skip
+    mov r13, rax            ; R13 = global address
+    xor r14d, r14d          ; R14 = 0 means global
+    
+.arr_parse_index:
+    ; Save R13/R14 before compile_expr (they may be clobbered)
+    push r13
+    push r14
+    
+    ; Compile index expression (next_token will skip '[')
+    call compile_expr
+    
+    ; After compile_expr, need to advance to get ']'
+    call next_token
+    
+    ; RAX now has index value
+    ; Generate: PUSH RAX (save index)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ']' - current token should be ']'
+    cmp dword [cur_tok_type], TOK_OP
+    jne .arr_skip_eq
+    cmp qword [cur_tok_value], OP_RBRACKET
+    jne .arr_skip_eq
+    call next_token         ; Now on '='
+.arr_skip_eq:
+    
+    ; Current token should be '=' - compile_expr will skip it
+    ; Compile value expression
+    call compile_expr
+    
+    ; Restore R13/R14
+    pop r14
+    pop r13
+    
+    ; RAX = value to store
+    ; Stack has: index
+    
+    ; Generate: POP RCX (index into RCX)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59    ; POP RCX
+    inc qword [jit_cursor]
+    
+    ; Generate: Load base pointer into RDX
+    mov rdi, [jit_cursor]
+    test r14d, r14d
+    jz .arr_gen_global
+    
+    ; Local: MOV RDX, [RBP + offset]
+    mov dword [rdi], 0x558B48   ; MOV RDX, [RBP + disp8]
+    mov [rdi+3], r13b
+    add qword [jit_cursor], 4
+    jmp .arr_gen_store
+    
+.arr_gen_global:
+    ; Global: MOV RDX, [global_addr]
+    mov word [rdi], 0xBA48      ; MOV RDX, imm64
+    mov [rdi+2], r13
+    add rdi, 10
+    mov dword [rdi], 0x128B48   ; MOV RDX, [RDX] (load pointer value)
+    add rdi, 3
+    mov [jit_cursor], rdi
+    
+.arr_gen_store:
+    ; Generate: MOV [RDX + RCX*8], RAX
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xCA048948 ; MOV [RDX + RCX*8], RAX (48 89 04 CA)
+    add qword [jit_cursor], 4
+    
+    jmp .stmt_loop
+
+.is_func_call:
     ; DON'T skip '(' - compile_expr will read first token itself!
     ; The current token is '('
     
@@ -656,16 +811,41 @@ parse_block:
     test r12, r12
     jz .skip_call               ; Function not found
     
-    ; Always parse argument (compile_expr handles everything)
-    ; compile_expr will call next_token to skip '(' and read the actual value
-    call compile_expr
+    ; === Parse ALL arguments (like in compile_term) ===
+    xor r14d, r14d              ; R14 = argument counter
     
-    ; Generate: PUSH RAX (0x50) - push argument onto stack
+.stmt_parse_arg_loop:
+    ; Parse argument expression
+    ; compile_expr will call next_token to skip '(' or ',' and read argument
+    push r12                    ; Save func address
+    push r14                    ; Save arg counter
+    call compile_expr
+    pop r14                     ; Restore arg counter
+    pop r12                     ; Restore func address
+    
+    ; Generate: PUSH RAX (push argument onto stack)
     mov rdi, [jit_cursor]
     mov byte [rdi], 0x50        ; PUSH RAX
     inc qword [jit_cursor]
     
-    ; Expect ')'
+    inc r14d                    ; Count argument
+    
+    ; Check for ',' (more arguments) or ')' (end)
+    cmp dword [cur_tok_type], TOK_OP
+    jne .stmt_args_done
+    cmp qword [cur_tok_value], OP_COMMA
+    jne .stmt_check_rparen
+    ; Found ',' - skip it then continue (compile_expr calls next_token internally)
+    call next_token             ; Skip ','
+    jmp .stmt_parse_arg_loop
+    
+.stmt_check_rparen:
+    cmp qword [cur_tok_value], OP_RPAREN
+    je .stmt_args_done
+    jmp .stmt_parse_arg_loop    ; Try parsing more
+    
+.stmt_args_done:
+    ; Skip ')' if present
     cmp dword [cur_tok_type], TOK_OP
     jne .skip_paren
     cmp qword [cur_tok_value], OP_RPAREN
@@ -685,8 +865,14 @@ parse_block:
     mov word [rdi], 0xD0FF
     add rdi, 2
     
-    ; ADD RSP, 8 - cleanup argument from stack (48 83 C4 08)
-    mov dword [rdi], 0x08C48348
+    ; Cleanup ALL arguments: ADD RSP, arg_count * 8
+    ; R14 = number of arguments
+    mov eax, r14d
+    shl eax, 3                  ; * 8
+    
+    ; ADD RSP, imm8 (48 83 C4 xx)
+    mov dword [rdi], 0x00C48348
+    mov [rdi+3], al
     add rdi, 4
     
     mov [jit_cursor], rdi
@@ -1015,18 +1201,26 @@ compile_while:
 
 
 ; =============================================================================
-; compile_if - Compile: if (cond) { body }
+; compile_if - Compile: if (cond) { body } [else { body }]
+; 
+; JIT Layout:
+;   1. TEST RAX, RAX (condition result)
+;   2. JZ .else_or_end (if false, jump to else or end)
+;   3. [IF BODY CODE]
+;   4. JMP .end (skip else block) - only if else exists
+;   5. .else_label: [ELSE BODY CODE] - only if else exists
+;   6. .end_label:
 ; =============================================================================
 compile_if:
     push rbx
     push r12
+    push r13
+    push r14
     
     ; Skip 'if' - cur_tok becomes '('
-    ; compile_expr will call next_token to skip '(' and read the actual expression
     call next_token
     
     ; Compile condition
-    ; compile_expr will first call next_token (skips '('), then read expression
     call compile_expr
     
     ; Skip ')' - compile_expr leaves us at ')'
@@ -1037,16 +1231,15 @@ compile_if:
     mov dword [rdi], 0xC08548
     add qword [jit_cursor], 3
     
-    ; Generate: JZ (skip body)
+    ; Generate: JZ rel32 (skip to else/end if false)
     mov rdi, [jit_cursor]
-    mov word [rdi], 0x840F
+    mov word [rdi], 0x840F          ; JZ opcode
     add qword [jit_cursor], 2
-    mov r12, [jit_cursor]
-    mov dword [rdi+2], 0
+    mov r12, [jit_cursor]           ; R12 = address for JZ backpatch
+    mov dword [rdi+2], 0            ; placeholder
     add qword [jit_cursor], 4
     
-    ; After compile_expr, we need to skip to '{'
-    ; Keep calling next_token until we find '{'
+    ; Find and skip '{'
 .find_lbrace:
     cmp dword [cur_tok_type], TOK_OP
     jne .skip_to_lbrace
@@ -1056,33 +1249,30 @@ compile_if:
     call next_token
     jmp .find_lbrace
 .found_lbrace:
-    ; Now cur_tok is '{', skip it
-    call next_token
+    call next_token                 ; Skip '{'
     
-    ; Compile body
+    ; === Compile IF body ===
 .if_body:
-    ; Check for '}' - end of if body
     cmp dword [cur_tok_type], TOK_OP
     jne .check_if_stmt
     cmp qword [cur_tok_value], OP_RBRACE
-    je .if_done
+    je .if_body_done
     
 .check_if_stmt:
     cmp dword [cur_tok_type], TOK_EOF
-    je .if_done
+    je .if_body_done
     cmp dword [cur_tok_type], TOK_NEWLINE
     je .if_skip_newline
     cmp dword [cur_tok_type], TOK_KEYWORD
     jne .if_skip_unknown
     
     mov rax, [cur_tok_value]
-    
     cmp rax, KW_LET
     je .if_let
-    
     cmp rax, KW_RETURN
     je .if_return
-    
+    cmp rax, KW_IF
+    je .if_nested_if
     jmp .if_skip_unknown
     
 .if_skip_newline:
@@ -1094,24 +1284,133 @@ compile_if:
     jmp .if_body
     
 .if_let:
-    call next_token      ; Consume 'let' keyword
+    call next_token
     call compile_let
     jmp .if_body
     
 .if_return:
-    ; DON'T call next_token here!
-    ; compile_return -> compile_expr will call next_token
-    ; which will read past 'return' and get the expression
     call compile_return
     jmp .if_body
 
-.if_done:
-    ; Backpatch JZ
+.if_nested_if:
+    call compile_if
+    call next_token                 ; Skip '}' of nested if
+    jmp .if_body
+
+.if_body_done:
+    ; Skip '}' of if block
+    call next_token
+    
+    ; === Check for ELSE ===
+    ; Skip newlines before checking for else
+.skip_before_else:
+    cmp dword [cur_tok_type], TOK_NEWLINE
+    jne .check_else
+    call next_token
+    jmp .skip_before_else
+    
+.check_else:
+    cmp dword [cur_tok_type], TOK_KEYWORD
+    jne .no_else
+    cmp qword [cur_tok_value], KW_ELSE
+    jne .no_else
+    
+    ; === FOUND ELSE ===
+    
+    ; Generate: JMP rel32 (skip else block after if body)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0xE9            ; JMP opcode
+    add qword [jit_cursor], 1
+    mov r13, [jit_cursor]           ; R13 = address for JMP backpatch
+    mov dword [rdi+1], 0            ; placeholder
+    add qword [jit_cursor], 4
+    
+    ; Backpatch JZ to HERE (start of else block)
     mov rax, [jit_cursor]
     sub rax, r12
     sub rax, 4
     mov [r12], eax
     
+    ; Skip 'else'
+    call next_token
+    
+    ; Find and skip '{' of else block
+.find_else_lbrace:
+    cmp dword [cur_tok_type], TOK_OP
+    jne .skip_to_else_lbrace
+    cmp qword [cur_tok_value], OP_LBRACE
+    je .found_else_lbrace
+.skip_to_else_lbrace:
+    call next_token
+    jmp .find_else_lbrace
+.found_else_lbrace:
+    call next_token                 ; Skip '{'
+    
+    ; === Compile ELSE body ===
+.else_body:
+    cmp dword [cur_tok_type], TOK_OP
+    jne .check_else_stmt
+    cmp qword [cur_tok_value], OP_RBRACE
+    je .else_body_done
+    
+.check_else_stmt:
+    cmp dword [cur_tok_type], TOK_EOF
+    je .else_body_done
+    cmp dword [cur_tok_type], TOK_NEWLINE
+    je .else_skip_newline
+    cmp dword [cur_tok_type], TOK_KEYWORD
+    jne .else_skip_unknown
+    
+    mov rax, [cur_tok_value]
+    cmp rax, KW_LET
+    je .else_let
+    cmp rax, KW_RETURN
+    je .else_return
+    cmp rax, KW_IF
+    je .else_nested_if
+    jmp .else_skip_unknown
+    
+.else_skip_newline:
+    call next_token
+    jmp .else_body
+    
+.else_skip_unknown:
+    call next_token
+    jmp .else_body
+    
+.else_let:
+    call next_token
+    call compile_let
+    jmp .else_body
+    
+.else_return:
+    call compile_return
+    jmp .else_body
+
+.else_nested_if:
+    call compile_if
+    call next_token                 ; Skip '}' of nested if
+    jmp .else_body
+
+.else_body_done:
+    ; Backpatch JMP to HERE (after else block)
+    mov rax, [jit_cursor]
+    sub rax, r13
+    sub rax, 4
+    mov [r13], eax
+    
+    jmp .compile_if_exit
+
+.no_else:
+    ; No else - just backpatch JZ to HERE
+    mov rax, [jit_cursor]
+    sub rax, r12
+    sub rax, 4
+    mov [r12], eax
+
+.compile_if_exit:
+    pop r14
+    pop r13
     pop r12
     pop rbx
     ret
@@ -1181,6 +1480,8 @@ compile_expr:
     je .do_mul
     cmp rax, OP_LT
     je .do_lt
+    cmp rax, OP_GT
+    je .do_gt
     
     jmp .expr_done
 
@@ -1283,6 +1584,37 @@ compile_expr:
     
     jmp .expr_loop
 
+.do_gt:
+    call next_token
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    call next_token
+    call compile_term
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    inc qword [jit_cursor]
+    
+    ; CMP RCX, RAX (compare left > right means left - right > 0)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948        ; CMP RCX, RAX
+    add qword [jit_cursor], 3
+    
+    ; SETG AL (set if greater - signed)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC09F0F        ; SETG AL (0F 9F C0)
+    add qword [jit_cursor], 3
+    
+    ; MOVZX RAX, AL
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    
+    jmp .expr_loop
+
 .expr_done:
     pop r12
     pop rbx
@@ -1341,8 +1673,99 @@ compile_term:
     cmp dword [cur_tok_type], TOK_OP
     jne .not_func_call
     cmp qword [cur_tok_value], OP_LPAREN
-    jne .not_func_call
+    je .is_func_call
+    cmp qword [cur_tok_value], OP_LBRACKET
+    je .is_array_get
+    jmp .not_func_call
+
+.is_array_get:
+    ; This is array access: ptr[index]
+    ; func_call_name has variable name, current token is '['
+    add rsp, 16             ; Discard saved lex state
     
+    ; Find the base pointer variable
+    lea rcx, [func_call_name]
+    call sym_find
+    test rax, rax
+    jz .arr_get_try_global
+    mov r13b, al            ; R13 = local offset
+    mov r14d, 1             ; R14 = 1 means local
+    jmp .arr_get_parse_index
+    
+.arr_get_try_global:
+    lea rcx, [func_call_name]
+    call global_sym_find
+    test rax, rax
+    jz .arr_get_fail
+    mov r13, rax            ; R13 = global address
+    xor r14d, r14d          ; R14 = 0 means global
+    
+.arr_get_parse_index:
+    ; Save R13/R14 before compile_expr (they may be clobbered)
+    push r13
+    push r14
+    
+    ; Compile index expression (next_token will skip '[')
+    call compile_expr
+    
+    ; Advance to get ']'
+    call next_token
+    
+    ; Restore R13/R14
+    pop r14
+    pop r13
+    
+    ; RAX = index
+    ; Generate: MOV RCX, RAX (save index)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC18948   ; MOV RCX, RAX (48 89 C1)
+    add qword [jit_cursor], 3
+    
+    ; Skip ']' - current token should be ']'
+    ; Don't call next_token here - let expr_loop's peek_token handle it
+    ; cmp dword [cur_tok_type], TOK_OP
+    ; jne .arr_get_gen
+    ; cmp qword [cur_tok_value], OP_RBRACKET
+    ; jne .arr_get_gen
+    ; call next_token   ; ← REMOVED! Let caller handle next token
+    
+.arr_get_gen:
+    ; Generate: Load base pointer into RDX
+    mov rdi, [jit_cursor]
+    test r14d, r14d
+    jz .arr_get_global
+    
+    ; Local: MOV RDX, [RBP + offset]
+    mov dword [rdi], 0x558B48   ; MOV RDX, [RBP + disp8]
+    mov [rdi+3], r13b
+    add qword [jit_cursor], 4
+    jmp .arr_get_load
+    
+.arr_get_global:
+    ; Global: MOV RDX, imm64; MOV RDX, [RDX]
+    mov word [rdi], 0xBA48      ; MOV RDX, imm64
+    mov [rdi+2], r13
+    add rdi, 10
+    mov dword [rdi], 0x128B48   ; MOV RDX, [RDX]
+    add rdi, 3
+    mov [jit_cursor], rdi
+    
+.arr_get_load:
+    ; Generate: MOV RAX, [RDX + RCX*8]
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xCA048B48 ; MOV RAX, [RDX + RCX*8] (48 8B 04 CA)
+    add qword [jit_cursor], 4
+    ret
+    
+.arr_get_fail:
+    ; Return 0 on failure
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0xB848
+    mov qword [rdi+2], 0
+    add qword [jit_cursor], 10
+    ret
+
+.is_func_call:
     ; This IS a function call! Discard saved lex state
     add rsp, 16
     
@@ -1359,16 +1782,41 @@ compile_term:
     ; Save function address
     mov r15, rax
     
-    ; Parse argument expression (like in parse_block)
-    ; compile_expr will call next_token to skip '(' and read argument
+    ; === Parse ALL arguments ===
+    xor r14d, r14d              ; R14 = argument counter
+    
+.parse_arg_loop:
+    ; Parse argument expression
+    ; compile_expr will call next_token to skip '(' or ',' and read argument
+    push r15                    ; Save func address
+    push r14                    ; Save arg counter (compile_expr may clobber R14)
     call compile_expr
+    pop r14                     ; Restore arg counter
+    pop r15                     ; Restore func address
     
     ; Generate: PUSH RAX (push argument onto stack)
     mov rdi, [jit_cursor]
     mov byte [rdi], 0x50        ; PUSH RAX
     inc qword [jit_cursor]
     
-    ; Expect ')' and skip it
+    inc r14d                    ; Count argument
+    
+    ; Check for ',' (more arguments) or ')' (end)
+    cmp dword [cur_tok_type], TOK_OP
+    jne .args_done
+    cmp qword [cur_tok_value], OP_COMMA
+    jne .check_rparen
+    ; Found ',' - skip it and parse next argument
+    call next_token             ; Consume ','
+    jmp .parse_arg_loop
+    
+.check_rparen:
+    cmp qword [cur_tok_value], OP_RPAREN
+    je .args_done
+    jmp .parse_arg_loop         ; Try parsing more
+    
+.args_done:
+    ; Skip ')' if present
     cmp dword [cur_tok_type], TOK_OP
     jne .skip_call_paren
     cmp qword [cur_tok_value], OP_RPAREN
@@ -1376,6 +1824,124 @@ compile_term:
     call next_token             ; Consume ')'
 .skip_call_paren:
     
+    ; =========================================================================
+    ; REVERSE STACK ARGUMENTS
+    ; Arguments were pushed left-to-right, but we need right-to-left order
+    ; so that first parameter is at lowest address (closest to RBP after CALL)
+    ; 
+    ; Before: [RSP] = argN, [RSP+8] = argN-1, ..., [RSP+(N-1)*8] = arg1
+    ; After:  [RSP] = arg1, [RSP+8] = arg2, ..., [RSP+(N-1)*8] = argN
+    ; =========================================================================
+    cmp r14d, 2
+    jl .no_reverse              ; 0 or 1 arg - no need to reverse
+    
+    ; Generate stack reversal code for N arguments
+    ; Algorithm: swap pairs from outside inward
+    ; For each i from 0 to N/2-1: swap [RSP+i*8] with [RSP+(N-1-i)*8]
+    
+    mov rdi, [jit_cursor]
+    
+    ; Simple approach: generate a reversal loop inline
+    ; R14 = number of args, generate code that reverses R14 elements on stack
+    
+    ; For 2 args: swap [RSP] and [RSP+8]
+    ; MOV RAX, [RSP]       ; 48 8B 04 24
+    ; MOV RCX, [RSP+8]     ; 48 8B 4C 24 08
+    ; MOV [RSP], RCX       ; 48 89 0C 24
+    ; MOV [RSP+8], RAX     ; 48 89 44 24 08
+    
+    cmp r14d, 2
+    jne .reverse_general
+    
+    ; Special case: 2 arguments - proper swap
+    mov dword [rdi], 0x24048B48     ; MOV RAX, [RSP]
+    add rdi, 4
+    mov byte [rdi], 0x48            ; MOV RCX, [RSP+8]
+    mov byte [rdi+1], 0x8B
+    mov byte [rdi+2], 0x4C
+    mov byte [rdi+3], 0x24
+    mov byte [rdi+4], 0x08
+    add rdi, 5
+    mov dword [rdi], 0x240C8948     ; MOV [RSP], RCX
+    add rdi, 4
+    mov byte [rdi], 0x48            ; MOV [RSP+8], RAX
+    mov byte [rdi+1], 0x89
+    mov byte [rdi+2], 0x44
+    mov byte [rdi+3], 0x24
+    mov byte [rdi+4], 0x08
+    add rdi, 5
+    mov [jit_cursor], rdi
+    jmp .no_reverse
+    
+.reverse_general:
+    ; For 3+ args, generate inline swap code
+    ; We'll swap: [0] <-> [N-1], [1] <-> [N-2], etc.
+    
+    push rbx
+    push r12
+    push r13
+    
+    mov r12d, r14d              ; R12 = N (arg count)
+    xor r13d, r13d              ; R13 = i (loop counter)
+    
+.gen_swap_loop:
+    ; Check if i >= N/2
+    mov eax, r12d
+    shr eax, 1                  ; N/2
+    cmp r13d, eax
+    jge .gen_swap_done
+    
+    ; Generate: swap [RSP + i*8] with [RSP + (N-1-i)*8]
+    ; Calculate offsets
+    mov eax, r13d
+    shl eax, 3                  ; low_offset = i * 8
+    mov ebx, r12d
+    dec ebx
+    sub ebx, r13d
+    shl ebx, 3                  ; high_offset = (N-1-i) * 8
+    
+    ; MOV RCX, [RSP + low_offset]
+    mov byte [rdi], 0x48
+    mov byte [rdi+1], 0x8B
+    mov byte [rdi+2], 0x4C
+    mov byte [rdi+3], 0x24
+    mov [rdi+4], al             ; low_offset
+    add rdi, 5
+    
+    ; MOV RAX, [RSP + high_offset]
+    mov byte [rdi], 0x48
+    mov byte [rdi+1], 0x8B
+    mov byte [rdi+2], 0x44
+    mov byte [rdi+3], 0x24
+    mov [rdi+4], bl             ; high_offset
+    add rdi, 5
+    
+    ; MOV [RSP + low_offset], RAX
+    mov byte [rdi], 0x48
+    mov byte [rdi+1], 0x89
+    mov byte [rdi+2], 0x44
+    mov byte [rdi+3], 0x24
+    mov [rdi+4], al             ; low_offset
+    add rdi, 5
+    
+    ; MOV [RSP + high_offset], RCX
+    mov byte [rdi], 0x48
+    mov byte [rdi+1], 0x89
+    mov byte [rdi+2], 0x4C
+    mov byte [rdi+3], 0x24
+    mov [rdi+4], bl             ; high_offset
+    add rdi, 5
+    
+    inc r13d
+    jmp .gen_swap_loop
+    
+.gen_swap_done:
+    mov [jit_cursor], rdi
+    pop r13
+    pop r12
+    pop rbx
+    
+.no_reverse:
     ; Generate function call
     mov rdi, [jit_cursor]
     
@@ -1388,8 +1954,14 @@ compile_term:
     mov word [rdi], 0xD0FF
     add rdi, 2
     
-    ; ADD RSP, 8 (cleanup argument from stack)
-    mov dword [rdi], 0x08C48348
+    ; ADD RSP, N*8 (cleanup all arguments from stack)
+    ; N = R14 (argument count)
+    mov eax, r14d
+    shl eax, 3                  ; * 8
+    mov byte [rdi], 0x48
+    mov byte [rdi+1], 0x83
+    mov byte [rdi+2], 0xC4
+    mov [rdi+3], al             ; ADD RSP, imm8
     add rdi, 4
     
     mov [jit_cursor], rdi
@@ -1646,6 +2218,10 @@ next_token:
     je .op_rbrace
     cmp al, ','
     je .op_comma
+    cmp al, '['
+    je .op_lbracket
+    cmp al, ']'
+    je .op_rbracket
     
     ; Unknown - skip
     jmp next_token
@@ -1682,6 +2258,12 @@ next_token:
     jmp .done
 .op_comma:
     mov qword [cur_tok_value], OP_COMMA
+    jmp .done
+.op_lbracket:
+    mov qword [cur_tok_value], OP_LBRACKET
+    jmp .done
+.op_rbracket:
+    mov qword [cur_tok_value], OP_RBRACKET
     jmp .done
 
 .done:
@@ -1764,6 +2346,12 @@ check_keyword:
     test eax, eax
     jnz .is_return
     
+    ; Check 'else'
+    lea rdi, [kw_else]
+    call str_eq
+    test eax, eax
+    jnz .is_else
+    
     xor eax, eax
     jmp .ck_done
 
@@ -1781,6 +2369,9 @@ check_keyword:
     jmp .ck_done
 .is_return:
     mov eax, KW_RETURN
+    jmp .ck_done
+.is_else:
+    mov eax, KW_ELSE
 
 .ck_done:
     pop rdi
@@ -1962,6 +2553,11 @@ init_intrinsics:
     lea rdx, [intrinsic_time]
     call func_add
     
+    ; Register 'alloc' intrinsic (dynamic memory allocation)
+    lea rcx, [str_alloc]
+    lea rdx, [intrinsic_alloc]
+    call func_add
+    
     pop rbx
     ret
 
@@ -2019,6 +2615,34 @@ intrinsic_time:
     rdtsc
     shl rdx, 32
     or rax, rdx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_alloc(size) - Allocate dynamic memory
+; Usage: let arr = alloc(10)   // allocates 10 qwords (80 bytes)
+; Returns: pointer to allocated memory in RAX
+;
+; Stack layout after pushes:
+;   [RSP+24] = Return address
+;   [RSP+32] = Size argument (number of qwords)
+; -----------------------------------------------------------------------------
+intrinsic_alloc:
+    push rbx
+    push rsi
+    
+    ; Read 'size' argument from stack
+    mov rcx, [rsp + 24]         ; Size in qwords
+    
+    ; Convert to bytes (size * 8)
+    shl rcx, 3
+    
+    ; Simple bump allocator from heap_ptr
+    mov rax, [heap_ptr]
+    add [heap_ptr], rcx         ; Advance heap pointer
+    
+    ; RAX = pointer to allocated memory
+    pop rsi
+    pop rbx
     ret
 
 func_add:

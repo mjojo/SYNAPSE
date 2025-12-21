@@ -1,0 +1,33 @@
+// logic.syn
+// Phase 18: Test ELSE and Multiple Arguments
+
+fn max3(a, b, c) {
+    if (a > b) {
+        if (a > c) {
+            return a
+        } else {
+            return c
+        }
+    } else {
+        if (b > c) {
+            return b
+        } else {
+            return c
+        }
+    }
+}
+
+fn main() {
+    print(1111)
+    
+    let r1 = max3(50, 10, 5)
+    print(r1)
+    
+    let r2 = max3(10, 80, 20)
+    print(r2)
+    
+    let r3 = max3(1, 2, 99)
+    print(r3)
+    
+    return 0
+}

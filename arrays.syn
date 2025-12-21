@@ -1,0 +1,26 @@
+// arrays.syn - Pointer passing test (Phase 19)
+
+fn fill_array(ptr, start_val) {
+    ptr[0] = start_val
+    ptr[1] = start_val + 1
+    ptr[2] = start_val + 2
+    return 0
+}
+
+fn sum_array(ptr) {
+    return ptr[0] + ptr[1] + ptr[2]
+}
+
+fn main() {
+    print(111)
+    
+    let my_arr = alloc(3)
+    
+    fill_array(my_arr, 100)
+    
+    let total = sum_array(my_arr)
+    
+    print(total)
+    
+    return 0
+}

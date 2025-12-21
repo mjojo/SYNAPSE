@@ -2,19 +2,19 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.1.0--activation-gold)
-![Size](https://img.shields.io/badge/binary-6kb-blue)
+![Version](https://img.shields.io/badge/version-2.2.0--matrix-gold)
+![Size](https://img.shields.io/badge/binary-7kb-blue)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 
-# 🧠 SYNAPSE v2.1
+# 🧠 SYNAPSE v2.2
 
 **Unhackable AI on Bare Metal Assembly**
 
 *The World's First Compiler-Driven Blockchain AI Platform*
 
-**🏆 ReLU Activation + SUB + Deep Learning Ready! 🏆**
+**🏆 Matrix Layer: [50, 110] • Nested Loops • Deep Learning! 🏆**
 
 </div>
 
@@ -69,6 +69,7 @@ Unlike C++ or Rust, SYNAPSE doesn't use a standard heap.
 | **Perceptron (v1.5)** | IMUL for input * weight calculations |
 | **Neural Network (v2.0)** | Full Dot Product: [2,3,4] * [10,20,30] = 200 |
 | **ReLU Activation (v2.1)** | relu(-50)=0, relu(50)=50 + SUB operation |
+| **Matrix Layer (v2.2)** | 2x2 Dense Layer: [50, 110] + Array Store |
 
 ---
 
@@ -231,9 +232,10 @@ SYNAPSE/
 | **9** | Arrays | ptr[0] = 42 + pointer access |
 | **10** | Perceptron | IMUL: 5 * 10 = 50 |
 | **11** | Neural Network | Dot Product = 200 |
-| **12** | **ReLU Activation** | **relu(-50)=0, relu(50)=50** |
+| **12** | ReLU Activation | relu(-50)=0, relu(50)=50 |
+| **13** | **Matrix Layer** | **2 neurons x 2 inputs = [50, 110]** |
 
-**17 major versions. ReLU Activation + Deep Learning Ready!**
+**18 major versions. Full Matrix Layer with Nested Loops!**
 
 ---
 
@@ -251,7 +253,7 @@ SYNAPSE/
 
 | Specification | Value |
 |---------------|-------|
-| **Language** | SYNAPSE v2.1 |
+| **Language** | SYNAPSE v2.2 |
 | **Engine** | MOVA v1.0 |
 | **Architecture** | x64 JIT Compiler |
 | **Control Flow** | if/else/while (Backpatching) |
@@ -261,6 +263,7 @@ SYNAPSE/
 | **Math** | IMUL for neural calculations |
 | **Neural** | Dot Product = 200 |
 | **Activation** | ReLU (max(0,x)) |
+| **Matrix** | Dense Layer (2x2) |
 | **SIMD** | AVX2/FMA |
 | **Crypto** | SHA-256 (native) |
 | **Dependencies** | 0 (only kernel32.dll) |
@@ -284,11 +287,11 @@ MIT License
 
 <div align="center">
 
-# 🧠 SYNAPSE v2.1
+# 🧠 SYNAPSE v2.2
 
-**🏆 ReLU Activation + Deep Learning Ready! 🏆**
+**🏆 Matrix Layer + Deep Learning Engine! 🏆**
 
-*~6 KB of Pure x86-64 Assembly*
+*~7 KB of Pure x86-64 Assembly*
 
 ---
 

@@ -2,11 +2,11 @@
 
 ---
 
-## [2.1.0] - 2025-12-21
+## [2.2.0] - 2025-12-21
 
-### 🧠 ACTIVATION RELEASE!
+### 🧠 MATRIX LAYER RELEASE!
 
-**SYNAPSE v2.1** now supports **ReLU activation** for deep learning!
+**SYNAPSE v2.2** now supports **full matrix multiplication** with nested loops!
 
 ### Added - Phase 6: Control Flow (The Logic)
 - **Parser Extension** (Phase 6.1-6.2)
@@ -37,7 +37,8 @@
 - **Neural Network**: `[2,3,4] * [10,20,30] = 200` Full Dot Product!
 - **Subtraction**: `0 - 50 = -50` SUB instruction
 - **ReLU Activation**: `relu(-50)=0, relu(50)=50` Deep Learning ready!
-- **All Tests**: Parser + JIT + Functions + Arrays + Neural + ReLU
+- **Matrix Layer**: `2x2 Dense = [50, 110]` Nested loops + Array Store!
+- **All Tests**: Parser + JIT + Neural + ReLU + Matrix (27 total)
 
 ---
 

@@ -1,375 +1,200 @@
 # SYNAPSE Development Tasks
 
-## 🏆 Phase 12 - ReLU Activation: COMPLETE! ✅
+## 🏆 Current Status: v2.2.0 (Phase 13 Complete)
 
-**Status:** v2.1.0 Released
-**Achievement:** relu(-50)=0, relu(50)=50 → Deep Learning Ready!
-
-### 📋 Phase 6 Summary
-- ✅ Tokens: if, elif, else, while, loop, break, continue defined
-- ✅ AST Nodes: NODE_IF, NODE_WHILE, NODE_BLOCK ready
-- ✅ Operators: ==, !=, <, >, <=, >= supported
-- ✅ Parser: Extended with parse_if/parse_while/parse_block (3/3 tests)
-- ✅ JIT IF: TEST/JZ with forward backpatching (PASSED)
-- ✅ JIT WHILE: TEST/JZ/JMP with backward jump (PASSED)
+**Achievement:** Matrix Layer: 2 neurons x 2 inputs = [50, 110]!
 
 ---
 
-## ✅ Phase 1: Foundation (COMPLETE)
+## ✅ COMPLETED PHASES
 
-### 1.1 Platform Abstraction Layer (PAL)
-- [ ] Создать `src/sys_interface.asm`
-- [ ] Вынести все вызовы kernel32.dll
-- [ ] Абстрагировать VirtualAlloc/mmap
-- [ ] Абстрагировать file I/O
+### Phase 1: Foundation ✅
+- [x] Лексер с отступами (`lexer_v2.asm`)
+- [x] Парсер типов (`parser_v2.asm`)
+- [x] AST структуры (`ast.inc`)
+- [x] JIT компилятор базовый
 
-### 1.2 Новый Лексер (Indentation) ✅ COMPLETE
-- [x] Создать `include/synapse_tokens.inc` — константы токенов
-- [x] Создать `src/lexer_v2.asm` — лексер с отступами
-- [x] Реализовать INDENT/DEDENT стек
-- [x] Добавить новые ключевые слова (fn, let, mut, tensor, chain, contract)
-- [x] Добавить новые операторы (->, <dot>, <+>, ..)
-- [x] Создать `src/lexer_test.asm` — тестовый драйвер
-- [x] Скомпилировать и протестировать ✅ 5,120 bytes
+### Phase 2: Adaptive AI Engine ✅
+- [x] CPU Detection (SSE/AVX2/AVX-512)
+- [x] AVX2 Tensor Engine (VMOVAPS, VADDPS)
+- [x] Dot Product (VMULPS, VHADDPS)
+- [x] Neural Layer (MATMUL + ReLU float)
+- [x] MNIST Inference (784→128→10)
+- [x] Biases Support (W*x + b)
 
-### 1.3 Парсер Типов ✅ COMPLETE
-- [x] Создать `src/parser_v2.asm` — парсер
-- [x] Создать `src/parser_test.asm` — интегрированный тест
-- [x] Реализовать парсинг `let x: type = value`
-- [x] Реализовать парсинг `tensor<T, [shape]>` — дженерики!
-- [x] Реализовать парсинг `fn name():` — функции
-- [x] Скомпилировать и протестировать ✅ 5,632 bytes
+### Phase 3: Blockchain Memory ✅
+- [x] SHA-256 Crypto Core
+- [x] Merkle Tree Allocator
+- [x] Chain of Trust (tamper detection)
 
-### 1.4 Синтаксис v0.1 ✅ COMPLETE
-- [x] Создать `include/ast.inc` — структуры AST
-- [x] Парсинг `fn name():` → вызов парсера блока
-- [x] Парсинг `if/elif/else:`
-- [x] Парсинг `for x in range:` / `while:`
-- [x] Парсинг `return value` / `pass` / `break`
-- [x] **Рекурсивный разбор вложенных блоков** — РАБОТАЕТ!
-- [x] Скомпилировать и протестировать ✅ 6,144 bytes
+### Phase 4: Grand Unification ✅
+- [x] AVX2 Aligned Ledger (64-byte headers)
+- [x] SYNAPSE CORE (neural + blockchain)
 
-### 1.5 JIT-адаптация ✅ COMPLETE
-- [x] Создать `src/jit_test.asm` — полный pipeline
-- [x] Lexer → Parser → CodeGen → Execute
-- [x] VirtualAlloc с PAGE_EXECUTE_READWRITE
-- [x] Генерация x64 машинного кода
-- [x] **"The 42 Test" — PASSED!** ✅ 4,608 bytes
+### Phase 5: The Bridge ✅
+- [x] Intrinsics Table (jump table)
+- [x] Auto-Ledger (alloc/commit from AST)
 
----
+### Phase 6: Control Flow ✅
+- [x] Tokens: if, elif, else, while, loop
+- [x] AST: NODE_IF=5, NODE_WHILE=9, NODE_BLOCK=16
+- [x] Operators: ==, !=, <, >, <=, >=
+- [x] Parser: parse_if, parse_while, parse_block
+- [x] JIT IF: TEST/JZ + backpatching
+- [x] JIT WHILE: JMP backward loop
+- [x] Tests: `control_flow_test.asm`, `jit_if_test.asm`, `jit_while_test.asm`
 
-## 🔄 Phase 2: Adaptive AI Engine (IN PROGRESS)
+### Phase 7: Variables ✅
+- [x] Symbol Table (`symbols.asm`)
+- [x] sym_init, sym_add, sym_find
+- [x] NODE_LET (stack write)
+- [x] NODE_VAR (stack read)
+- [x] NODE_OP_ADD, NODE_OP_LT
+- [x] Real loop: `while (i < 5) { i = i + 1 }`
+- [x] Tests: `sym_test.asm`, `jit_let_test.asm`, `jit_read_test.asm`, `loop_real_test.asm`
+- [x] **TURING-COMPLETE!**
 
-### 2.1 Hardware Awareness ✅ COMPLETE
-- [x] Создать `src/cpu_test.asm` — детектор CPU
-- [x] CPUID + XGETBV для определения SSE/AVX2/AVX-512
-- [x] Автоматическое определение Tier: 1 (SSE), 2 (AVX2), 3 (AVX-512)
-- [x] Скомпилировать и протестировать ✅ 3072 bytes
-- [x] **Результат:** AuthenticAMD, TIER 2 (AVX2)
+### Phase 8: Functions ✅
+- [x] Function Table (`functions.asm`)
+- [x] func_init, func_add, func_find
+- [x] NODE_FUNC_DEF, NODE_FUNC_RET, NODE_CALL_USER
+- [x] JIT: CALL rel32, RET
+- [x] Tests: `func_table_test.asm`, `jit_func_test.asm`
 
-### 2.2 AVX2 Tensor Engine ✅ COMPLETE
-- [x] Создать aligned memory allocator (32-byte alignment)
-- [x] Создать JIT emit для AVX2 инструкций
-- [x] VMOVAPS ymm0, [mem] — загрузка 8 float
-- [x] VADDPS ymm0, ymm0, ymm1 — сложение векторов
-- [x] VZEROUPPER — очистка состояния YMM
-- [x] Скомпилировать и протестировать ✅ 3584 bytes
-- [x] **Результат:** 1.0 + 2.0 = 3.0 (8 чисел за 1 такт!)
+### Phase 9: Arrays ✅
+- [x] Tokens: SOP_LBRACKET, SOP_RBRACKET
+- [x] NODE_ARRAY_GET, NODE_ARRAY_SET
+- [x] JIT: ptr[index] read/write
+- [x] Tests: `array_lex_test.asm`, `jit_array_test.asm`
 
-### 2.3 Dot Product (Scalar) ✅ COMPLETE
-- [x] Создать `src/dot_test.asm` — тест dot product
-- [x] VMULPS — вертикальное умножение
-- [x] VEXTRACTF128 — разделение 256 → 128 бит
-- [x] VHADDPS x2 — горизонтальная сумма (редукция)
-- [x] Скомпилировать и протестировать ✅ 4096 bytes
-- [x] **Результат:** 1.0 * 0.5 * 8 = 4.0 ✅
+### Phase 10: Perceptron ✅
+- [x] NODE_OP_MUL (IMUL instruction)
+- [x] JIT: 5 * 10 = 50
+- [x] Tests: `perceptron_test.asm`
 
-### 2.4 Neural Layer (MATMUL + ReLU) ✅ COMPLETE
-- [x] Создать `src/matmul_test.asm` — тест нейронного слоя
-- [x] Loop generator — JNZ цикл для множественных DOT
-- [x] ReLU activation — VXORPS + VMAXSS
-- [x] 4 нейрона × 8 входов = правильный результат
-- [x] Скомпилировать и протестировать ✅ 4096 bytes
-- [x] **Результат:** 4.0, 8.0, 0.0 (ReLU!), 16.0 ✅
+### Phase 11: Neural Network ✅
+- [x] Dynamic array access arr[i]
+- [x] JIT `.gen_array_get`: SHL + ADD + MOV [RAX]
+- [x] Dot Product loop: sum += inputs[i] * weights[i]
+- [x] **[2,3,4] * [10,20,30] = 200**
+- [x] Tests: `full_neural_test.asm`
+- [x] **THE NEURON IS ALIVE!**
 
-### 2.5 MNIST Inference ✅ COMPLETE
-- [x] Создать `src/mnist_infer.asm` — полный inference engine
-- [x] File I/O — CreateFileA, ReadFile, CloseHandle
-- [x] Double precision — VFMADD231PD для FMA
-- [x] 784 → 128 (ReLU) → 10 network
-- [x] Загрузка весов из .bin файлов
-- [x] Скомпилировать и протестировать ✅ 3584 bytes
-- [x] **Результат:** Сеть работает, даёт разные выходы для разных изображений
+### Phase 12: ReLU Activation ✅
+- [x] NODE_OP_SUB (SUB instruction)
+- [x] JIT: 0 - 50 = -50
+- [x] ReLU: if (x < 0) x = 0
+- [x] Tests: `relu_test.asm`
+- [x] **relu(-50)=0, relu(50)=50**
 
-### 2.6 Biases Support ✅ COMPLETE
-- [x] Загрузка b1.bin (128 doubles) и b2.bin (10 doubles)
-- [x] VADDSD для сложения bias после dot product
-- [x] Полное уравнение: output = ReLU(W*x + b)
-- [x] Скомпилировать и протестировать ✅ 4096 bytes
-- [x] **Результат:** Сеть даёт разные scores для разных изображений
-
-### 2.7 Expression Evaluation
-- [ ] Парсинг арифметических выражений (a + b * c)
-- [ ] Приоритет операторов (Shunting-yard или Pratt parsing)
-- [ ] Унарные операторы (-x, not x)
-- [ ] Скобки и вложенные выражения
-
-### 2.2 Variable Management
-- [ ] Таблица символов (Symbol Table)
-- [ ] Область видимости (Scope)
-- [ ] Локальные переменные (стек)
-- [ ] Глобальные переменные
-
-### 2.3 Control Flow Codegen
-- [ ] if/else → JIT conditional jumps
-- [ ] for/while → JIT loops
-- [ ] break/continue
-- [ ] Function calls
-
-### 2.4 Type System
-- [ ] Type checking
-- [ ] Implicit conversions
-- [ ] Tensor shape validation
+### Phase 13: Matrix Layer ✅
+- [x] Nested loops (while inside while)
+- [x] Array Store (out[n] = sum)
+- [x] Complex index (w[n*2 + k])
+- [x] Tests: `layer_test.asm`
+- [x] **2 neurons x 2 inputs = [50, 110]**
 
 ---
 
-## 📋 Phase 3: Blockchain Memory (IN PROGRESS)
+## � FUTURE PHASES
 
-### 3.1 SHA-256 Crypto Core ✅ COMPLETE
-- [x] Создать `src/crypto_test.asm` — полная реализация SHA-256
-- [x] K константы (64 dwords) — кубические корни простых чисел
-- [x] Message expansion W[0..63]
-- [x] 64 раунда компрессии (Sigma, Ch, Maj)
-- [x] Big-endian конвертация
-- [x] Скомпилировать и протестировать
-- [x] **Результат:** SHA256("abc") = ba7816bf...f20015ad ✅
+### Phase 13: Matrix Layer (v2.2)
+- [ ] Nested loops for matrix multiplication
+- [ ] 16 neurons × 8 inputs = layer output
+- [ ] Batch processing
 
-### 3.2 Merkle Tree Allocator ✅ COMPLETE
-- [x] Создать `src/merkle_test.asm` — blockchain memory test
-- [x] Block Header: MAGIC + SIZE + PREV_PTR + HASH
-- [x] `merkle_alloc()` — выделение блока с заголовком
-- [x] `merkle_commit()` — пересчёт SHA-256 хешей
-- [x] Tamper detection: изменение данных меняет хеш
-- [x] **Результат:** "Hello" → "Hxllo" детектировано ✅
+### Phase 14: Training (v3.0)
+- [ ] Gradient calculation
+- [ ] Backpropagation
+- [ ] Weight updates
 
-### 3.3 Chain of Trust ✅ COMPLETE
-- [x] Two-pass algorithm в `merkle_commit()`
-- [x] Pass 1: SHA-256 для каждого блока
-- [x] Pass 2: XOR всех хешей в глобальный Root Hash
-- [x] **Chain Reaction**: изменение ЛЮБОГО блока меняет глобальный хеш
-- [x] **Результат:** "Hello" → "Hxllo" инвалидировало весь blockchain ✅
+### Phase 15: Expression Parser
+- [ ] Arithmetic expressions (a + b * c)
+- [ ] Operator precedence (Pratt parsing)
+- [ ] Unary operators (-x, not x)
+- [ ] Parentheses
 
-### 3.4 Memory Integrity
-- [ ] Tensor operations → SIMD instructions
-- [ ] <dot> → MATMUL
-- [ ] <+>, <-> → Vectorized add/sub
-
----
-
-## 📋 Phase 4: Grand Unification (COMPLETE)
-
-### 4.1 AVX2 Aligned Ledger ✅ COMPLETE
-- [x] Изменить BLOCK_HEADER_SIZE с 48 на 64 байта
-- [x] Добавить 16-byte padding (48-63)
-- [x] Гарантировать 32-byte alignment для AVX2
-- [x] **Результат:** Данные теперь AVX2-safe ✅
-
-### 4.2 SYNAPSE CORE ✅ COMPLETE
-- [x] Создать `src/synapse_core.asm`
-- [x] Нейросеть в blockchain памяти
-- [x] Веса загружаются через `merkle_alloc()`
-- [x] Integrity check до и после inference
-- [x] **Результат:** INTEGRITY VERIFIED! Hashes match! ✅
-
----
-
-## 📋 Phase 5: The Bridge (COMPLETE) ✅
-
-### 5.1 Intrinsics Table ✅ COMPLETE
-- [x] Создать `src/bridge_test.asm`
-- [x] Intrinsics Table: Jump table для kernel функций
-- [x] `init_intrinsics()` — заполняет таблицу указателями
-- [x] JIT генерирует вызовы: `merkle_alloc`, `merkle_commit`
-- [x] **Результат:** SYNAPSE -> MOVA Bridge Works! ✅
-
-### 5.2 Auto-Ledger ✅ COMPLETE
-- [x] Создать `src/auto_test.asm`
-- [x] `codegen_run()` обрабатывает NODE_CALL
-- [x] "alloc" → генерирует merkle_alloc()
-- [x] "commit" → генерирует merkle_commit()
-- [x] **Результат:** 3 AST nodes → 3 kernel calls → 1 root hash ✅
-
----
-
-## 🚀 Phase 6: Control Flow - The Logic (IN PROGRESS)
-
-**Vision:** Дать SYNAPSE способность принимать решения и повторять действия.
-**Milestone:** Тьюринг-полнота языка
-
-### 6.1 Parser Extension (Week 1-2)
-- [ ] Реализовать `parse_condition()` - парсинг условий (x > 0, a == b)
-- [ ] Реализовать `parse_if_statement()` - полный разбор if/elif/else
-- [ ] Реализовать `parse_while_statement()` - разбор while циклов
-- [ ] Реализовать `parse_block()` - рекурсивный разбор блоков кода
-- [ ] Обновить `parse_statement()` для обработки новых конструкций
-- [ ] Создать тесты парсера (без выполнения)
-
-**Files to modify:**
-- `src/parser_v2.asm`
-- `tests/control_flow_test.asm`
-
-### 6.2 Label Manager (Week 3)
-- [ ] Создать `src/label_manager.asm`
-- [ ] Реализовать структуру Label (name, address, fixup_list)
-- [ ] Реализовать `label_create()` - создание меток
-- [ ] Реализовать `label_define()` - установка адреса метки
-- [ ] Реализовать `label_reference()` - ссылка на метку для JMP
-- [ ] Реализовать `label_fixup()` - исправление неразрешённых адресов
-
-### 6.3 JIT Conditional Codegen (Week 3-4)
-- [ ] Создать `src/jit_control_flow.asm`
-- [ ] Реализовать `jit_emit_cmp_rax_zero()` - генерация CMP
-- [ ] Реализовать `jit_emit_je()` - условный переход (equal)
-- [ ] Реализовать `jit_emit_jne()` - условный переход (not equal)
-- [ ] Реализовать `jit_emit_jg()` - условный переход (greater)
-- [ ] Реализовать `jit_emit_jl()` - условный переход (less)
-- [ ] Реализовать `jit_emit_jmp()` - безусловный переход
-- [ ] Реализовать `jit_emit_if()` - генерация полного if statement
-- [ ] Создать тесты: abs(), max(), min()
-
-**Test cases:**
-```asm
-; Test 1: Absolute value
-if x < 0:
-    return -x
-else:
-    return x
-```
-
-### 6.4 JIT Loop Codegen (Week 4-5)
-- [ ] Реализовать `jit_emit_while()` - генерация while цикла
-- [ ] Реализовать `jit_emit_loop()` - бесконечный цикл
-- [ ] Реализовать обработку `break` - выход из цикла
-- [ ] Реализовать обработку `continue` - следующая итерация
-- [ ] Создать тесты: sum_array(), factorial_iterative(), countdown()
-
-**Test cases:**
-```asm
-; Test 2: Factorial (iterative)
-let result: int = 1
-let i: int = n
-while i > 1:
-    result = result * i
-    i = i - 1
-return result
-```
-
-### 6.5 Symbol Table (Week 5-6)
-- [ ] Создать `src/symbol_table.asm`
-- [ ] Реализовать структуру Variable (name, type, address, scope)
-- [ ] Реализовать `symtab_declare()` - объявление переменной
-- [ ] Реализовать `symtab_lookup()` - поиск переменной
-- [ ] Реализовать `symtab_enter_scope()` - вход в блок
-- [ ] Реализовать `symtab_exit_scope()` - выход из блока
-- [ ] Интегрировать с парсером и кодогенератором
-- [ ] Создать тесты: nested scopes, shadowing
-
-### 6.6 Integration & Testing (Week 7-8)
-- [ ] Интеграция всех компонентов
-- [ ] Комплексные тесты:
-  - [ ] Факториал (рекурсивный и итеративный)
-  - [ ] Числа Фибоначчи
-  - [ ] Поиск в массиве
-  - [ ] Сортировка пузырьком
-  - [ ] Обучение нейросети (epochs loop)
-- [ ] Тесты безопасности (MOVA Engine):
-  - [ ] AI Flight Recorder с проверкой целостности
-  - [ ] Anti-Cheat система
-  - [ ] Защищённая цепочка транзакций
-- [ ] Обновление документации
-- [ ] Benchmarks производительности
-
-**Created Files:**
-- ✅ `examples/control_flow_simple.syn` - базовые примеры
-- ✅ `examples/control_flow_secure.syn` - защищённые вычисления
-- ✅ `tests/control_flow_test.asm` - тестовый драйвер
-- ✅ `docs/PHASE_6_ROADMAP.md` - полная дорожная карта
-- ✅ `docs/CONTROL_FLOW_GUIDE.md` - руководство по реализации
-
----
-
-## 📋 Phase 7: Functions & Recursion (Future - v1.3)
-
-### 7.1 Function Calls
-- [ ] Реализовать стековые фреймы (PUSH/POP RBP)
-- [ ] Передача аргументов через регистры (FastCall)
-- [ ] Возврат значений (return)
-- [ ] Локальные переменные
-
-### 7.2 Recursion
-- [ ] Поддержка рекурсивных вызовов
-- [ ] Тесты: factorial, Fibonacci, tree traversal
-
----
-
-## 📋 Phase 8-9: Types & Structures (Future - v1.4-1.5)
-
-### 8.1 Type System
+### Phase 16: Type System
 - [ ] int, f32, f64, bool, string
-- [ ] Автоматическое приведение типов
-- [ ] Проверка типов в парсере
+- [ ] Type checking in parser
+- [ ] Implicit conversions
 
-### 8.2 Structures
-- [ ] struct определения
-- [ ] Доступ к полям (obj.field)
-- [ ] Выравнивание памяти
+### Phase 17: Structures
+- [ ] struct definitions
+- [ ] Field access (obj.field)
+- [ ] Memory alignment
 
----
+### Phase 18: Platform Abstraction
+- [ ] sys_interface.asm for Linux
+- [ ] Abstract VirtualAlloc/mmap
+- [ ] Cross-platform file I/O
 
-## 🎯 Phase 10: Self-Hosting (Future - v2.0)
-
-**The Ultimate Goal:** Написать компилятор SYNAPSE на языке SYNAPSE
-
-### 10.1 Compiler Rewrite
-- [ ] Переписать lexer на SYNAPSE
-- [ ] Переписать parser на SYNAPSE
-- [ ] Переписать codegen на SYNAPSE
-
-### 10.2 Bootstrap
-- [ ] Скомпилировать synapse.exe самим собой
-- [ ] Удалить зависимость от FASM
-- [ ] 🎉 **INDEPENDENCE ACHIEVED**
-
-### 5.3 Final Script
-- [ ] Написать `mnist.syn` на языке SYNAPSE
-- [ ] Компилятор генерирует и исполняет защищённый код
-
-### 3.3 Standard Library
-- [ ] print() function
-- [ ] File I/O
-- [ ] String operations
+### Phase 19: Self-Hosting
+- [ ] Rewrite lexer in SYNAPSE
+- [ ] Rewrite parser in SYNAPSE
+- [ ] Rewrite codegen in SYNAPSE
+- [ ] Bootstrap: compile synapse.exe with itself
 
 ---
 
-## 📂 Project Structure
+## 📊 Test Summary
+
+| Test File | Phase | Result |
+|-----------|-------|--------|
+| `lexer_test.asm` | 1 | ✅ |
+| `parser_test.asm` | 1 | ✅ |
+| `jit_test.asm` | 1 | ✅ 42! |
+| `cpu_test.asm` | 2 | ✅ AVX2 |
+| `avx2_test.asm` | 2 | ✅ 3.0 |
+| `dot_test.asm` | 2 | ✅ 4.0 |
+| `matmul_test.asm` | 2 | ✅ ReLU |
+| `crypto_test.asm` | 3 | ✅ SHA256 |
+| `merkle_test.asm` | 3 | ✅ Tamper |
+| `synapse_core.asm` | 4 | ✅ Integrity |
+| `bridge_test.asm` | 5 | ✅ Intrinsics |
+| `auto_test.asm` | 5 | ✅ 3 nodes |
+| `control_flow_test.asm` | 6 | ✅ 3/3 |
+| `jit_if_test.asm` | 6 | ✅ |
+| `jit_while_test.asm` | 6 | ✅ |
+| `sym_test.asm` | 7 | ✅ 6/6 |
+| `jit_let_test.asm` | 7 | ✅ 777 |
+| `jit_read_test.asm` | 7 | ✅ x→y |
+| `loop_real_test.asm` | 7 | ✅ 5 iters |
+| `func_table_test.asm` | 8 | ✅ 3 funcs |
+| `jit_func_test.asm` | 8 | ✅ get_five=5 |
+| `array_lex_test.asm` | 9 | ✅ [] |
+| `jit_array_test.asm` | 9 | ✅ ptr[0]=42 |
+| `perceptron_test.asm` | 10 | ✅ 5*10=50 |
+| `full_neural_test.asm` | 11 | ✅ **200** |
+| `relu_test.asm` | 12 | ✅ ReLU |
+| `layer_test.asm` | 13 | ✅ **[50, 110]** |
+
+**Total: 27 tests PASSED**
+
+---
+
+## 📂 Key Files
 
 ```
-src/
-├── jit_test.asm       # Main JIT compiler test ⭐
-├── lexer_v2.asm       # Indentation lexer
-├── lexer_test.asm     # Lexer standalone test
-├── parser_v2.asm      # Type/generics parser
-├── parser_test.asm    # Parser standalone test
-├── block_test.asm     # Recursive block test
-└── build_*.bat        # Build scripts
-
 include/
-├── synapse_tokens.inc # Token constants
-└── ast.inc            # AST structures
+├── synapse_tokens.inc   # Token constants
+├── ast.inc              # AST node types (37 nodes)
+└── version.inc          # v2.1.0-activation
 
-docs/archive/          # TITAN legacy code (reference)
+src/
+├── lexer_v2.asm         # Indentation lexer
+├── parser_v2.asm        # Type/control flow parser
+├── codegen.asm          # JIT code generator
+├── symbols.asm          # Symbol table
+├── functions.asm        # Function table
+├── memory.asm           # MOVA allocator
+├── io.asm               # Console I/O
+├── intrinsics.asm       # Intrinsics table
+├── cpu.asm              # CPU detection
+├── crypto.asm           # SHA-256
+└── merkle.asm           # Blockchain memory
 ```
 
 ---
 
-*Last updated: 2025-12-20*
+*Last updated: 2025-12-21 v2.1.0*

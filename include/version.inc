@@ -3,7 +3,7 @@
 ; =============================================================================
 
 SYNAPSE_VERSION_MAJOR = 2
-SYNAPSE_VERSION_MINOR = 0
+SYNAPSE_VERSION_MINOR = 1
 SYNAPSE_VERSION_PATCH = 0
 
 ; Stage: 1=alpha, 2=beta, 3=rc, 4=stable
@@ -27,5 +27,5 @@ SYNAPSE_SYMBOLS_VERSION = 1      ; NEW: Symbol Table
 SYNAPSE_FUNCTIONS_VERSION = 1    ; NEW: Function Table
 
 ; Version strings for display
-SYNAPSE_VERSION_STR equ 'v2.0.0-neural'
-SYNAPSE_FULL_NAME   equ 'SYNAPSE v2.0.0 - The Neuron is ALIVE!'
+SYNAPSE_VERSION_STR equ 'v2.1.0-activation'
+SYNAPSE_FULL_NAME   equ 'SYNAPSE v2.1.0 - ReLU Activation + Deep Learning Ready'

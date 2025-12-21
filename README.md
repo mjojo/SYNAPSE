@@ -2,19 +2,19 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.0.0--neural-gold)
+![Version](https://img.shields.io/badge/version-2.1.0--activation-gold)
 ![Size](https://img.shields.io/badge/binary-6kb-blue)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 
-# 🧠 SYNAPSE v2.0
+# 🧠 SYNAPSE v2.1
 
 **Unhackable AI on Bare Metal Assembly**
 
 *The World's First Compiler-Driven Blockchain AI Platform*
 
-**🏆 THE NEURON IS ALIVE! Dot Product = 200 🏆**
+**🏆 ReLU Activation + SUB + Deep Learning Ready! 🏆**
 
 </div>
 
@@ -68,6 +68,7 @@ Unlike C++ or Rust, SYNAPSE doesn't use a standard heap.
 | **Arrays (v1.4)** | ptr[0] = 42 + pointer arithmetic |
 | **Perceptron (v1.5)** | IMUL for input * weight calculations |
 | **Neural Network (v2.0)** | Full Dot Product: [2,3,4] * [10,20,30] = 200 |
+| **ReLU Activation (v2.1)** | relu(-50)=0, relu(50)=50 + SUB operation |
 
 ---
 
@@ -229,9 +230,10 @@ SYNAPSE/
 | **8** | Functions | fn/return + CALL/RET |
 | **9** | Arrays | ptr[0] = 42 + pointer access |
 | **10** | Perceptron | IMUL: 5 * 10 = 50 |
-| **11** | **NEURAL NETWORK** | **Dot Product = 200 → ALIVE!** |
+| **11** | Neural Network | Dot Product = 200 |
+| **12** | **ReLU Activation** | **relu(-50)=0, relu(50)=50** |
 
-**16 major versions. THE NEURON IS ALIVE!**
+**17 major versions. ReLU Activation + Deep Learning Ready!**
 
 ---
 
@@ -249,7 +251,7 @@ SYNAPSE/
 
 | Specification | Value |
 |---------------|-------|
-| **Language** | SYNAPSE v2.0 |
+| **Language** | SYNAPSE v2.1 |
 | **Engine** | MOVA v1.0 |
 | **Architecture** | x64 JIT Compiler |
 | **Control Flow** | if/else/while (Backpatching) |
@@ -258,6 +260,7 @@ SYNAPSE/
 | **Arrays** | ptr[index] read/write |
 | **Math** | IMUL for neural calculations |
 | **Neural** | Dot Product = 200 |
+| **Activation** | ReLU (max(0,x)) |
 | **SIMD** | AVX2/FMA |
 | **Crypto** | SHA-256 (native) |
 | **Dependencies** | 0 (only kernel32.dll) |
@@ -281,11 +284,11 @@ MIT License
 
 <div align="center">
 
-# 🧠 SYNAPSE v2.0
+# 🧠 SYNAPSE v2.1
 
-**🏆 THE NEURON IS ALIVE! 🏆**
+**🏆 ReLU Activation + Deep Learning Ready! 🏆**
 
-*Dot Product = 200 on ~6 KB of Pure x86-64 Assembly*
+*~6 KB of Pure x86-64 Assembly*
 
 ---
 

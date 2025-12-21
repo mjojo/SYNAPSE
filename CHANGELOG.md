@@ -2,11 +2,11 @@
 
 ---
 
-## [2.0.0] - 2025-12-21
+## [2.1.0] - 2025-12-21
 
-### 🏆 THE NEURON IS ALIVE!
+### 🧠 ACTIVATION RELEASE!
 
-**SYNAPSE v2.0** runs a **full neural network** dot product calculation!
+**SYNAPSE v2.1** now supports **ReLU activation** for deep learning!
 
 ### Added - Phase 6: Control Flow (The Logic)
 - **Parser Extension** (Phase 6.1-6.2)
@@ -35,7 +35,9 @@
 - **Arrays**: `ptr[0] = 42` read/write with pointer arithmetic
 - **Perceptron**: `5 * 10 = 50` IMUL instruction for neural math
 - **Neural Network**: `[2,3,4] * [10,20,30] = 200` Full Dot Product!
-- **All Tests**: Parser + JIT + Functions + Arrays + IMUL + Neural
+- **Subtraction**: `0 - 50 = -50` SUB instruction
+- **ReLU Activation**: `relu(-50)=0, relu(50)=50` Deep Learning ready!
+- **All Tests**: Parser + JIT + Functions + Arrays + Neural + ReLU
 
 ---
 

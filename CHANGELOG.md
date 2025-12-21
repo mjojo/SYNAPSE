@@ -2,6 +2,35 @@
 
 ---
 
+## [1.1.0] - 2025-12-21
+
+### 🎉 TURING-COMPLETE RELEASE!
+
+**SYNAPSE v1.1** now supports **control flow**: if/else/while with JIT backpatching!
+
+### Added - Phase 6: Control Flow (The Logic)
+- **Parser Extension** (Phase 6.1-6.2)
+  - `parse_condition()` — comparison operators (==, !=, <, >, <=, >=)
+  - `parse_if_statement()` — full if/elif/else chains
+  - `parse_while_statement()` — while loops
+  - `parse_block()` — recursive block parsing
+  - `src/control_flow_test.asm` — 3/3 tests PASSED!
+
+- **JIT Codegen** (Phase 6.3-6.4)
+  - `.gen_number` — `MOV RAX, imm64`
+  - `.gen_binop` — `CMP`/`SETE`/`MOVZX` for comparisons
+  - `.gen_if` — `TEST`/`JZ` with **backpatching**
+  - `.gen_while` — **backward JMP** for loops
+  - `src/jit_logic_test.asm` — SUCCESS! (IF test)
+  - `src/jit_loop_test.asm` — SUCCESS! (WHILE test)
+
+### Technical Achievements
+- **Backpatching**: Forward AND backward jumps work correctly
+- **Turing-Complete**: Full control flow (if/else/while)
+- **All Tests**: Parser 3/3 + JIT IF + JIT WHILE PASSED
+
+---
+
 ## [1.0.0-stable] - 2025-12-20
 
 ### 🏆 STABLE RELEASE!

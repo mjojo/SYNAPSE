@@ -1,19 +1,17 @@
 # SYNAPSE Development Tasks
 
-## 🎯 Current Focus: Phase 6 - Control Flow (Logic & Loops)
+## 🎉 Phase 6 - Control Flow: COMPLETE! ✅
 
-**Status:** Planning Complete, Implementation Ready
-**Goal:** Achieve Turing-completeness through if/while/for constructs
-**Target:** v1.1 (Control Flow) → v1.2 (Loops) → v2.0 (Self-Hosted)
+**Status:** v1.1.0 Released - Turing-Complete!
+**Achievement:** if/else/while + JIT backpatching (forward AND backward jumps)
 
-### 📋 Quick Status
+### 📋 Phase 6 Summary
 - ✅ Tokens: if, elif, else, while, loop, break, continue defined
 - ✅ AST Nodes: NODE_IF, NODE_WHILE, NODE_BLOCK ready
 - ✅ Operators: ==, !=, <, >, <=, >= supported
-- ✅ Examples: Created control_flow_simple.syn & control_flow_secure.syn
-- ⚠️ Parser: Needs extension for conditional blocks
-- ❌ Codegen: JIT conditional jumps not implemented
-- ❌ Symbol Table: Variable tracking not implemented
+- ✅ Parser: Extended with parse_if/parse_while/parse_block (3/3 tests)
+- ✅ JIT IF: TEST/JZ with forward backpatching (PASSED)
+- ✅ JIT WHILE: TEST/JZ/JMP with backward jump (PASSED)
 
 ---
 

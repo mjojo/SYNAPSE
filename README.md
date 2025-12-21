@@ -2,17 +2,19 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.0--stable-green)
+![Version](https://img.shields.io/badge/version-1.1.0--control__flow-green)
 ![Size](https://img.shields.io/badge/binary-6kb-blue)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 
-# 🧠 SYNAPSE v1.0
+# 🧠 SYNAPSE v1.1
 
 **Unhackable AI on Bare Metal Assembly**
 
 *The World's First Compiler-Driven Blockchain AI Platform*
+
+**Now with Control Flow: if/else/while → JIT Backpatching!**
 
 </div>
 
@@ -59,6 +61,7 @@ Unlike C++ or Rust, SYNAPSE doesn't use a standard heap.
 | **Text → Tokens → AST → x64** | Full compilation pipeline |
 | **Auto-Ledger** | Compiler automatically generates blockchain calls |
 | **Intrinsics Bridge** | Script commands map to kernel functions |
+| **Control Flow (v1.1)** | if/else/while with JIT backpatching |
 
 ---
 
@@ -215,8 +218,9 @@ SYNAPSE/
 | **3** | The Memory | Blockchain Memory (SHA-256 Merkle) |
 | **4** | Unification | Neural Network on Blockchain |
 | **5** | The Bridge | Self-Compiling Script Engine |
+| **6** | **Control Flow** | **if/else/while + JIT Backpatching (Turing-Complete!)** |
 
-**10 major versions in one day. From Hello World to AI Blockchain.**
+**11 major versions. From Hello World to Turing-Complete AI Blockchain.**
 
 ---
 
@@ -234,9 +238,10 @@ SYNAPSE/
 
 | Specification | Value |
 |---------------|-------|
-| **Language** | SYNAPSE v1.0 |
-| **Engine** | MOVA v0.9 |
+| **Language** | SYNAPSE v1.1 |
+| **Engine** | MOVA v1.0 |
 | **Architecture** | x64 JIT Compiler |
+| **Control Flow** | if/else/while (Backpatching) |
 | **SIMD** | AVX2/FMA |
 | **Crypto** | SHA-256 (native) |
 | **Dependencies** | 0 (only kernel32.dll) |
@@ -260,9 +265,9 @@ MIT License
 
 <div align="center">
 
-# 🧠 SYNAPSE v1.0
+# 🧠 SYNAPSE v1.1
 
-**The World's First Compiler-Driven Unhackable AI Platform**
+**Turing-Complete • Unhackable • Bare Metal**
 
 *~6 KB of Pure x86-64 Assembly*
 

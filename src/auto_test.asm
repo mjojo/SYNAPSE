@@ -296,6 +296,19 @@ codegen_run:
     cmp eax, NODE_CALL
     je .gen_call
     
+    ; --- Phase 6.3-6.4: Control Flow ---
+    cmp eax, NODE_IF
+    je .gen_if
+    
+    cmp eax, NODE_WHILE
+    je .gen_while
+    
+    cmp eax, NODE_BINOP
+    je .gen_binop
+    
+    cmp eax, NODE_NUMBER
+    je .gen_number
+    
     ; Unknown node - skip
     jmp .next_node
 
@@ -384,6 +397,172 @@ codegen_run:
     mov [jit_cursor], rdi
     
     pop rsi
+    jmp .next_node
+
+; -----------------------------------------------------------------------------
+; .gen_number: Generate MOV RAX, immediate
+; Node: [RSI+24] = numeric value
+; -----------------------------------------------------------------------------
+.gen_number:
+    mov rax, [rsi+24]               ; Get number value
+    
+    mov rdi, [jit_cursor]
+    
+    ; Generate: MOV RAX, imm64 (48 B8 XX XX XX XX XX XX XX XX)
+    mov word [rdi], 0xB848          ; REX.W + MOV RAX opcode
+    mov [rdi+2], rax                ; 64-bit immediate
+    add rdi, 10
+    
+    mov [jit_cursor], rdi
+    jmp .next_node
+
+; -----------------------------------------------------------------------------
+; .gen_binop: Generate comparison (returns 1 or 0 in RAX)
+; Node: [RSI+16] = Left node, [RSI+24] = Right node
+; -----------------------------------------------------------------------------
+.gen_binop:
+    push rsi
+    
+    ; 1. Generate Left side -> RAX
+    mov rsi, [rsi + AST_CHILD]      ; Left operand
+    call codegen_run
+    
+    ; Generate: PUSH RAX (50)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    ; 2. Generate Right side -> RAX
+    mov rsi, [rsp]                  ; Restore node ptr
+    mov rsi, [rsi + AST_VALUE]      ; Right operand
+    call codegen_run
+    
+    ; Generate: POP RCX (59) - left result now in RCX
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    inc qword [jit_cursor]
+    
+    ; Generate: CMP RCX, RAX (48 39 C1)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    
+    ; Generate: SETE AL (0F 94 C0) - set AL=1 if equal
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0940F
+    add qword [jit_cursor], 3
+    
+    ; Generate: MOVZX RAX, AL (48 0F B6 C0) - extend to 64-bit
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    
+    pop rsi
+    jmp .next_node
+
+; -----------------------------------------------------------------------------
+; .gen_if: Generate IF statement with backpatching
+; Node: [RSI+16] = Condition, [RSI+24] = Body
+; -----------------------------------------------------------------------------
+.gen_if:
+    push rsi
+    
+    ; 1. Generate Condition code (result in RAX)
+    mov rsi, [rsi + AST_CHILD]      ; Condition node
+    call codegen_run
+    
+    ; 2. Generate: TEST RAX, RAX (48 85 C0)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC08548
+    add qword [jit_cursor], 3
+    
+    ; 3. Generate: JZ rel32 (0F 84 XX XX XX XX)
+    ;    Reserve space for jump offset (placeholder = 0)
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0x840F          ; JZ opcode
+    add qword [jit_cursor], 2
+    
+    mov rdx, [jit_cursor]           ; SAVE PATCH ADDRESS
+    mov dword [rdi+2], 0            ; Placeholder offset
+    add qword [jit_cursor], 4
+    
+    ; 4. Generate Body code
+    push rdx                        ; Save patch address
+    mov rsi, [rsp+8]                ; Restore node ptr
+    mov rsi, [rsi + AST_VALUE]      ; Body node
+    call codegen_run
+    pop rdx                         ; Restore patch address
+    
+    ; 5. BACKPATCHING: Calculate and write offset
+    ;    offset = current_cursor - patch_address - 4
+    mov rax, [jit_cursor]
+    sub rax, rdx
+    sub rax, 4
+    mov [rdx], eax                  ; Write offset to placeholder
+    
+    pop rsi
+    jmp .next_node
+
+; -----------------------------------------------------------------------------
+; .gen_while: Generate WHILE loop with backward jump
+; Logic: START: cond -> TEST -> JZ EXIT -> body -> JMP START -> EXIT:
+; Node: [RSI+16] = Condition, [RSI+24] = Body
+; -----------------------------------------------------------------------------
+.gen_while:
+    ; 1. LOOP START - save current cursor position
+    mov rbx, [jit_cursor]
+    push rbx                            ; [RSP+16] = Loop Start
+    push rsi                            ; [RSP+8]  = WHILE node
+    
+    ; 2. Generate Condition
+    mov rsi, [rsi + AST_CHILD]
+    call codegen_run
+    
+    ; 3. TEST RAX, RAX (48 85 C0)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC08548
+    add qword [jit_cursor], 3
+    
+    ; 4. JZ EXIT (0F 84 XX XX XX XX) - placeholder
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0x840F
+    add qword [jit_cursor], 2
+    
+    mov rdx, [jit_cursor]               ; Exit patch address
+    mov dword [rdi+2], 0
+    add qword [jit_cursor], 4
+    
+    push rdx                            ; [RSP+0] = Exit patch
+    
+    ; 5. Generate Body
+    mov rsi, [rsp+8]                    ; Get WHILE node
+    mov rsi, [rsi + AST_VALUE]          ; Body
+    call codegen_run
+    
+    ; 6. JMP START (E9 XX XX XX XX) - backward jump
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0xE9
+    inc qword [jit_cursor]
+    
+    ; Calculate negative offset: Target - (Current + 4)
+    mov rax, [rsp+16]                   ; Loop Start address
+    sub rax, [jit_cursor]
+    sub rax, 4
+    
+    mov rdi, [jit_cursor]
+    mov [rdi], eax                      ; Write (negative) offset
+    add qword [jit_cursor], 4
+    
+    ; 7. PATCH EXIT JUMP
+    pop rdx                             ; Exit patch address
+    pop rsi                             ; WHILE node
+    pop rbx                             ; Loop start (cleanup)
+    
+    mov rax, [jit_cursor]
+    sub rax, rdx
+    sub rax, 4
+    mov [rdx], eax                      ; Patch JZ to jump here
+    
     jmp .next_node
 
 .next_node:

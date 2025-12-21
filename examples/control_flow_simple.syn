@@ -1,0 +1,71 @@
+# ============================================================================
+# SYNAPSE Phase 6: Control Flow Examples
+# Простые примеры условных операторов и циклов
+# ============================================================================
+
+# Пример 1: Простое условие
+fn check_positive(x: f64) -> bool:
+    if x > 0:
+        return true
+    else:
+        return false
+
+# Пример 2: Множественные условия
+fn classify_number(n: int) -> string:
+    if n > 0:
+        return "positive"
+    elif n < 0:
+        return "negative"
+    else:
+        return "zero"
+
+# Пример 3: Вложенные условия
+fn nested_check(a: int, b: int) -> int:
+    if a > 0:
+        if b > 0:
+            return 1
+        else:
+            return 2
+    else:
+        return 0
+
+# Пример 4: Простой цикл while
+fn count_down(n: int):
+    let i: int = n
+    while i > 0:
+        print(i)
+        i = i - 1
+
+# Пример 5: Цикл с условием выхода
+fn find_threshold(start: f64, target: f64) -> int:
+    let current: f64 = start
+    let iterations: int = 0
+    
+    while current < target:
+        current = current * 1.1
+        iterations = iterations + 1
+        
+        if iterations > 1000:
+            break
+    
+    return iterations
+
+# Пример 6: Логические операторы
+fn validate_range(x: f64, min: f64, max: f64) -> bool:
+    if x >= min and x <= max:
+        return true
+    else:
+        return false
+
+# Пример 7: Бесконечный цикл с контролем
+fn monitor_system():
+    loop:
+        let status = check_system()
+        
+        if status == "critical":
+            break
+        
+        if status == "normal":
+            continue
+        
+        handle_warning(status)

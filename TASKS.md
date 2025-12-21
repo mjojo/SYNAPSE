@@ -1,5 +1,22 @@
 # SYNAPSE Development Tasks
 
+## 🎯 Current Focus: Phase 6 - Control Flow (Logic & Loops)
+
+**Status:** Planning Complete, Implementation Ready
+**Goal:** Achieve Turing-completeness through if/while/for constructs
+**Target:** v1.1 (Control Flow) → v1.2 (Loops) → v2.0 (Self-Hosted)
+
+### 📋 Quick Status
+- ✅ Tokens: if, elif, else, while, loop, break, continue defined
+- ✅ AST Nodes: NODE_IF, NODE_WHILE, NODE_BLOCK ready
+- ✅ Operators: ==, !=, <, >, <=, >= supported
+- ✅ Examples: Created control_flow_simple.syn & control_flow_secure.syn
+- ⚠️ Parser: Needs extension for conditional blocks
+- ❌ Codegen: JIT conditional jumps not implemented
+- ❌ Symbol Table: Variable tracking not implemented
+
+---
+
 ## ✅ Phase 1: Foundation (COMPLETE)
 
 ### 1.1 Platform Abstraction Layer (PAL)
@@ -168,7 +185,7 @@
 
 ---
 
-## 📋 Phase 5: The Bridge (IN PROGRESS)
+## 📋 Phase 5: The Bridge (COMPLETE) ✅
 
 ### 5.1 Intrinsics Table ✅ COMPLETE
 - [x] Создать `src/bridge_test.asm`
@@ -183,6 +200,147 @@
 - [x] "alloc" → генерирует merkle_alloc()
 - [x] "commit" → генерирует merkle_commit()
 - [x] **Результат:** 3 AST nodes → 3 kernel calls → 1 root hash ✅
+
+---
+
+## 🚀 Phase 6: Control Flow - The Logic (IN PROGRESS)
+
+**Vision:** Дать SYNAPSE способность принимать решения и повторять действия.
+**Milestone:** Тьюринг-полнота языка
+
+### 6.1 Parser Extension (Week 1-2)
+- [ ] Реализовать `parse_condition()` - парсинг условий (x > 0, a == b)
+- [ ] Реализовать `parse_if_statement()` - полный разбор if/elif/else
+- [ ] Реализовать `parse_while_statement()` - разбор while циклов
+- [ ] Реализовать `parse_block()` - рекурсивный разбор блоков кода
+- [ ] Обновить `parse_statement()` для обработки новых конструкций
+- [ ] Создать тесты парсера (без выполнения)
+
+**Files to modify:**
+- `src/parser_v2.asm`
+- `tests/control_flow_test.asm`
+
+### 6.2 Label Manager (Week 3)
+- [ ] Создать `src/label_manager.asm`
+- [ ] Реализовать структуру Label (name, address, fixup_list)
+- [ ] Реализовать `label_create()` - создание меток
+- [ ] Реализовать `label_define()` - установка адреса метки
+- [ ] Реализовать `label_reference()` - ссылка на метку для JMP
+- [ ] Реализовать `label_fixup()` - исправление неразрешённых адресов
+
+### 6.3 JIT Conditional Codegen (Week 3-4)
+- [ ] Создать `src/jit_control_flow.asm`
+- [ ] Реализовать `jit_emit_cmp_rax_zero()` - генерация CMP
+- [ ] Реализовать `jit_emit_je()` - условный переход (equal)
+- [ ] Реализовать `jit_emit_jne()` - условный переход (not equal)
+- [ ] Реализовать `jit_emit_jg()` - условный переход (greater)
+- [ ] Реализовать `jit_emit_jl()` - условный переход (less)
+- [ ] Реализовать `jit_emit_jmp()` - безусловный переход
+- [ ] Реализовать `jit_emit_if()` - генерация полного if statement
+- [ ] Создать тесты: abs(), max(), min()
+
+**Test cases:**
+```asm
+; Test 1: Absolute value
+if x < 0:
+    return -x
+else:
+    return x
+```
+
+### 6.4 JIT Loop Codegen (Week 4-5)
+- [ ] Реализовать `jit_emit_while()` - генерация while цикла
+- [ ] Реализовать `jit_emit_loop()` - бесконечный цикл
+- [ ] Реализовать обработку `break` - выход из цикла
+- [ ] Реализовать обработку `continue` - следующая итерация
+- [ ] Создать тесты: sum_array(), factorial_iterative(), countdown()
+
+**Test cases:**
+```asm
+; Test 2: Factorial (iterative)
+let result: int = 1
+let i: int = n
+while i > 1:
+    result = result * i
+    i = i - 1
+return result
+```
+
+### 6.5 Symbol Table (Week 5-6)
+- [ ] Создать `src/symbol_table.asm`
+- [ ] Реализовать структуру Variable (name, type, address, scope)
+- [ ] Реализовать `symtab_declare()` - объявление переменной
+- [ ] Реализовать `symtab_lookup()` - поиск переменной
+- [ ] Реализовать `symtab_enter_scope()` - вход в блок
+- [ ] Реализовать `symtab_exit_scope()` - выход из блока
+- [ ] Интегрировать с парсером и кодогенератором
+- [ ] Создать тесты: nested scopes, shadowing
+
+### 6.6 Integration & Testing (Week 7-8)
+- [ ] Интеграция всех компонентов
+- [ ] Комплексные тесты:
+  - [ ] Факториал (рекурсивный и итеративный)
+  - [ ] Числа Фибоначчи
+  - [ ] Поиск в массиве
+  - [ ] Сортировка пузырьком
+  - [ ] Обучение нейросети (epochs loop)
+- [ ] Тесты безопасности (MOVA Engine):
+  - [ ] AI Flight Recorder с проверкой целостности
+  - [ ] Anti-Cheat система
+  - [ ] Защищённая цепочка транзакций
+- [ ] Обновление документации
+- [ ] Benchmarks производительности
+
+**Created Files:**
+- ✅ `examples/control_flow_simple.syn` - базовые примеры
+- ✅ `examples/control_flow_secure.syn` - защищённые вычисления
+- ✅ `tests/control_flow_test.asm` - тестовый драйвер
+- ✅ `docs/PHASE_6_ROADMAP.md` - полная дорожная карта
+- ✅ `docs/CONTROL_FLOW_GUIDE.md` - руководство по реализации
+
+---
+
+## 📋 Phase 7: Functions & Recursion (Future - v1.3)
+
+### 7.1 Function Calls
+- [ ] Реализовать стековые фреймы (PUSH/POP RBP)
+- [ ] Передача аргументов через регистры (FastCall)
+- [ ] Возврат значений (return)
+- [ ] Локальные переменные
+
+### 7.2 Recursion
+- [ ] Поддержка рекурсивных вызовов
+- [ ] Тесты: factorial, Fibonacci, tree traversal
+
+---
+
+## 📋 Phase 8-9: Types & Structures (Future - v1.4-1.5)
+
+### 8.1 Type System
+- [ ] int, f32, f64, bool, string
+- [ ] Автоматическое приведение типов
+- [ ] Проверка типов в парсере
+
+### 8.2 Structures
+- [ ] struct определения
+- [ ] Доступ к полям (obj.field)
+- [ ] Выравнивание памяти
+
+---
+
+## 🎯 Phase 10: Self-Hosting (Future - v2.0)
+
+**The Ultimate Goal:** Написать компилятор SYNAPSE на языке SYNAPSE
+
+### 10.1 Compiler Rewrite
+- [ ] Переписать lexer на SYNAPSE
+- [ ] Переписать parser на SYNAPSE
+- [ ] Переписать codegen на SYNAPSE
+
+### 10.2 Bootstrap
+- [ ] Скомпилировать synapse.exe самим собой
+- [ ] Удалить зависимость от FASM
+- [ ] 🎉 **INDEPENDENCE ACHIEVED**
 
 ### 5.3 Final Script
 - [ ] Написать `mnist.syn` на языке SYNAPSE

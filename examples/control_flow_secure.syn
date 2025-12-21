@@ -1,0 +1,166 @@
+# ============================================================================
+# SYNAPSE Phase 6: Защищенные Вычисления с Условной Логикой
+# Криптографически верифицируемое принятие решений
+# ============================================================================
+
+# Сценарий 1: AI Flight Recorder с проверкой целостности
+# Система автопилота проверяет, не повреждены ли веса нейросети
+
+neuron fn ai_decision_validator(weights: tensor<f32, [1000]>) -> bool:
+    # Вычисляем хеш весов ДО принятия решения
+    let hash_before = merkle_root()
+    
+    # Выполняем inference
+    let output = neural_forward(weights)
+    
+    # Проверяем, изменились ли веса (атака/сбой?)
+    let hash_after = merkle_root()
+    
+    if hash_before == hash_after:
+        # Веса не изменились - решение валидно
+        return true
+    else:
+        # КРИТИЧЕСКАЯ ОШИБКА: память повреждена
+        emergency_shutdown()
+        return false
+
+
+# Сценарий 2: Anti-Cheat для игр
+# Защищенное хранилище игрового состояния
+
+contract fn game_state_validator():
+    # Выделяем память в Merkle Tree
+    let player_hp: f64 = 100.0
+    let player_gold: int = 1000
+    let player_level: int = 5
+    
+    # Фиксируем начальное состояние
+    let checkpoint = merkle_root()
+    
+    # Игровой цикл
+    while game_active():
+        # Игрок получает урон
+        player_hp = player_hp - enemy_damage()
+        
+        if player_hp <= 0:
+            # Игрок умер - проверяем, не был ли это чит
+            let hash_now = merkle_root()
+            
+            # Если кто-то изменил HP извне (Cheat Engine),
+            # хеш не совпадет с ожидаемым
+            if verify_state(checkpoint, hash_now):
+                game_over()
+            else:
+                ban_player("Memory tampering detected")
+                break
+
+
+# Сценарий 3: Защищенная цепочка транзакций
+# Каждый блок криптографически связан с предыдущим
+
+contract fn blockchain_ledger():
+    # Блок 1: Инициализация
+    let genesis_hash = merkle_root()
+    let prev_hash = genesis_hash
+    let block_count: int = 0
+    
+    while block_count < 1000:
+        # Создаем новую транзакцию
+        let tx = create_transaction()
+        
+        # Вычисляем хеш блока (зависит от prev_hash)
+        let block_hash = hash256(prev_hash, tx)
+        
+        # Проверка валидности цепи
+        if validate_chain(block_hash, prev_hash):
+            # Блок принят
+            commit_block(tx, block_hash)
+            prev_hash = block_hash
+            block_count = block_count + 1
+        else:
+            # Атака обнаружена - отклоняем блок
+            reject_block("Invalid chain integrity")
+            break
+
+
+# Сценарий 4: Условное обучение нейросети
+# Обучаем модель только если данные прошли проверку
+
+neuron fn secure_training_loop(epochs: int):
+    let current_epoch: int = 0
+    let best_accuracy: f64 = 0.0
+    
+    while current_epoch < epochs:
+        # Загружаем batch данных
+        let data_hash = load_training_batch()
+        
+        # КРИТИЧНО: проверяем, не подменили ли данные
+        if verify_data_integrity(data_hash):
+            # Данные чистые - обучаем
+            let loss = train_step()
+            
+            if loss < 0.01:
+                # Сходимость достигнута
+                print("Training converged at epoch", current_epoch)
+                break
+            
+            current_epoch = current_epoch + 1
+        else:
+            # Данные повреждены - останавливаем обучение
+            emergency_log("Poisoned training data detected")
+            return
+
+
+# Сценарий 5: Многоуровневая проверка доступа
+# Система контроля доступа с криптографической верификацией
+
+contract fn access_control_system(user_id: int, resource_id: int) -> bool:
+    # Получаем уровень доступа пользователя
+    let user_level = get_user_clearance(user_id)
+    let resource_level = get_resource_sensitivity(resource_id)
+    
+    # Проверка базовых прав
+    if user_level < resource_level:
+        log_access_denied(user_id, resource_id)
+        return false
+    
+    # Дополнительная проверка: не взломан ли аккаунт?
+    let session_hash = merkle_root()
+    
+    if verify_session(user_id, session_hash):
+        # Проверка MFA
+        if require_mfa(resource_level):
+            let mfa_valid = verify_mfa_token(user_id)
+            
+            if mfa_valid:
+                grant_access(user_id, resource_id)
+                return true
+            else:
+                log_mfa_failure(user_id)
+                return false
+        else:
+            # MFA не требуется для этого уровня
+            grant_access(user_id, resource_id)
+            return true
+    else:
+        # Сессия скомпрометирована
+        lockout_user(user_id, "Session hijacking suspected")
+        return false
+
+
+# Сценарий 6: Адаптивный алгоритм с условной оптимизацией
+# Выбор стратегии вычислений в зависимости от данных
+
+fn adaptive_compute(data: tensor<f64, [1024]>) -> tensor<f64, [1024]>:
+    # Анализируем разреженность данных
+    let sparsity = calculate_sparsity(data)
+    
+    if sparsity > 0.9:
+        # Данные разреженные - используем sparse алгоритм
+        return sparse_matmul(data)
+    elif sparsity > 0.5:
+        # Средняя плотность - гибридный подход
+        return hybrid_compute(data)
+    else:
+        # Плотные данные - используем AVX2 оптимизацию
+        return dense_avx_compute(data)

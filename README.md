@@ -2,19 +2,19 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.3.0--evolution-gold)
+![Version](https://img.shields.io/badge/version-2.5.0--memory-gold)
 ![Size](https://img.shields.io/badge/binary-8kb-blue)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 
-# 🧠 SYNAPSE v2.3
+# 🧠 SYNAPSE v2.5
 
 **Unhackable AI on Bare Metal Assembly**
 
 *The World's First Self-Optimizing Blockchain AI Platform*
 
-**🏆 Deep Network: 270 • Evolutionary JIT • Darwinian Code! 🏆**
+**🏆 Memory Manager: Alloc & Pointers • Deep Network • Evolutionary JIT! 🏆**
 
 </div>
 
@@ -70,6 +70,7 @@ Unlike C++ or Rust, SYNAPSE doesn't use a standard heap.
 | **Neural Network (v2.0)** | Full Dot Product: [2,3,4] * [10,20,30] = 200 |
 | **ReLU Activation (v2.1)** | relu(-50)=0, relu(50)=50 + SUB operation |
 | **Matrix Layer (v2.2)** | 2x2 Dense Layer: [50, 110] + Array Store |
+| **Memory (v2.5)** | `alloc(size)` + Pointer passing between functions |
 
 ---
 
@@ -233,13 +234,14 @@ SYNAPSE/
 | **10** | Perceptron | IMUL: 5 * 10 = 50 |
 | **11** | Neural Network | Dot Product = 200 |
 | **12** | ReLU Activation | relu(-50)=0, relu(50)=50 |
-| **13** | **Matrix Layer** | **2 neurons x 2 inputs = [50, 110]** |
+| **13** | Matrix Layer | 2 neurons x 2 inputs = [50, 110] |
+| **19** | **Memory Manager** | **alloc(size) + Pointers** |
 
-**18 major versions. Full Matrix Layer with Nested Loops!**
+**19 major versions. Full Memory Management!**
 
 ---
 
-## 🔮 Roadmap: v2.0
+## 🔮 Roadmap: v3.0
 
 - [ ] GPU Support (CUDA/OpenCL)
 - [ ] P2P Networking (Distributed Ledger)
@@ -253,13 +255,14 @@ SYNAPSE/
 
 | Specification | Value |
 |---------------|-------|
-| **Language** | SYNAPSE v2.2 |
+| **Language** | SYNAPSE v2.5 |
 | **Engine** | MOVA v1.0 |
 | **Architecture** | x64 JIT Compiler |
 | **Control Flow** | if/else/while (Backpatching) |
 | **Variables** | let/var + ADD/LT operations |
 | **Functions** | fn/return + CALL/RET |
 | **Arrays** | ptr[index] read/write |
+| **Memory** | Dynamic Alloc + Pointers |
 | **Math** | IMUL for neural calculations |
 | **Neural** | Dot Product = 200 |
 | **Activation** | ReLU (max(0,x)) |
@@ -287,11 +290,11 @@ MIT License
 
 <div align="center">
 
-# 🧠 SYNAPSE v2.2
+# 🧠 SYNAPSE v2.5
 
-**🏆 Matrix Layer + Deep Learning Engine! 🏆**
+**🏆 Memory Manager + Deep Learning Engine! 🏆**
 
-*~7 KB of Pure x86-64 Assembly*
+*~8 KB of Pure x86-64 Assembly*
 
 ---
 

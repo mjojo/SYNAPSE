@@ -52,7 +52,7 @@ section '.idata' import data readable
 section '.data' data readable writeable
 
     banner      db '============================================',13,10
-                db '  SYNAPSE v2.3 Compiler',13,10
+                db '  SYNAPSE v2.5 Compiler',13,10
                 db '  Full Pipeline: Lex -> Parse -> JIT -> Run',13,10
                 db '============================================',13,10,13,10,0
     

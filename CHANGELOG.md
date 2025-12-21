@@ -2,6 +2,20 @@
 
 ---
 
+## [2.5.0] - 2025-12-21
+
+### 🧠 MEMORY MANAGER RELEASE!
+
+**SYNAPSE v2.5** introduces Dynamic Memory Allocation and Pointer Arithmetic!
+
+### Added - Phase 19: Memory Manager
+- **Intrinsic**: `alloc(size)` — allocates memory on the heap
+- **Pointers**: Pass arrays/memory blocks between functions
+- **Argument Fix**: Corrected L-to-R stack argument passing order
+- **Tests**: `arrays.syn` — verified alloc, write, read, and pass-by-pointer
+
+---
+
 ## [2.3.0] - 2025-12-21
 
 ### 🧠 EVOLUTION RELEASE!

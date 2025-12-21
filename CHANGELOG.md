@@ -2,11 +2,11 @@
 
 ---
 
-## [2.2.0] - 2025-12-21
+## [2.3.0] - 2025-12-21
 
-### 🧠 MATRIX LAYER RELEASE!
+### 🧠 EVOLUTION RELEASE!
 
-**SYNAPSE v2.2** now supports **full matrix multiplication** with nested loops!
+**SYNAPSE v2.3** features **Deep Neural Networks** and **Darwinian JIT** optimization!
 
 ### Added - Phase 6: Control Flow (The Logic)
 - **Parser Extension** (Phase 6.1-6.2)

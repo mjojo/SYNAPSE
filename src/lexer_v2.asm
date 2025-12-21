@@ -1122,7 +1122,8 @@ synlex_check_keyword:
     ; Совпадение!
     pop rdi
     pop rsi
-    add rdi, edx
+    movzx rdx, byte [rdi]           ; Get length again (fixes operand size)
+    add rdi, rdx
     inc rdi
     movzx eax, byte [rdi]
     jmp .kw_done

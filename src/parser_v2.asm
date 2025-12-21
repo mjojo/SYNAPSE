@@ -228,6 +228,13 @@ parse_program:
     cmp eax, SKW_MUT
     je .parse_mut
     
+    ; --- Control Flow (Phase 6) ---
+    cmp eax, SKW_IF
+    je .parse_if
+    
+    cmp eax, SKW_WHILE
+    je .parse_while
+    
     ; Unknown keyword - skip
     jmp .skip
 
@@ -251,6 +258,18 @@ parse_program:
     ; mut is like let but mutable
     call advance            ; Skip 'mut'
     call parse_let_body     ; Parse the rest like let
+    test eax, eax
+    jz .error
+    jmp .loop
+
+.parse_if:
+    call parse_if_statement
+    test eax, eax
+    jz .error
+    jmp .loop
+
+.parse_while:
+    call parse_while_statement
     test eax, eax
     jz .error
     jmp .loop
@@ -682,3 +701,374 @@ parse_expression:
 .error:
     xor eax, eax
     ret
+
+; =============================================================================
+; PHASE 6: CONTROL FLOW PARSING
+; =============================================================================
+
+; -----------------------------------------------------------------------------
+; parse_primary: Parse a single value (IDENT or NUMBER)
+; Output: EAX = 1 if success
+; -----------------------------------------------------------------------------
+parse_primary:
+    push rbx
+    
+    call token_type
+    
+    cmp eax, STOK_NUMBER
+    je .prim_number
+    cmp eax, STOK_FLOAT
+    je .prim_number
+    cmp eax, STOK_IDENT
+    je .prim_ident
+    
+    xor eax, eax
+    pop rbx
+    ret
+
+.prim_number:
+.prim_ident:
+    call advance
+    mov eax, 1
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; parse_condition: Parse comparison expression
+; Grammar: PRIMARY ( ('==' | '!=' | '<' | '>' | '<=' | '>=') PRIMARY )?
+; Output: EAX = 1 if success
+; -----------------------------------------------------------------------------
+parse_condition:
+    push rbx
+    
+    ; Parse left operand
+    call parse_primary
+    test eax, eax
+    jz .cond_error
+    
+    ; Check for comparison operator
+    call token_type
+    cmp eax, STOK_OPERATOR
+    jne .cond_ok
+    
+    call token_subtype
+    
+    cmp eax, SOP_EQ
+    je .cond_binop
+    cmp eax, SOP_NE
+    je .cond_binop
+    cmp eax, SOP_LT
+    je .cond_binop
+    cmp eax, SOP_GT
+    je .cond_binop
+    cmp eax, SOP_LE
+    je .cond_binop
+    cmp eax, SOP_GE
+    je .cond_binop
+    
+    jmp .cond_ok
+
+.cond_binop:
+    call advance
+    call parse_primary
+    test eax, eax
+    jz .cond_error
+
+.cond_ok:
+    lea rcx, [parse_cond_ok_msg]
+    call print_string
+    mov eax, 1
+    pop rbx
+    ret
+
+.cond_error:
+    xor eax, eax
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; parse_block: Parse indented code block
+; Grammar: INDENT statement* DEDENT
+; Output: EAX = 1 if success
+; -----------------------------------------------------------------------------
+parse_block:
+    push rbx
+    push r12
+    
+    ; Skip any leading NEWLINEs  
+.skip_newlines:
+    call token_type
+    cmp eax, STOK_NEWLINE
+    jne .check_indent
+    call advance
+    jmp .skip_newlines
+
+.check_indent:
+    ; Accept INDENT if present, but continue without it for now
+    cmp eax, STOK_INDENT
+    jne .no_indent
+    call advance
+    
+.no_indent:
+    lea rcx, [parse_block_start_msg]
+    call print_string
+
+.blk_loop:
+    call token_type
+    cmp eax, STOK_DEDENT
+    je .blk_end
+    cmp eax, STOK_EOF
+    je .blk_end
+    
+    cmp eax, STOK_NEWLINE
+    je .blk_skip
+    cmp eax, STOK_COMMENT
+    je .blk_skip
+    
+    cmp eax, STOK_KEYWORD
+    jne .blk_expr
+    
+    call token_subtype
+    cmp eax, SKW_IF
+    je .blk_if
+    cmp eax, SKW_WHILE
+    je .blk_while
+    cmp eax, SKW_LET
+    je .blk_let
+    cmp eax, SKW_RETURN
+    je .blk_return
+    cmp eax, SKW_BREAK
+    je .blk_simple
+    cmp eax, SKW_CONTINUE
+    je .blk_simple
+    cmp eax, SKW_PASS
+    je .blk_simple
+    jmp .blk_skip
+
+.blk_expr:
+    call parse_expression
+    jmp .blk_loop
+
+.blk_skip:
+    call advance
+    jmp .blk_loop
+
+.blk_if:
+    call parse_if_statement
+    jmp .blk_loop
+
+.blk_while:
+    call parse_while_statement
+    jmp .blk_loop
+
+.blk_let:
+    call parse_let_decl
+    jmp .blk_loop
+
+.blk_return:
+    call advance
+    call token_type
+    cmp eax, STOK_NEWLINE
+    je .blk_loop
+    cmp eax, STOK_DEDENT
+    je .blk_loop
+    call parse_expression
+    jmp .blk_loop
+
+.blk_simple:
+    call advance
+    jmp .blk_loop
+
+.blk_end:
+    call token_type
+    cmp eax, STOK_DEDENT
+    jne .blk_ok
+    call advance
+
+.blk_ok:
+    lea rcx, [parse_block_end_msg]
+    call print_string
+    mov eax, 1
+    jmp .blk_done
+
+.blk_err:
+    lea rcx, [parse_block_err_msg]
+    call print_string
+    xor eax, eax
+
+.blk_done:
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; parse_if_statement: Parse if/elif/else statement
+; Grammar: 'if' CONDITION ':' BLOCK ('elif' CONDITION ':' BLOCK)* ('else' ':' BLOCK)?
+; Output: EAX = 1 if success
+; -----------------------------------------------------------------------------
+parse_if_statement:
+    push rbx
+    push r12
+    
+    lea rcx, [parse_if_start_msg]
+    call print_string
+    
+    call advance
+    
+    call parse_condition
+    test eax, eax
+    jz .if_err
+    
+    mov ecx, SOP_COLON
+    call expect_operator
+    test eax, eax
+    jz .if_err
+    call advance
+    
+    call token_type
+    cmp eax, STOK_NEWLINE
+    jne .if_blk
+    call advance
+
+.if_blk:
+    call parse_block
+    test eax, eax
+    jz .if_err
+
+.if_elif:
+    call token_type
+    cmp eax, STOK_KEYWORD
+    jne .if_else
+    call token_subtype
+    cmp eax, SKW_ELIF
+    jne .if_else
+    
+    lea rcx, [parse_elif_msg]
+    call print_string
+    call advance
+    
+    call parse_condition
+    test eax, eax
+    jz .if_err
+    
+    mov ecx, SOP_COLON
+    call expect_operator
+    test eax, eax
+    jz .if_err
+    call advance
+    
+    call token_type
+    cmp eax, STOK_NEWLINE
+    jne .elif_blk
+    call advance
+
+.elif_blk:
+    call parse_block
+    test eax, eax
+    jz .if_err
+    jmp .if_elif
+
+.if_else:
+    call token_type
+    cmp eax, STOK_KEYWORD
+    jne .if_ok
+    call token_subtype
+    cmp eax, SKW_ELSE
+    jne .if_ok
+    
+    lea rcx, [parse_else_msg]
+    call print_string
+    call advance
+    
+    mov ecx, SOP_COLON
+    call expect_operator
+    test eax, eax
+    jz .if_err
+    call advance
+    
+    call token_type
+    cmp eax, STOK_NEWLINE
+    jne .else_blk
+    call advance
+
+.else_blk:
+    call parse_block
+    test eax, eax
+    jz .if_err
+
+.if_ok:
+    lea rcx, [parse_if_ok_msg]
+    call print_string
+    mov eax, 1
+    jmp .if_done
+
+.if_err:
+    xor eax, eax
+
+.if_done:
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; parse_while_statement: Parse while loop
+; Grammar: 'while' CONDITION ':' BLOCK
+; Output: EAX = 1 if success
+; -----------------------------------------------------------------------------
+parse_while_statement:
+    push rbx
+    push r12
+    
+    lea rcx, [parse_while_start_msg]
+    call print_string
+    
+    call advance
+    
+    call parse_condition
+    test eax, eax
+    jz .wh_err
+    
+    mov ecx, SOP_COLON
+    call expect_operator
+    test eax, eax
+    jz .wh_err
+    call advance
+    
+    call token_type
+    cmp eax, STOK_NEWLINE
+    jne .wh_blk
+    call advance
+
+.wh_blk:
+    call parse_block
+    test eax, eax
+    jz .wh_err
+
+.wh_ok:
+    lea rcx, [parse_while_ok_msg]
+    call print_string
+    mov eax, 1
+    jmp .wh_done
+
+.wh_err:
+    xor eax, eax
+
+.wh_done:
+    pop r12
+    pop rbx
+    ret
+
+; =============================================================================
+; Control Flow Messages
+; =============================================================================
+section '.data' data readable writeable
+    parse_if_start_msg      db '  [IF] Parsing if...',13,10,0
+    parse_if_ok_msg         db '  [IF] OK',13,10,0
+    parse_elif_msg          db '  [ELIF] Parsing elif...',13,10,0
+    parse_else_msg          db '  [ELSE] Parsing else...',13,10,0
+    parse_while_start_msg   db '  [WHILE] Parsing while...',13,10,0
+    parse_while_ok_msg      db '  [WHILE] OK',13,10,0
+    parse_block_start_msg   db '    [BLOCK] Enter',13,10,0
+    parse_block_end_msg     db '    [BLOCK] Exit',13,10,0
+    parse_block_err_msg     db '    [BLOCK] ERR: No indent',13,10,0
+    parse_cond_ok_msg       db '    [COND] OK',13,10,0

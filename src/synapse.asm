@@ -109,7 +109,7 @@ section '.data' data readable writeable
     dbg_print_enter db '[PRINT] Entering intrinsic_print',13,10,0
     dbg_print_addr  db '[PRINT] global_sym_find returned: ',0
     
-    default_file db 'vectors_debug.syn',0
+    default_file db 'examples\neuron.syn',0
     
     ; Token types for internal use
     TOK_EOF     = 0
@@ -976,7 +976,7 @@ parse_block:
 
 .parse_if:
     call compile_if
-    jmp .stmt_loop
+    jmp .check_keyword      ; Don't call next_token - compile_if already positioned
 
 .parse_return:
     call compile_return

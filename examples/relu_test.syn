@@ -1,0 +1,21 @@
+// relu_test.syn - Simple ReLU test
+
+fn relu(x) {
+    if (x < 0) {
+        return 0
+    }
+    return x
+}
+
+fn main() {
+    print(1001)
+    
+    let a = relu(5)
+    print(a)
+    
+    let b = relu(0 - 10)
+    print(b)
+    
+    print(1002)
+    return 0
+}

@@ -1,0 +1,71 @@
+// neuron.syn - Single Neuron Forward Pass
+
+// 1. Скалярное произведение (Dot Product)
+// Возвращает сумму a[i] * b[i]
+fn dot(a, b, len) {
+    let sum = 0
+    let i = 0
+    while (i < len) {
+        let p = a[i] * b[i]
+        let sum = sum + p
+        let i = i + 1
+    }
+    return sum
+}
+
+// 2. ReLU Activation (Rectified Linear Unit)
+// Если x < 0 вернуть 0, иначе x
+fn relu(x) {
+    if (x < 0) {
+        return 0
+    }
+    return x
+}
+
+// 3. Forward Pass нейрона
+fn neuron_forward(inputs, weights, bias, len) {
+    // Z = (Inputs * Weights)
+    let z = dot(inputs, weights, len)
+    
+    // Add Bias
+    let z = z + bias
+    
+    print(z) // Debug: покажем "грязный" выход до активации
+    
+    // Activation
+    return relu(z)
+}
+
+fn main() {
+    print(1111) // Start
+    
+    let len = 3
+    let Inputs = alloc(len)
+    let Weights = alloc(len)
+    
+    // Inputs: [1, 2, -5]
+    Inputs[0] = 1
+    Inputs[1] = 2
+    Inputs[2] = 0 - 5  // -5 (парсинг отрицательных чисел через вычитание)
+    
+    // Weights: [10, 20, 10]
+    Weights[0] = 10
+    Weights[1] = 20
+    Weights[2] = 10
+    
+    // Bias
+    let Bias = 5
+    
+    // Calculation expectation:
+    // Dot = (1*10) + (2*20) + (-5*10) = 10 + 40 - 50 = 0
+    // Z = 0 + Bias(5) = 5
+    // ReLU(5) = 5
+    
+    print(2222) // Running Neuron
+    let result = neuron_forward(Inputs, Weights, Bias, len)
+    
+    print(3333) // Result
+    print(result) // Должно быть 5
+    
+    return 0
+}

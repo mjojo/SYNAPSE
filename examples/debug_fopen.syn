@@ -1,0 +1,24 @@
+// debug_fopen.syn - Debug fopen with simple filename
+fn main() {
+    print(111)
+    
+    // Create simple filename "t.txt\0"
+    let fname = alloc(2)
+    fname[0] = 7955827845345652852  // "t.txt\0\0\0"
+    
+    print(222)
+    print(fname)  // Print pointer
+    print(333)
+    
+    let h = fopen(fname, 1)
+    print(h)  // Print handle
+    
+    if (h) {
+        print(444)
+        fclose(h)
+        print(555)
+    }
+    
+    print(666)
+    return 0
+}

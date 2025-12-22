@@ -1,0 +1,8 @@
+fn main() {
+    let fname = alloc(2)
+    fname[0] = 8392585648475956596  // "test.txt\0"
+    
+    // Load pointer to fname into RAX (via variable access)
+    // Then print fname[0] to see if string is stored correctly
+    print(fname[0])  // Should print 8392585648475956596
+}

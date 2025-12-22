@@ -1,0 +1,28 @@
+// simple_streq.syn - Direct streq test without loops
+
+fn main() {
+    // Test marker
+    print(7777)
+    
+    // Create two strings "test" in memory
+    let a = alloc(2)
+    let b = alloc(2)
+    
+    // Fill with same value: "test" = 0x74736574 = 1952805748
+    a[0] = 1952805748
+    b[0] = 1952805748
+    
+    // Should return 1 (equal)
+    let eq = streq(a, b)
+    print(eq)
+    
+    // Change b to "xxxx" = 0x78787878 = 2021161080
+    b[0] = 2021161080
+    
+    // Should return 0 (not equal)
+    let neq = streq(a, b)
+    print(neq)
+    
+    print(8888)
+    return 0
+}

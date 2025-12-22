@@ -1,0 +1,46 @@
+// fileio.syn - Phase 27: Complete File I/O Test
+// Tests: Write file, then read it back
+
+fn main() {
+    print(1111) // File IO Test Start
+    
+    // 1. Filename "test.txt\0"
+    let fname = alloc(2)
+    // "test.txt" with null terminator fits in one qword
+    fname[0] = 8392585648475956596  // "test.txt\0" as little-endian qword
+    fname[1] = 0  // Extra null for safety
+    
+    // 2. WRITE FILE
+    print(2222) // Writing...
+    
+    // Prepare message BEFORE if block (workaround for array assignment in if)
+    // "Hello" = 72, 101, 108, 108, 111
+    let msg = alloc(1)
+    msg[0] = 478560413032  // "Hello" as little-endian: 0x6F6C6C6548 = 'o'<<32 | 'l'<<24 | 'l'<<16 | 'e'<<8 | 'H'
+    
+    let h_write = fopen(fname, 1) // Mode 1 = Write
+    print(h_write) // DEBUG: Show handle value!
+    
+    // fwrite outside if (workaround for if-block let issue)
+    let bytes = fwrite(h_write, msg, 5)
+    print(bytes) // Expect 5
+    fclose(h_write)
+    
+    // 3. READ FILE
+    print(3333) // Reading...
+    let h_read = fopen(fname, 0) // Mode 0 = Read
+    print(h_read) // DEBUG: Show read handle
+    
+    // fread outside if (workaround)
+    let buf = alloc(10)
+    buf[0] = 0  // Initialize to zeros
+    buf[1] = 0
+    let bytes_in = fread(h_read, buf, 100)
+    print(bytes_in) // Expect 5
+    
+    puts(buf) // Should output "hello"
+    
+    fclose(h_read)
+    
+    return 0
+}

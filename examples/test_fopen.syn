@@ -1,0 +1,14 @@
+// test_fopen.syn - Minimal fopen test
+fn main() {
+    print(111)
+    
+    let fname = alloc(2)
+    fname[0] = 8392585648475956596  // "test.txt"
+    
+    print(222)
+    let h = fopen(fname, 1) // Write mode
+    print(h) // Should be non-zero handle OR print doesn't execute
+    
+    print(555)
+    return 0
+}

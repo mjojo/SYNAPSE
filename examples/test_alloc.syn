@@ -1,0 +1,7 @@
+// test_alloc.syn
+fn main() {
+    print(111)
+    let x = alloc(10)
+    print(222)
+    return 0
+}

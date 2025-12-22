@@ -1,0 +1,23 @@
+// minimal_file.syn - Test with absolute path
+fn main() {
+    print(111)
+    
+    // Try to create file in temp
+    let fname = alloc(3)
+    // "C:\t.t\0" - very short absolute path
+    // "C:\t" = need to think differently...
+    
+    // Actually, let's use relative "x.txt\0"
+    fname[0] = 8391215735129453688  // "x.txt\0\0\0"
+    
+    print(222)
+    let h = fopen(fname, 1)
+    print(h)
+    
+    if (h) {
+        print(333)
+        fclose(h)
+    }
+    
+    return 0
+}

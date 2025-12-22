@@ -1,0 +1,10 @@
+fn main() {
+    let x = 5
+    print(x)
+    
+    if (x) {
+        print(777)
+    }
+    
+    print(999)
+}

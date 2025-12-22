@@ -1,0 +1,38 @@
+// shell_final.syn - Production-Ready Interactive Shell
+
+fn main() {
+    puts("===========================================")
+    puts("  SYNAPSE Interactive Shell v1.0")
+    puts("  Type 'help' for available commands")
+    puts("===========================================")
+    
+    let cmd = alloc(13)
+    
+    // Command definitions
+    let CMD_HELP = alloc(2)
+    CMD_HELP[0] = 1886152040 // "help"
+    
+    let CMD_VER = alloc(2)
+    CMD_VER[0] = 7497078 // "ver"
+    
+    // Single command test
+    input(cmd, 100)
+    
+    let is_help = streq(cmd, CMD_HELP)
+    if (is_help) {
+        puts("Available Commands:")
+        puts("  help - Show this message")
+        puts("  ver  - Show version")
+        puts("  exit - Exit shell")
+    }
+    
+    let is_ver = streq(cmd, CMD_VER)
+    if (is_ver) {
+        puts("SYNAPSE Kernel v2.6 - Phase 26")
+        puts("JIT Compiler + String Logic")
+        puts("Build: December 2025")
+    }
+    
+    print(7777) // Done marker
+    return 0
+}

@@ -1,0 +1,54 @@
+// shell.syn - SYNAPSE Interactive OS
+// Phase 26: String Logic & Command Router
+
+fn main() {
+    print(1111) // Booting Kernel...
+    
+    // 1. Memory allocation
+    let cmd = alloc(13) // Buffer for input (100+ bytes)
+    let running = 1
+    
+    // 2. Command strings (ASCII packed as integers)
+    
+    // "exit" -> 'e' 'x' 'i' 't' -> 0x74697865 -> 1953069157
+    let CMD_EXIT = alloc(2)
+    CMD_EXIT[0] = 1953069157
+    
+    // "help" -> 'h' 'e' 'l' 'p' -> 0x706C6568 -> 1886152040
+    let CMD_HELP = alloc(2)
+    CMD_HELP[0] = 1886152040
+    
+    // "ver" -> 'v' 'e' 'r' 0 -> 0x00726576 -> 7497078
+    let CMD_VER = alloc(2)
+    CMD_VER[0] = 7497078
+    
+    print(2222) // Ready marker
+    
+    // 3. Main REPL loop
+    while (running) {
+        // Read user input
+        input(cmd, 100)
+        
+        // Command router
+        if (streq(cmd, CMD_EXIT)) {
+            puts("Shutting down...")
+            let running = 0
+        } else {
+            if (streq(cmd, CMD_HELP)) {
+                puts("--- COMMANDS ---")
+                puts(" help : Show this list")
+                puts(" ver  : Show version")
+                puts(" exit : Quit system")
+            } else {
+                if (streq(cmd, CMD_VER)) {
+                    puts("SYNAPSE Kernel v2.6")
+                    puts("Build: Dec 2025")
+                } else {
+                    puts("Unknown command.")
+                }
+            }
+        }
+    }
+    
+    return 0
+}

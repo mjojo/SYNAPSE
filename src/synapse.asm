@@ -35,6 +35,7 @@ section '.idata' import data readable
         GetFileSize     dq RVA _GetFileSize
         CloseHandle     dq RVA _CloseHandle
         GetCommandLineA dq RVA _GetCommandLineA
+        WriteFile       dq RVA _WriteFile
                         dq 0
 
     kernel32_name   db 'KERNEL32.DLL',0
@@ -48,11 +49,12 @@ section '.idata' import data readable
     _GetFileSize    db 0,0,'GetFileSize',0
     _CloseHandle    db 0,0,'CloseHandle',0
     _GetCommandLineA db 0,0,'GetCommandLineA',0
+    _WriteFile      db 0,0,'WriteFile',0
 
 section '.data' data readable writeable
 
     banner      db '============================================',13,10
-                db '  SYNAPSE v2.5 Compiler',13,10
+                db '  SYNAPSE v2.7 Compiler',13,10
                 db '  Full Pipeline: Lex -> Parse -> JIT -> Run',13,10
                 db '============================================',13,10,13,10,0
     
@@ -105,11 +107,20 @@ section '.data' data readable writeable
     str_time       db 'time',0
     str_alloc      db 'alloc',0
     str_arg        db 'arg',0
+    str_input      db 'input',0
+    str_streq      db 'streq',0
+    str_puts       db 'puts',0
+    str_fopen      db 'fopen',0
+    str_fclose     db 'fclose',0
+    str_fread      db 'fread',0
+    str_fwrite     db 'fwrite',0
+    dbg_fwrite_msg db '[FWRITE] ',0
+    newline_str    db 13,10
     print_prefix   db '> ',0
     dbg_print_enter db '[PRINT] Entering intrinsic_print',13,10,0
     dbg_print_addr  db '[PRINT] global_sym_find returned: ',0
     
-    default_file db 'examples\mlp.syn',0
+    default_file db 'examples\fileio.syn',0
     
     ; Token types for internal use
     TOK_EOF     = 0
@@ -158,6 +169,8 @@ section '.bss' data readable writeable
     stdin           dq ?
     bytes_written   dd ?
     bytes_read      dd ?
+    fwrite_result   dd ?    ; For intrinsic_fwrite
+    fread_result    dd ?    ; For intrinsic_fread
     
     ; File handling
     file_handle     dq ?
@@ -1081,7 +1094,10 @@ compile_while:
     
     ; Compile condition (e.g., i < 6)
     ; After: cur_tok = last token of expr, lex_pos at ')'
-    call compile_expr
+    call compile_expr       ; Result in RAX
+    
+    ; --- FIX: SAVE RAX before next_token ---
+    push rax                ; Save condition result!
     
     ; Skip ')' - already consumed by compile_expr or it's next
     call peek_token
@@ -1089,8 +1105,11 @@ compile_while:
     jne .skip_paren_done
     cmp qword [cur_tok_value], OP_RPAREN
     jne .skip_paren_done
-    call next_token
+    call next_token         ; This clobbers RAX!
 .skip_paren_done:
+    
+    pop rax                 ; Restore condition result
+    ; --- FIX END ---
     
     ; Generate: TEST RAX, RAX
     mov rdi, [jit_cursor]
@@ -1464,10 +1483,16 @@ compile_if:
     call next_token
     
     ; Compile condition
-    call compile_expr
+    call compile_expr       ; Result in RAX
+    
+    ; --- FIX: SAVE RAX before next_token ---
+    push rax                ; Save condition result!
     
     ; Skip ')' - compile_expr leaves us at ')'
-    call next_token
+    call next_token         ; This clobbers RAX!
+    
+    pop rax                 ; Restore condition result
+    ; --- FIX END ---
     
     ; Generate: TEST RAX, RAX
     mov rdi, [jit_cursor]
@@ -1506,8 +1531,10 @@ compile_if:
     je .if_body_done
     cmp dword [cur_tok_type], TOK_NEWLINE
     je .if_skip_newline
+    
+    ; Check for keywords (let, return, if)
     cmp dword [cur_tok_type], TOK_KEYWORD
-    jne .if_skip_unknown
+    jne .if_try_ident
     
     mov rax, [cur_tok_value]
     cmp rax, KW_LET
@@ -1517,6 +1544,15 @@ compile_if:
     cmp rax, KW_IF
     je .if_nested_if
     jmp .if_skip_unknown
+
+.if_try_ident:
+    ; If identifier, compile as term (function call or variable load)
+    ; compile_term does NOT call next_token first, so it uses current token
+    cmp dword [cur_tok_type], TOK_IDENT
+    jne .if_skip_unknown
+    call compile_term
+    ; Result discarded - no assignment needed for standalone calls
+    jmp .if_body
     
 .if_skip_newline:
     call next_token
@@ -1525,7 +1561,7 @@ compile_if:
 .if_skip_unknown:
     call next_token
     jmp .if_body
-    
+
 .if_let:
     call next_token
     call compile_let
@@ -2678,6 +2714,41 @@ init_intrinsics:
     lea rdx, [intrinsic_alloc]
     call func_add
     
+    ; Register 'input' intrinsic (read console input)
+    lea rcx, [str_input]
+    lea rdx, [intrinsic_input]
+    call func_add
+    
+    ; Register 'streq' intrinsic (string equality check)
+    lea rcx, [str_streq]
+    lea rdx, [intrinsic_streq]
+    call func_add
+    
+    ; Register 'puts' intrinsic (print string with newline)
+    lea rcx, [str_puts]
+    lea rdx, [intrinsic_puts]
+    call func_add
+    
+    ; Register 'fopen' intrinsic (open file)
+    lea rcx, [str_fopen]
+    lea rdx, [intrinsic_fopen]
+    call func_add
+    
+    ; Register 'fclose' intrinsic (close file)
+    lea rcx, [str_fclose]
+    lea rdx, [intrinsic_fclose]
+    call func_add
+    
+    ; Register 'fread' intrinsic (read from file)
+    lea rcx, [str_fread]
+    lea rdx, [intrinsic_fread]
+    call func_add
+    
+    ; Register 'fwrite' intrinsic (write to file)
+    lea rcx, [str_fwrite]
+    lea rdx, [intrinsic_fwrite]
+    call func_add
+    
     pop rbx
     ret
 
@@ -2761,6 +2832,292 @@ intrinsic_alloc:
     add [heap_ptr], rcx         ; Advance heap pointer
     
     ; RAX = pointer to allocated memory
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_input(buf, len)
+; Reads a line from console into buffer buf with max length len.
+; Returns number of bytes read.
+; -----------------------------------------------------------------------------
+intrinsic_input:
+    push rbx
+    push rsi
+    push rdi
+    
+    sub rsp, 32                 ; Shadow space
+    
+    ; Get arguments: buf = [rsp+56], len = [rsp+64]
+    mov r10, [rsp + 56]         ; buf pointer
+    mov r11, [rsp + 64]         ; max length
+    
+    ; Call ReadConsoleA
+    ; hConsoleInput, lpBuffer, nNumberOfCharsToRead, lpNumberOfCharsRead, lpInputControl
+    mov rcx, [stdin]            ; hConsoleInput
+    mov rdx, r10                ; lpBuffer
+    mov r8, r11                 ; nNumberOfCharsToRead
+    lea r9, [bytes_read]        ; lpNumberOfCharsRead
+    xor eax, eax
+    mov [rsp+32], rax           ; lpInputControl = NULL
+    call [ReadConsoleA]
+    
+    ; Return number of bytes read
+    mov eax, [bytes_read]
+    
+    add rsp, 32
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_streq(str1, str2)
+; Compares two null-terminated strings.
+; Returns: 1 if equal, 0 if different.
+; -----------------------------------------------------------------------------
+intrinsic_streq:
+    push rbx
+    push rsi
+    push rdi
+    
+    ; Get arguments: str1 = [rsp+32], str2 = [rsp+40]
+    mov rsi, [rsp + 32]         ; str1
+    mov rdi, [rsp + 40]         ; str2
+    
+.streq_loop:
+    mov al, [rsi]
+    mov bl, [rdi]
+    
+    cmp al, bl
+    jne .streq_fail
+    
+    test al, al
+    jz .streq_match             ; Equal and null terminator reached
+    
+    inc rsi
+    inc rdi
+    jmp .streq_loop
+
+.streq_match:
+    mov rax, 1
+    jmp .streq_done
+
+.streq_fail:
+    xor rax, rax
+
+.streq_done:
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_puts(str)
+; Prints a null-terminated string followed by newline.
+; -----------------------------------------------------------------------------
+intrinsic_puts:
+    push rbx
+    push rsi
+    push rdi
+    
+    sub rsp, 32                 ; Shadow space
+    
+    ; Stack: 32 (sub) + 24 (pushes) + 8 (ret) = 64
+    ; Get string argument
+    mov rsi, [rsp + 64]         ; str pointer
+    
+    ; Calculate string length
+    xor rcx, rcx
+.puts_strlen:
+    cmp byte [rsi + rcx], 0
+    je .puts_strlen_done
+    inc rcx
+    jmp .puts_strlen
+.puts_strlen_done:
+    mov rbx, rcx                ; Save length in RBX
+    
+    ; Write string via WriteFile
+    ; WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped)
+    mov rcx, [stdout]           ; hFile
+    mov rdx, rsi                ; lpBuffer
+    mov r8, rbx                 ; nNumberOfBytesToWrite (saved length)
+    lea r9, [bytes_written]     ; lpNumberOfBytesWritten
+    xor eax, eax
+    mov [rsp+32], rax           ; lpOverlapped = NULL
+    call [WriteFile]
+    
+    ; Write newline
+    mov rcx, [stdout]
+    lea rdx, [newline_str]
+    mov r8, 2                   ; "\r\n" = 2 bytes
+    lea r9, [bytes_written]
+    xor eax, eax
+    mov [rsp+32], rax
+    call [WriteFile]
+    
+    add rsp, 32
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_fopen(filename_ptr, mode)
+; mode: 0 = Read, 1 = Write
+; Stack Alignment: Entry RSP%16=8, Push 3 regs -> RSP%16=0, SUB 64 -> Aligned
+; -----------------------------------------------------------------------------
+intrinsic_fopen:
+    push rbx
+    push rsi
+    push rdi
+    sub rsp, 64
+    
+    ; SYNAPSE args on stack (L-to-R push: fname first, mode second)
+    ; Offset: 64 (local) + 24 (saved regs) + 8 (ret) = 96
+    ; [RSP + 96]  = Arg2 (Mode) - Last pushed (top)
+    ; [RSP + 104] = Arg1 (Filename) - First pushed
+    
+    mov rcx, [rsp + 104]    ; Arg1: Filename (lpFileName)
+    mov rbx, [rsp + 96]     ; Arg2: Mode
+    
+    test rbx, rbx
+    jnz .mode_write
+    
+.mode_read:
+    ; CreateFileA(name, GENERIC_READ, 0, 0, OPEN_EXISTING, NORMAL, 0)
+    mov edx, 0x80000000     ; GENERIC_READ
+    xor r8d, r8d            ; ShareMode = 0
+    xor r9d, r9d            ; Security = NULL
+    
+    ; Stack args for WinAPI (relative to current RSP)
+    mov qword [rsp+32], 3   ; OPEN_EXISTING (Arg5)
+    mov qword [rsp+40], 0x80 ; FILE_ATTRIBUTE_NORMAL (Arg6)
+    mov qword [rsp+48], 0   ; Template = NULL (Arg7)
+    
+    call [CreateFileA]
+    jmp .check_handle
+
+.mode_write:
+    ; CreateFileA(name, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, NORMAL, 0)
+    mov edx, 0x40000000     ; GENERIC_WRITE
+    xor r8d, r8d
+    xor r9d, r9d
+    
+    mov qword [rsp+32], 2   ; CREATE_ALWAYS (Arg5)
+    mov qword [rsp+40], 0x80
+    mov qword [rsp+48], 0
+    
+    call [CreateFileA]
+
+.check_handle:
+    cmp rax, -1             ; INVALID_HANDLE_VALUE
+    jne .fopen_ok
+    xor rax, rax            ; Return 0 on error
+.fopen_ok:
+    add rsp, 64
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_fclose(handle)
+; Closes file handle. Returns 0.
+; -----------------------------------------------------------------------------
+intrinsic_fclose:
+    push rbx
+    sub rsp, 32             ; Shadow space
+    
+    ; Offset: 32 (local) + 8 (saved) + 8 (ret) = 48
+    mov rcx, [rsp + 48]     ; Arg1: Handle
+    test rcx, rcx
+    jz .fclose_skip
+    
+    call [CloseHandle]
+    
+.fclose_skip:
+    xor rax, rax
+    add rsp, 32
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_fread(handle, buffer, len)
+; Reads bytes from file. Returns: Bytes read
+; -----------------------------------------------------------------------------
+intrinsic_fread:
+    push rbx
+    push rsi
+    push rdi
+    push r14
+    push r15
+    sub rsp, 48             ; 32 shadow + 16 align
+    
+    ; Stack: 48 (sub) + 40 (pushes) + 8 (ret) = 96 bytes above args
+    ; [RSP + 96] = len (last pushed = top)
+    ; [RSP + 104] = buffer  
+    ; [RSP + 112] = handle (first pushed = bottom)
+    
+    ; ReadFile(handle, buffer, len, &fread_result, NULL)
+    mov rcx, [rsp + 112]    ; Handle
+    mov rdx, [rsp + 104]    ; Buffer
+    mov r8,  [rsp + 96]     ; Len
+    lea r9,  [fread_result] ; &fread_result
+    mov qword [rsp+32], 0   ; lpOverlapped
+    
+    call [ReadFile]
+    
+    test eax, eax
+    jz .fread_err
+    
+    mov eax, [fread_result]
+    jmp .fread_done
+
+.fread_err:
+    xor eax, eax
+.fread_done:
+    add rsp, 48
+    pop r15
+    pop r14
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_fwrite(handle, buffer, len)
+; Writes bytes to file. Returns: Bytes written
+; -----------------------------------------------------------------------------
+intrinsic_fwrite:
+    push rbx
+    push rsi
+    push rdi
+    push r14
+    push r15
+    sub rsp, 48             ; 32 shadow + 16 align
+    
+    ; Stack: 48 (sub) + 40 (pushes) + 8 (ret) = 96 bytes above args
+    ; [RSP + 96] = len (last pushed = top)
+    ; [RSP + 104] = buffer  
+    ; [RSP + 112] = handle (first pushed = bottom)
+    
+    ; WriteFile(handle, buffer, len, &fwrite_result, NULL)
+    mov rcx, [rsp + 112]    ; Handle
+    mov rdx, [rsp + 104]    ; Buffer
+    mov r8,  [rsp + 96]     ; Len
+    lea r9, [fwrite_result] ; &fwrite_result 
+    mov qword [rsp+32], 0   ; lpOverlapped
+    
+    call [WriteFile]
+    
+    ; Return bytes written
+    mov eax, [fwrite_result]
+    
+    add rsp, 48
+    pop r15
+    pop r14
+    pop rdi
     pop rsi
     pop rbx
     ret

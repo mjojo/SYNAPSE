@@ -1,0 +1,14 @@
+// test_if_puts.syn - Test if + puts combination
+
+fn main() {
+    print(1111)
+    
+    let x = 1
+    
+    if (x) {
+        print(5555)
+    }
+    
+    print(2222)
+    return 0
+}

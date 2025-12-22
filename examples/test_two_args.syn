@@ -1,0 +1,13 @@
+// test_two_args.syn
+fn test(a, b) {
+    print(a)
+    print(b)
+    return 0
+}
+
+fn main() {
+    print(111)
+    test(555, 666)
+    print(222)
+    return 0
+}

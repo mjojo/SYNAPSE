@@ -1,0 +1,5 @@
+fn main() {
+    print(777777)
+    let x = fopen(0, 0)
+    print(x)
+}

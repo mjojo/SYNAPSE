@@ -1,0 +1,11 @@
+// Ultra-minimal shell test
+fn main() {
+    print(1111)
+    
+    let cmd = alloc(10)
+    input(cmd, 10)
+    
+    puts(cmd)
+    
+    return 0
+}

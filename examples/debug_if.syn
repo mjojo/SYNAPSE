@@ -1,0 +1,12 @@
+// debug_if.syn - Test if with let
+
+fn main() {
+    print(1111)
+    
+    if (5) {
+        let y = 9999
+    }
+    
+    print(7777)
+    return 0
+}

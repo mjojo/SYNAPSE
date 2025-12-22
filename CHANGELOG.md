@@ -2,6 +2,42 @@
 
 ---
 
+## [2.7.0] - 2025-12-22
+
+### 🚀 FILE I/O RELEASE - SELF-HOSTING FOUNDATION!
+
+**SYNAPSE v2.7** introduces complete File I/O support, the critical foundation for self-hosting!
+
+### Added - Phase 27: File I/O Intrinsics
+- **`fopen(filename, mode)`**: Open files for reading (mode=0) or writing (mode=1)
+  - Returns: Valid file handle, or 0 on failure
+  - Uses: CreateFileA WinAPI with proper flags
+- **`fclose(handle)`**: Close an open file handle
+  - Uses: CloseHandle WinAPI
+- **`fread(handle, buffer, len)`**: Read bytes from file into buffer
+  - Returns: Number of bytes actually read
+  - Uses: ReadFile WinAPI
+- **`fwrite(handle, buffer, len)`**: Write bytes from buffer to file
+  - Returns: Number of bytes actually written
+  - Uses: WriteFile WinAPI
+
+### Fixed
+- **if-block function calls**: Changed `compile_expr` to `compile_term` in `.if_try_ident`
+  - `compile_expr` called `next_token` first, skipping the current identifier
+  - `compile_term` processes the current token directly
+- **puts stack offset**: Fixed from 56 to 64 bytes
+- **puts length bug**: Saved string length in RBX before overwriting RCX
+
+### Technical Achievements  
+- Full write/read cycle: Write "hello" to file, read it back ✅
+- Proper x64 calling convention for 5-argument WinAPI calls ✅
+- Stack alignment maintained through push/sub sequences ✅
+
+### Milestone
+**SYNAPSE can now read source files!** This is the first step toward self-hosting - the compiler can read `.syn` files from disk, enabling future phases to implement a complete self-compiling bootstrap.
+
+---
+
 ## [2.6.0] - 2025-12-22
 
 ### 🚀 VECTOR OPERATIONS RELEASE!

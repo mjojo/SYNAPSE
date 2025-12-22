@@ -1,0 +1,7 @@
+// Minimal if test
+fn main() {
+    if (5) {
+        print(9999)
+    }
+    return 0
+}

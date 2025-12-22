@@ -1,0 +1,25 @@
+// hello.syn - Interactive Shell Test
+
+fn main() {
+    // 1. Выделяем память под строку (буфер 100 байт)
+    let buffer = alloc(13) // 13 * 8 байт = 104 байта
+    
+    // 2. Спрашиваем имя (используем puts для текста, print для чисел)
+    // Трюк: пока у нас нет строковых литералов в коде ("Hello"), 
+    // мы будем использовать input как эхо.
+    
+    print(111) // "Ready >" marker
+    
+    // Ждем ввода
+    let len = input(buffer, 100)
+    
+    print(222) // "You typed:" marker
+    
+    // Выводим то, что ввели (как текст!)
+    puts(buffer)
+    
+    // Выводим длину
+    print(len)
+    
+    return 0
+}

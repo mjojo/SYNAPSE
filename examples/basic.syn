@@ -1,0 +1,4 @@
+fn main() {
+    print(9999)
+    return 0
+}

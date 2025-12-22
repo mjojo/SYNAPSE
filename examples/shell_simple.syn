@@ -1,0 +1,49 @@
+// shell_simple.syn - Simplified Shell (no nested else)
+
+fn main() {
+    print(1111) // Boot marker
+    print(2222) // Ready marker
+    
+    let cmd = alloc(13)
+    let running = 1
+    
+    // Create command strings
+    let CMD_EXIT = alloc(2)
+    CMD_EXIT[0] = 1953069157
+    
+    let CMD_HELP = alloc(2)
+    CMD_HELP[0] = 1886152040
+    
+    let CMD_VER = alloc(2)
+    CMD_VER[0] = 7497078
+    
+    // Main loop
+    while (running) {
+        input(cmd, 100)
+        
+        // Check exit
+        let is_exit = streq(cmd, CMD_EXIT)
+        if (is_exit) {
+            puts("Shutting down...")
+            let running = 0
+        }
+        
+        // Check help
+        let is_help = streq(cmd, CMD_HELP)
+        if (is_help) {
+            puts("--- COMMANDS ---")
+            puts(" help : Show list")
+            puts(" ver  : Version")
+            puts(" exit : Quit")
+        }
+        
+        // Check ver
+        let is_ver = streq(cmd, CMD_VER)
+        if (is_ver) {
+            puts("SYNAPSE v2.6")
+            puts("Dec 2025")
+        }
+    }
+    
+    return 0
+}

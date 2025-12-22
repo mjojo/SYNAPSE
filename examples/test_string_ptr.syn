@@ -1,0 +1,13 @@
+// test_string_ptr.syn
+fn main() {
+    print(111)
+    
+    let fname = alloc(2)
+    fname[0] = 8392585648475956596
+    
+    print(222)
+    print(fname) // Should print pointer address
+    print(333)
+    
+    return 0
+}

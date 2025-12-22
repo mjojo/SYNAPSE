@@ -1,0 +1,16 @@
+// minimal_shell.syn - Absolute minimum shell test
+
+fn main() {
+    print(9999) // Start
+    
+    let cmd = alloc(2)
+    let ref = alloc(2)
+    ref[0] = 1953069157 // "exit"
+    
+    input(cmd, 100)
+    
+    let eq = streq(cmd, ref)
+    print(eq)
+    
+    return 0
+}

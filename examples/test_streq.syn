@@ -1,0 +1,23 @@
+// test_streq.syn - Simple string comparison test
+
+fn main() {
+    // Create two test strings
+    let str1 = alloc(2)
+    let str2 = alloc(2)
+    
+    // "help" = 0x706C6568
+    str1[0] = 1886152040
+    str2[0] = 1886152040
+    
+    // Test 1: Equal strings
+    print(9001)  // Test marker
+    let result = streq(str1, str2)
+    print(result)  // Should print 1
+    
+    // Test 2: Different strings
+    str2[0] = 1953069157  // "exit"
+    let result2 = streq(str1, str2)
+    print(result2)  // Should print 0
+    
+    return 0
+}

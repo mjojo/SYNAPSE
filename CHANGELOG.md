@@ -2,6 +2,31 @@
 
 ---
 
+## [2.8.0] - 2025-12-22
+
+### 🚀 GUI RELEASE - WINDOWS INTEGRATION!
+
+**SYNAPSE v2.8** breaks free from the console into the world of Windows GUI!
+
+### Added - Phase 28: Graphics & GUI Foundation
+- **Multi-DLL Import**: Extended `.idata` section to support multiple DLLs
+  - `KERNEL32.DLL` - System calls, file I/O
+  - `USER32.DLL` - Windows GUI (NEW!)
+- **`msgbox(text, title)`**: Display Windows MessageBox dialog
+  - Returns: Button clicked (1 = OK)
+  - Uses: MessageBoxA from USER32.DLL
+
+### Technical Achievements
+- Proper Import Directory Table structure for multiple DLLs ✅
+- Lookup tables and address tables for each DLL ✅
+- USER32.DLL successfully loaded and called ✅
+- MessageBoxA shows dialog and returns IDOK (1) ✅
+
+### Milestone
+**SYNAPSE can now display GUI dialogs!** This is the foundation for creating Windows applications with graphical interfaces. Future phases will add window creation, graphics, and more GUI controls.
+
+---
+
 ## [2.7.0] - 2025-12-22
 
 ### 🚀 FILE I/O RELEASE - SELF-HOSTING FOUNDATION!

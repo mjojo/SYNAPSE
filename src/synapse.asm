@@ -21,8 +21,30 @@ INVALID_HANDLE_VALUE = -1
 include '..\include\ast.inc'
 
 section '.idata' import data readable
-    dd 0,0,0,RVA kernel32_name,RVA kernel32_table
-    dd 0,0,0,0,0
+    ; Import Directory Table
+    ; RVA to LookupTable, TimeDate, Forwarder, Name, RVA to AddressTable
+    dd RVA kernel32_lookup, 0, 0, RVA kernel32_name, RVA kernel32_table
+    dd RVA user32_lookup,   0, 0, RVA user32_name,   RVA user32_table
+    dd 0, 0, 0, 0, 0
+
+    ; =========================================================================
+    ; KERNEL32
+    ; =========================================================================
+    kernel32_name db 'KERNEL32.DLL', 0
+
+    kernel32_lookup:
+        dq RVA _GetStdHandle
+        dq RVA _WriteConsoleA
+        dq RVA _ReadConsoleA
+        dq RVA _ExitProcess
+        dq RVA _VirtualAlloc
+        dq RVA _CreateFileA
+        dq RVA _ReadFile
+        dq RVA _GetFileSize
+        dq RVA _CloseHandle
+        dq RVA _GetCommandLineA
+        dq RVA _WriteFile
+        dq 0
 
     kernel32_table:
         GetStdHandle    dq RVA _GetStdHandle
@@ -38,7 +60,6 @@ section '.idata' import data readable
         WriteFile       dq RVA _WriteFile
                         dq 0
 
-    kernel32_name   db 'KERNEL32.DLL',0
     _GetStdHandle   db 0,0,'GetStdHandle',0
     _WriteConsoleA  db 0,0,'WriteConsoleA',0
     _ReadConsoleA   db 0,0,'ReadConsoleA',0
@@ -51,10 +72,25 @@ section '.idata' import data readable
     _GetCommandLineA db 0,0,'GetCommandLineA',0
     _WriteFile      db 0,0,'WriteFile',0
 
+    ; =========================================================================
+    ; USER32 (NEW!)
+    ; =========================================================================
+    user32_name db 'USER32.DLL', 0
+
+    user32_lookup:
+        dq RVA _MessageBoxA
+        dq 0
+
+    user32_table:
+        MessageBoxA dq RVA _MessageBoxA
+                    dq 0
+
+    _MessageBoxA db 0,0,'MessageBoxA',0
+
 section '.data' data readable writeable
 
     banner      db '============================================',13,10
-                db '  SYNAPSE v2.7 Compiler',13,10
+                db '  SYNAPSE v2.8 Compiler',13,10
                 db '  Full Pipeline: Lex -> Parse -> JIT -> Run',13,10
                 db '============================================',13,10,13,10,0
     
@@ -114,13 +150,14 @@ section '.data' data readable writeable
     str_fclose     db 'fclose',0
     str_fread      db 'fread',0
     str_fwrite     db 'fwrite',0
+    str_msgbox     db 'msgbox',0
     dbg_fwrite_msg db '[FWRITE] ',0
     newline_str    db 13,10
     print_prefix   db '> ',0
     dbg_print_enter db '[PRINT] Entering intrinsic_print',13,10,0
     dbg_print_addr  db '[PRINT] global_sym_find returned: ',0
     
-    default_file db 'examples\fileio.syn',0
+    default_file db 'examples\gui.syn',0
     
     ; Token types for internal use
     TOK_EOF     = 0
@@ -2749,6 +2786,11 @@ init_intrinsics:
     lea rdx, [intrinsic_fwrite]
     call func_add
     
+    ; Register 'msgbox' intrinsic (GUI message box)
+    lea rcx, [str_msgbox]
+    lea rdx, [intrinsic_msgbox]
+    call func_add
+    
     pop rbx
     ret
 
@@ -3039,6 +3081,37 @@ intrinsic_fclose:
 .fclose_skip:
     xor rax, rax
     add rsp, 32
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_msgbox(text, title)
+; Shows a Windows MessageBox. Returns: button clicked (1=OK)
+; -----------------------------------------------------------------------------
+intrinsic_msgbox:
+    push rbx
+    push rsi
+    push rdi
+    sub rsp, 48             ; Shadow space + alignment
+    
+    ; Stack: 48 (sub) + 24 (pushes) + 8 (ret) = 80 bytes above args
+    ; JIT pushes: text first, title second (on top)
+    ; [RSP + 80] = Arg2 (Title) - Last pushed
+    ; [RSP + 88] = Arg1 (Text) - First pushed
+    
+    ; MessageBoxA(hWnd, lpText, lpCaption, uType)
+    xor rcx, rcx            ; hWnd = NULL
+    mov rdx, [rsp + 88]     ; lpText (Arg1)
+    mov r8,  [rsp + 80]     ; lpCaption (Arg2 = Title)
+    xor r9, r9              ; uType = MB_OK (0)
+    
+    call [MessageBoxA]
+    
+    ; RAX = button result (1 = IDOK)
+    
+    add rsp, 48
+    pop rdi
+    pop rsi
     pop rbx
     ret
 

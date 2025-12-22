@@ -1,0 +1,25 @@
+// gui.syn - Phase 28: GUI MessageBox Test
+// Tests: USER32.DLL integration with MessageBoxA
+
+fn main() {
+    print(111) // GUI Test Start
+    
+    // Text: "Hello SYNAPSE!" = 72 101 108 108 111 32 83 89 78 65 80 83 69 33 0
+    // Let's use simpler: "Hello!" = 0x216F6C6C6548 (little-endian)
+    let text = alloc(2)
+    text[0] = 36762444616520  // "Hello!" as little-endian (H=72, e=101, l=108, l=108, o=111, !=33)
+    text[1] = 0
+    
+    // Title: "Info" = 0x6F666E49 = 1868983881 (I=73, n=110, f=102, o=111)
+    let title = alloc(2)
+    title[0] = 1868983881
+    title[1] = 0
+    
+    print(222) // About to show MessageBox
+    
+    let result = msgbox(text, title)
+    print(result) // Should print 1 (IDOK)
+    
+    print(333) // Test Complete
+    return 0
+}

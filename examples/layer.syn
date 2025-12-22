@@ -1,0 +1,104 @@
+// layer.syn - Dense Layer Forward Pass
+// Architecture: [3 Inputs] -> [2 Neurons]
+
+// --- MATH KERNEL ---
+
+fn dot(a, b, len) {
+    let sum = 0
+    let i = 0
+    while (i < len) {
+        let p = a[i] * b[i]
+        let sum = sum + p
+        let i = i + 1
+    }
+    return sum
+}
+
+fn relu(x) {
+    if (x < 0) {
+        return 0
+    }
+    return x
+}
+
+// --- LAYER LOGIC ---
+
+// layer_forward(inputs, weights_ptr_array, biases, output, n_in, n_out)
+// W - массив указателей на веса каждого нейрона
+fn layer_forward(inputs, W, B, out, n_in, n_out) {
+    let j = 0
+    while (j < n_out) {
+        // 1. Достаем веса для нейрона J
+        let w_row = W[j]
+        
+        // 2. Взвешенная сумма (Dot Product)
+        let z = dot(inputs, w_row, n_in)
+        
+        // 3. Add Bias
+        let b_val = B[j]
+        let z = z + b_val
+        
+        // 4. Activation & Store
+        let activated = relu(z)
+        out[j] = activated
+        
+        let j = j + 1
+    }
+    return 0
+}
+
+fn main() {
+    print(1111)
+    
+    // --- 1. SETUP DATA ---
+    let n_in = 3
+    let n_out = 2
+    
+    // Input Vector: [1, 2, 3]
+    let X = alloc(n_in)
+    X[0] = 1
+    X[1] = 2
+    X[2] = 3
+    
+    // Output Vector (Result buffer)
+    let Y = alloc(n_out)
+    
+    // Biases: [0, -10]
+    let B = alloc(n_out)
+    B[0] = 0
+    B[1] = 0 - 10
+    
+    // --- 2. SETUP WEIGHTS MATRIX (Array of Pointers) ---
+    let W_matrix = alloc(n_out)
+    
+    // Нейрон 0: Weights [1, 1, 1]
+    // Sum = 1*1 + 2*1 + 3*1 = 6, Z = 6 + 0 = 6, ReLU(6) = 6
+    let w0 = alloc(n_in)
+    w0[0] = 1
+    w0[1] = 1
+    w0[2] = 1
+    W_matrix[0] = w0
+    
+    // Нейрон 1: Weights [10, -10, 0]
+    // Sum = 1*10 + 2*(-10) + 3*0 = -10, Z = -10 + (-10) = -20, ReLU(-20) = 0
+    let w1 = alloc(n_in)
+    w1[0] = 10
+    w1[1] = 0 - 10
+    w1[2] = 0
+    W_matrix[1] = w1
+    
+    // --- 3. RUN LAYER ---
+    print(2222)
+    layer_forward(X, W_matrix, B, Y, n_in, n_out)
+    
+    // --- 4. CHECK RESULTS ---
+    print(3333)
+    
+    let r0 = Y[0]
+    print(r0)
+    
+    let r1 = Y[1]
+    print(r1)
+    
+    return 0
+}

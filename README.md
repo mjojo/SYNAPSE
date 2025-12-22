@@ -2,19 +2,19 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.5.0--memory-gold)
+![Version](https://img.shields.io/badge/version-2.6.0--vectors-gold)
 ![Size](https://img.shields.io/badge/binary-8kb-blue)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 
-# 🧠 SYNAPSE v2.5
+# 🧠 SYNAPSE v2.6
 
 **Unhackable AI on Bare Metal Assembly**
 
 *The World's First Self-Optimizing Blockchain AI Platform*
 
-**🏆 Memory Manager: Alloc & Pointers • Deep Network • Evolutionary JIT! 🏆**
+**🏆 Vector Operations • Memory Manager • Deep Network • JIT Compiler! 🏆**
 
 </div>
 
@@ -52,7 +52,7 @@ Unlike C++ or Rust, SYNAPSE doesn't use a standard heap.
 | **AVX2 Native** | Matrix ops and ReLU compiled to optimal machine code |
 | **MNIST Ready** | 784→128→10 neural network runs on protected memory |
 | **No Dependencies** | No Python, TensorFlow, or CUDA. Just CPU |
-| **Tiny Footprint** | Entire compiler + runtime = **~6 KB** |
+| **Tiny Footprint** | Entire compiler + runtime = **~8 KB** |
 
 ### ⚡ JIT Compiler
 
@@ -62,15 +62,16 @@ Unlike C++ or Rust, SYNAPSE doesn't use a standard heap.
 | **Auto-Ledger** | Compiler automatically generates blockchain calls |
 | **Intrinsics Bridge** | Script commands map to kernel functions |
 | **Control Flow** | if/else/while with JIT backpatching |
-| **Variables (v1.2)** | let x = 10, let y = x, i = i + 1 |
+| **Variables** | let x = 10, let y = x, i = i + 1 |
 | **Real Loops** | while (i < 5) with counter increments |
-| **Functions (v1.3)** | fn name() { return } + CALL/RET |
-| **Arrays (v1.4)** | ptr[0] = 42 + pointer arithmetic |
-| **Perceptron (v1.5)** | IMUL for input * weight calculations |
-| **Neural Network (v2.0)** | Full Dot Product: [2,3,4] * [10,20,30] = 200 |
-| **ReLU Activation (v2.1)** | relu(-50)=0, relu(50)=50 + SUB operation |
-| **Matrix Layer (v2.2)** | 2x2 Dense Layer: [50, 110] + Array Store |
+| **Functions** | fn name() { return } + CALL/RET |
+| **Arrays** | ptr[0] = 42 + pointer arithmetic |
+| **Neural Math** | IMUL for input * weight calculations |
+| **Dot Product** | Full Dot Product: [2,3,4] * [10,20,30] = 200 |
+| **ReLU Activation** | relu(-50)=0, relu(50)=50 + SUB operation |
+| **Matrix Layer** | 2x2 Dense Layer: [50, 110] + Array Store |
 | **Memory (v2.5)** | `alloc(size)` + Pointer passing between functions |
+| **Vectors (v2.6)** | `C = A + B` with full array operations |
 
 ---
 
@@ -235,9 +236,10 @@ SYNAPSE/
 | **11** | Neural Network | Dot Product = 200 |
 | **12** | ReLU Activation | relu(-50)=0, relu(50)=50 |
 | **13** | Matrix Layer | 2 neurons x 2 inputs = [50, 110] |
-| **19** | **Memory Manager** | **alloc(size) + Pointers** |
+| **19** | Memory Manager | alloc(size) + Pointers |
+| **20** | **Vector Operations** | **C = A + B array math!** |
 
-**19 major versions. Full Memory Management!**
+**20 major phases. Full Vector Operations!**
 
 ---
 
@@ -255,7 +257,7 @@ SYNAPSE/
 
 | Specification | Value |
 |---------------|-------|
-| **Language** | SYNAPSE v2.5 |
+| **Language** | SYNAPSE v2.6 |
 | **Engine** | MOVA v1.0 |
 | **Architecture** | x64 JIT Compiler |
 | **Control Flow** | if/else/while (Backpatching) |
@@ -263,6 +265,7 @@ SYNAPSE/
 | **Functions** | fn/return + CALL/RET |
 | **Arrays** | ptr[index] read/write |
 | **Memory** | Dynamic Alloc + Pointers |
+| **Vectors** | C = A + B array operations |
 | **Math** | IMUL for neural calculations |
 | **Neural** | Dot Product = 200 |
 | **Activation** | ReLU (max(0,x)) |
@@ -270,7 +273,7 @@ SYNAPSE/
 | **SIMD** | AVX2/FMA |
 | **Crypto** | SHA-256 (native) |
 | **Dependencies** | 0 (only kernel32.dll) |
-| **Binary Size** | ~6 KB |
+| **Binary Size** | ~8 KB |
 | **Memory Model** | Merkle Heap + Stack Frame |
 
 ---
@@ -284,15 +287,15 @@ MIT License
 ## 👥 Authors
 
 - **mjojo (Vitaly.G)** — Architecture, Assembly
-- **GLK-Dev** — AI Assistant, Documentation
+- **Claude (Anthropic)** — AI Assistant, Documentation
 
 ---
 
 <div align="center">
 
-# 🧠 SYNAPSE v2.5
+# 🧠 SYNAPSE v2.6
 
-**🏆 Memory Manager + Deep Learning Engine! 🏆**
+**🏆 Vector Operations + Memory Manager + Deep Learning! 🏆**
 
 *~8 KB of Pure x86-64 Assembly*
 

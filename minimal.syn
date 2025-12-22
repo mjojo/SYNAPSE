@@ -1,6 +1,0 @@
-// minimal.syn - Absolute minimal test
-
-fn main() {
-    print(123)
-    return 0
-}

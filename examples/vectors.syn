@@ -1,0 +1,51 @@
+// vectors.syn - Linear Algebra Kernel
+
+// 1. Vector Addition: out = a + b
+fn vec_add(a, b, out, len) {
+    let i = 0
+    while (i < len) {
+        out[i] = a[i] + b[i]
+        i = i + 1
+    }
+    return 0
+}
+
+// 2. Dot Product: sum = a * b
+fn dot(a, b, len) {
+    let sum = 0
+    let i = 0
+    while (i < len) {
+        let prod = a[i] * b[i]
+        sum = sum + prod
+        i = i + 1
+    }
+    return sum
+}
+
+fn main() {
+    print(111)
+    
+    let len = 3
+    let A = alloc(len)
+    let B = alloc(len)
+    let C = alloc(len)
+    
+    A[0] = 10
+    A[1] = 20
+    A[2] = 30
+    
+    B[0] = 1
+    B[1] = 2
+    B[2] = 3
+    
+    vec_add(A, B, C, len)
+    
+    print(C[0])
+    print(C[1])
+    print(C[2])
+    
+    let d = dot(A, B, len)
+    print(d)
+    
+    return 0
+}

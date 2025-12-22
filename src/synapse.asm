@@ -109,7 +109,7 @@ section '.data' data readable writeable
     dbg_print_enter db '[PRINT] Entering intrinsic_print',13,10,0
     dbg_print_addr  db '[PRINT] global_sym_find returned: ',0
     
-    default_file db 'arrays.syn',0
+    default_file db 'vectors_debug.syn',0
     
     ; Token types for internal use
     TOK_EOF     = 0
@@ -706,6 +706,85 @@ parse_block:
     je .is_func_call
     cmp qword [cur_tok_value], OP_LBRACKET
     je .is_array_assign
+    cmp qword [cur_tok_value], OP_ASSIGN
+    je .is_var_assign
+    jmp .stmt_loop
+
+.is_var_assign:
+    ; Handle: var = expr
+    ; func_call_name contains the variable name
+    ; Current token is '='
+    
+    ; Find variable - check local first
+    lea rcx, [func_call_name]
+    call sym_find
+    test rax, rax
+    jz .var_try_global_only
+    mov r13b, al            ; R13 = local offset (signed byte)
+    
+    ; Also find global address
+    lea rcx, [func_call_name]
+    call global_sym_find
+    mov r14, rax            ; R14 = global address (may be 0)
+    mov r15d, 1             ; R15 = 1 means we have local
+    jmp .var_compile_value
+    
+.var_try_global_only:
+    lea rcx, [func_call_name]
+    call global_sym_find
+    test rax, rax
+    jz .stmt_loop           ; Not found - skip
+    mov r14, rax            ; R14 = global address
+    xor r15d, r15d          ; R15 = 0 means global only
+    
+.var_compile_value:
+    ; Save R13/R14/R15 before compile_expr
+    push r13
+    push r14
+    push r15
+    
+    ; Compile right-hand side expression
+    call compile_expr
+    
+    ; Restore R13/R14/R15
+    pop r15
+    pop r14
+    pop r13
+    
+    ; RAX = value, generate store(s)
+    mov rdi, [jit_cursor]
+    
+    test r15d, r15d
+    jz .var_global_only
+    
+    ; We have local - write to local first
+    mov dword [rdi], 0x458948   ; MOV [RBP + disp8], RAX
+    mov [rdi+3], r13b
+    add rdi, 4
+    mov [jit_cursor], rdi
+    
+    ; Also write to global if we have it
+    test r14, r14
+    jz .stmt_loop
+    
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0xB948      ; MOV RCX, imm64
+    mov [rdi+2], r14
+    add rdi, 10
+    mov dword [rdi], 0x018948   ; MOV [RCX], RAX
+    add rdi, 3
+    mov [jit_cursor], rdi
+    jmp .stmt_loop
+    
+.var_global_only:
+    ; Global only - write to global
+    mov word [rdi], 0xB948      ; MOV RCX, imm64
+    mov [rdi+2], r14
+    add rdi, 10
+    mov dword [rdi], 0x018948   ; MOV [RCX], RAX
+    add rdi, 3
+    mov [jit_cursor], rdi
+    jmp .stmt_loop
     jmp .stmt_loop
 
 .is_array_assign:
@@ -1068,24 +1147,31 @@ compile_while:
     
     ; Handle LET
     cmp rax, KW_LET
-    jne .check_return
+    je .while_let
     
-    ; peek_token only looked at 'let' but didn't consume it
-    ; Call next_token to actually advance past 'let'
-    call next_token
-    ; Now compile_let's first next_token will read the identifier
+    ; Handle RETURN
+    cmp rax, KW_RETURN
+    je .while_return
+    
+    ; Handle IF (nested if inside while)
+    cmp rax, KW_IF
+    je .while_if
+    
+    jmp .skip_unknown
+
+.while_let:
+    call next_token         ; Consume 'let'
     call compile_let
     jmp .body_loop
 
-.check_return:
-    ; Handle RETURN
-    cmp rax, KW_RETURN
-    jne .skip_unknown
-    
-    ; Consume 'return' keyword
-    call next_token
-    ; compile_return will read the expression
+.while_return:
+    call next_token         ; Consume 'return'
     call compile_return
+    jmp .body_loop
+
+.while_if:
+    ; compile_if expects 'if' as current token from peek
+    call compile_if
     jmp .body_loop
 
 .while_func_call:
@@ -1107,12 +1193,169 @@ compile_while:
     jnz .copy_while_fname
 .copy_while_fdone:
     
-    ; Check for '('
+    ; Check for '(' or '=' or '['
     call next_token
     cmp dword [cur_tok_type], TOK_OP
     jne .body_loop
     cmp qword [cur_tok_value], OP_LPAREN
-    jne .body_loop
+    je .while_do_call
+    cmp qword [cur_tok_value], OP_ASSIGN
+    je .while_var_assign
+    cmp qword [cur_tok_value], OP_LBRACKET
+    je .while_array_assign
+    jmp .body_loop
+
+.while_var_assign:
+    ; Handle: var = expr inside while loop
+    ; func_call_name contains the variable name
+    ; Current token is '='
+    
+    ; Find variable - check local first
+    lea rcx, [func_call_name]
+    call sym_find
+    test rax, rax
+    jz .while_var_try_global
+    mov r15b, al            ; R15 = local offset (signed byte)
+    
+    ; Also find global address
+    push r15
+    lea rcx, [func_call_name]
+    call global_sym_find
+    mov r14, rax            ; R14 = global address (may be 0)
+    pop r15
+    
+    ; Compile right-hand side expression
+    push r14
+    push r15
+    call compile_expr
+    pop r15
+    pop r14
+    
+    ; Generate: MOV [RBP + offset], RAX (local copy)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0x458948      ; MOV [RBP + disp8], RAX
+    mov [rdi + 3], r15b
+    add rdi, 4
+    mov [jit_cursor], rdi
+    
+    ; Also write to global if we have it
+    test r14, r14
+    jz .body_loop
+    
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0xB948          ; MOV RCX, imm64
+    mov [rdi + 2], r14
+    add rdi, 10
+    mov dword [rdi], 0x018948       ; MOV [RCX], RAX
+    add rdi, 3
+    mov [jit_cursor], rdi
+    jmp .body_loop
+    
+.while_var_try_global:
+    lea rcx, [func_call_name]
+    call global_sym_find
+    test rax, rax
+    jz .body_loop           ; Not found - skip
+    mov r14, rax            ; R14 = global address
+    
+    ; Compile right-hand side expression
+    push r14
+    call compile_expr
+    pop r14
+    
+    ; Global only - write to global
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0xB948          ; MOV RCX, imm64
+    mov [rdi + 2], r14
+    add rdi, 10
+    mov dword [rdi], 0x018948       ; MOV [RCX], RAX
+    add rdi, 3
+    mov [jit_cursor], rdi
+    jmp .body_loop
+
+.while_array_assign:
+    ; Handle: ptr[index] = value inside while loop
+    ; func_call_name contains the variable name (ptr)
+    ; Current token is '['
+    
+    ; Get base pointer from local variable
+    lea rcx, [func_call_name]
+    call sym_find
+    test rax, rax
+    jz .body_loop           ; Variable not found
+    mov r15b, al            ; R15b = local offset
+    
+    ; Save R15 across compile_expr
+    push r15
+    
+    ; Compile index expression
+    call compile_expr       ; RAX = index
+    
+    ; Restore R15
+    pop r15
+    
+    ; --- SAFE TOKEN CONSUMPTION ---
+    ; We need to skip ']' and '='. 
+    ; Preserve RAX (index) across next_token calls
+    push rax
+    call next_token         ; Consume ']'
+    call next_token         ; Consume '='
+    pop rax
+    ; ------------------------------
+    
+    ; Generate: MOV RCX, RAX (Move index to RCX)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC18948       ; MOV RCX, RAX (48 89 C1)
+    add rdi, 3
+    mov [jit_cursor], rdi
+    
+    ; Generate: PUSH RCX (Save INDEX on stack)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x51            ; PUSH RCX
+    inc rdi
+    mov [jit_cursor], rdi
+    
+    ; Generate: MOV R8, [RBP + offset] (Load BASE POINTER to R8)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0x458B4C       ; MOV R8, [RBP + disp8]
+    mov [rdi + 3], r15b             ; Write offset byte
+    add rdi, 4
+    mov [jit_cursor], rdi
+    
+    ; Generate: PUSH R8 (Save BASE on stack)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x41
+    mov byte [rdi+1], 0x50          ; PUSH R8
+    add rdi, 2
+    mov [jit_cursor], rdi
+    
+    ; Compile value expression (RHS)
+    ; This will result in RAX = Value
+    call compile_expr
+    
+    ; Generate: POP R8 (Restore BASE)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x41
+    mov byte [rdi+1], 0x58          ; POP R8
+    add rdi, 2
+    mov [jit_cursor], rdi
+    
+    ; Generate: POP RCX (Restore INDEX)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59            ; POP RCX
+    inc rdi
+    mov [jit_cursor], rdi
+    
+    ; Generate: MOV [R8 + RCX*8], RAX (Write Value to Memory)
+    ; 49 89 04 C8 -> MOV [R8 + RCX*8], RAX
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC8048949
+    add rdi, 4
+    mov [jit_cursor], rdi
+    
+    jmp .body_loop
+
+.while_do_call:
     
     ; DON'T skip '(' - compile_expr will read first token!
     
@@ -1622,6 +1865,7 @@ compile_expr:
 
 ; =============================================================================
 ; compile_term - Compile single term (number or variable)
+; REWRITTEN: Uses peek_token instead of manual lexer manipulation
 ; =============================================================================
 compile_term:
     cmp dword [cur_tok_type], TOK_NUMBER
@@ -1647,10 +1891,6 @@ compile_term:
     ret
 
 .variable:
-    ; Check if this is a function call (next token is '(')
-    push qword [lex_pos]
-    push qword [lex_line]
-    
     ; Save current identifier name
     push rbx
     lea rsi, [tok_buffer]
@@ -1668,20 +1908,27 @@ compile_term:
 .copy_call_done:
     pop rbx
     
-    call next_token
+    ; --- NEW LOGIC: Use peek_token to check ahead ---
+    call peek_token
     
-    cmp dword [cur_tok_type], TOK_OP
+    ; Check if next token is '(' (Function Call) or '[' (Array)
+    cmp dword [peek_tok_type], TOK_OP
     jne .not_func_call
-    cmp qword [cur_tok_value], OP_LPAREN
+    
+    cmp qword [peek_tok_value], OP_LPAREN
     je .is_func_call
-    cmp qword [cur_tok_value], OP_LBRACKET
+    
+    cmp qword [peek_tok_value], OP_LBRACKET
     je .is_array_get
+    
     jmp .not_func_call
 
 .is_array_get:
+    ; Consume the IDENT (current) so we can proceed to '['
+    call next_token     ; Current becomes '['
+    
     ; This is array access: ptr[index]
     ; func_call_name has variable name, current token is '['
-    add rsp, 16             ; Discard saved lex state
     
     ; Find the base pointer variable
     lea rcx, [func_call_name]
@@ -1701,15 +1948,18 @@ compile_term:
     xor r14d, r14d          ; R14 = 0 means global
     
 .arr_get_parse_index:
-    ; Save R13/R14 before compile_expr (they may be clobbered)
+    ; Save R13/R14 before compile_expr
     push r13
     push r14
     
     ; Compile index expression (next_token will skip '[')
-    call compile_expr
+    call compile_expr       ; RAX = index value
     
-    ; Advance to get ']'
-    call next_token
+    ; --- SAFE TOKEN SKIP ---
+    push rax
+    call next_token     ; Skip ']'
+    pop rax
+    ; -----------------------
     
     ; Restore R13/R14
     pop r14
@@ -1718,16 +1968,8 @@ compile_term:
     ; RAX = index
     ; Generate: MOV RCX, RAX (save index)
     mov rdi, [jit_cursor]
-    mov dword [rdi], 0xC18948   ; MOV RCX, RAX (48 89 C1)
+    mov dword [rdi], 0xC18948   ; MOV RCX, RAX
     add qword [jit_cursor], 3
-    
-    ; Skip ']' - current token should be ']'
-    ; Don't call next_token here - let expr_loop's peek_token handle it
-    ; cmp dword [cur_tok_type], TOK_OP
-    ; jne .arr_get_gen
-    ; cmp qword [cur_tok_value], OP_RBRACKET
-    ; jne .arr_get_gen
-    ; call next_token   ; ← REMOVED! Let caller handle next token
     
 .arr_get_gen:
     ; Generate: Load base pointer into RDX
@@ -1753,7 +1995,7 @@ compile_term:
 .arr_get_load:
     ; Generate: MOV RAX, [RDX + RCX*8]
     mov rdi, [jit_cursor]
-    mov dword [rdi], 0xCA048B48 ; MOV RAX, [RDX + RCX*8] (48 8B 04 CA)
+    mov dword [rdi], 0xCA048B48 ; MOV RAX, [RDX + RCX*8]
     add qword [jit_cursor], 4
     ret
     
@@ -1766,11 +2008,8 @@ compile_term:
     ret
 
 .is_func_call:
-    ; This IS a function call! Discard saved lex state
-    add rsp, 16
-    
-    ; DON'T skip '(' - compile_expr will read first token!
-    ; Current token is '('
+    ; Consume the IDENT so we move to '('
+    call next_token     ; Current becomes '('
     
     ; Find the function
     lea rcx, [func_call_name]
@@ -1787,162 +2026,44 @@ compile_term:
     
 .parse_arg_loop:
     ; Parse argument expression
-    ; compile_expr will call next_token to skip '(' or ',' and read argument
-    push r15                    ; Save func address
-    push r14                    ; Save arg counter (compile_expr may clobber R14)
+    push r15
+    push r14
     call compile_expr
-    pop r14                     ; Restore arg counter
-    pop r15                     ; Restore func address
+    pop r14
+    pop r15
     
-    ; Generate: PUSH RAX (push argument onto stack)
+    ; Generate: PUSH RAX
     mov rdi, [jit_cursor]
-    mov byte [rdi], 0x50        ; PUSH RAX
+    mov byte [rdi], 0x50
     inc qword [jit_cursor]
     
-    inc r14d                    ; Count argument
+    inc r14d
     
-    ; Check for ',' (more arguments) or ')' (end)
+    ; Check for ',' or ')'
     cmp dword [cur_tok_type], TOK_OP
     jne .args_done
     cmp qword [cur_tok_value], OP_COMMA
     jne .check_rparen
-    ; Found ',' - skip it and parse next argument
-    call next_token             ; Consume ','
+    
+    ; Found ','
+    call next_token
     jmp .parse_arg_loop
     
 .check_rparen:
     cmp qword [cur_tok_value], OP_RPAREN
     je .args_done
-    jmp .parse_arg_loop         ; Try parsing more
+    jmp .parse_arg_loop
     
 .args_done:
-    ; Skip ')' if present
+    ; Skip ')'
     cmp dword [cur_tok_type], TOK_OP
     jne .skip_call_paren
     cmp qword [cur_tok_value], OP_RPAREN
     jne .skip_call_paren
-    call next_token             ; Consume ')'
+    call next_token
 .skip_call_paren:
     
-    ; =========================================================================
-    ; REVERSE STACK ARGUMENTS
-    ; Arguments were pushed left-to-right, but we need right-to-left order
-    ; so that first parameter is at lowest address (closest to RBP after CALL)
-    ; 
-    ; Before: [RSP] = argN, [RSP+8] = argN-1, ..., [RSP+(N-1)*8] = arg1
-    ; After:  [RSP] = arg1, [RSP+8] = arg2, ..., [RSP+(N-1)*8] = argN
-    ; =========================================================================
-    cmp r14d, 2
-    jl .no_reverse              ; 0 or 1 arg - no need to reverse
-    
-    ; Generate stack reversal code for N arguments
-    ; Algorithm: swap pairs from outside inward
-    ; For each i from 0 to N/2-1: swap [RSP+i*8] with [RSP+(N-1-i)*8]
-    
-    mov rdi, [jit_cursor]
-    
-    ; Simple approach: generate a reversal loop inline
-    ; R14 = number of args, generate code that reverses R14 elements on stack
-    
-    ; For 2 args: swap [RSP] and [RSP+8]
-    ; MOV RAX, [RSP]       ; 48 8B 04 24
-    ; MOV RCX, [RSP+8]     ; 48 8B 4C 24 08
-    ; MOV [RSP], RCX       ; 48 89 0C 24
-    ; MOV [RSP+8], RAX     ; 48 89 44 24 08
-    
-    cmp r14d, 2
-    jne .reverse_general
-    
-    ; Special case: 2 arguments - proper swap
-    mov dword [rdi], 0x24048B48     ; MOV RAX, [RSP]
-    add rdi, 4
-    mov byte [rdi], 0x48            ; MOV RCX, [RSP+8]
-    mov byte [rdi+1], 0x8B
-    mov byte [rdi+2], 0x4C
-    mov byte [rdi+3], 0x24
-    mov byte [rdi+4], 0x08
-    add rdi, 5
-    mov dword [rdi], 0x240C8948     ; MOV [RSP], RCX
-    add rdi, 4
-    mov byte [rdi], 0x48            ; MOV [RSP+8], RAX
-    mov byte [rdi+1], 0x89
-    mov byte [rdi+2], 0x44
-    mov byte [rdi+3], 0x24
-    mov byte [rdi+4], 0x08
-    add rdi, 5
-    mov [jit_cursor], rdi
-    jmp .no_reverse
-    
-.reverse_general:
-    ; For 3+ args, generate inline swap code
-    ; We'll swap: [0] <-> [N-1], [1] <-> [N-2], etc.
-    
-    push rbx
-    push r12
-    push r13
-    
-    mov r12d, r14d              ; R12 = N (arg count)
-    xor r13d, r13d              ; R13 = i (loop counter)
-    
-.gen_swap_loop:
-    ; Check if i >= N/2
-    mov eax, r12d
-    shr eax, 1                  ; N/2
-    cmp r13d, eax
-    jge .gen_swap_done
-    
-    ; Generate: swap [RSP + i*8] with [RSP + (N-1-i)*8]
-    ; Calculate offsets
-    mov eax, r13d
-    shl eax, 3                  ; low_offset = i * 8
-    mov ebx, r12d
-    dec ebx
-    sub ebx, r13d
-    shl ebx, 3                  ; high_offset = (N-1-i) * 8
-    
-    ; MOV RCX, [RSP + low_offset]
-    mov byte [rdi], 0x48
-    mov byte [rdi+1], 0x8B
-    mov byte [rdi+2], 0x4C
-    mov byte [rdi+3], 0x24
-    mov [rdi+4], al             ; low_offset
-    add rdi, 5
-    
-    ; MOV RAX, [RSP + high_offset]
-    mov byte [rdi], 0x48
-    mov byte [rdi+1], 0x8B
-    mov byte [rdi+2], 0x44
-    mov byte [rdi+3], 0x24
-    mov [rdi+4], bl             ; high_offset
-    add rdi, 5
-    
-    ; MOV [RSP + low_offset], RAX
-    mov byte [rdi], 0x48
-    mov byte [rdi+1], 0x89
-    mov byte [rdi+2], 0x44
-    mov byte [rdi+3], 0x24
-    mov [rdi+4], al             ; low_offset
-    add rdi, 5
-    
-    ; MOV [RSP + high_offset], RCX
-    mov byte [rdi], 0x48
-    mov byte [rdi+1], 0x89
-    mov byte [rdi+2], 0x4C
-    mov byte [rdi+3], 0x24
-    mov [rdi+4], bl             ; high_offset
-    add rdi, 5
-    
-    inc r13d
-    jmp .gen_swap_loop
-    
-.gen_swap_done:
-    mov [jit_cursor], rdi
-    pop r13
-    pop r12
-    pop rbx
-    
-.no_reverse:
-    ; Generate function call
+    ; Generate CALL
     mov rdi, [jit_cursor]
     
     ; MOV RAX, func_addr
@@ -1954,21 +2075,20 @@ compile_term:
     mov word [rdi], 0xD0FF
     add rdi, 2
     
-    ; ADD RSP, N*8 (cleanup all arguments from stack)
-    ; N = R14 (argument count)
+    ; ADD RSP, N*8
     mov eax, r14d
-    shl eax, 3                  ; * 8
+    shl eax, 3
+    
     mov byte [rdi], 0x48
-    mov byte [rdi+1], 0x83
+    mov byte [rdi+1], 0x81
     mov byte [rdi+2], 0xC4
-    mov [rdi+3], al             ; ADD RSP, imm8
-    add rdi, 4
+    mov [rdi+3], eax
+    add rdi, 7
     
     mov [jit_cursor], rdi
     ret
     
 .func_not_found:
-    ; Function not found - return 0
     mov rdi, [jit_cursor]
     mov word [rdi], 0xB848
     mov qword [rdi+2], 0
@@ -1976,12 +2096,13 @@ compile_term:
     ret
 
 .not_func_call:
-    ; Restore lex state - it's a variable
-    pop qword [lex_line]
-    pop qword [lex_pos]
+    ; It's a variable access
+    ; NOTE: We do NOT need to restore lex_pos because peek_token 
+    ; didn't consume anything permanently, and next_token hasn't been called.
+    ; cur_tok is still the IDENT.
     
     ; First try LOCAL symbol table
-    lea rcx, [tok_buffer]
+    lea rcx, [func_call_name]
     call sym_find
     
     test rax, rax
@@ -1995,8 +2116,7 @@ compile_term:
     ret
 
 .try_global:
-    ; Try GLOBAL symbol table
-    lea rcx, [tok_buffer]
+    lea rcx, [func_call_name]
     call global_sym_find
     
     test rax, rax
@@ -2005,27 +2125,25 @@ compile_term:
     ; Found in global - MOV RCX, addr; MOV RAX, [RCX]
     mov rbx, rax
     mov rdi, [jit_cursor]
-    mov word [rdi], 0xB948          ; MOV RCX, imm64
+    mov word [rdi], 0xB948
     mov [rdi + 2], rbx
     add rdi, 10
-    mov dword [rdi], 0x018B48       ; MOV RAX, [RCX] (48 8B 01)
+    mov dword [rdi], 0x018B48
     add rdi, 3
     mov [jit_cursor], rdi
     ret
 
 .var_not_found:
-    ; Variable not found locally or globally - auto-register in global
-    ; This handles forward references (e.g., function uses var before it's defined)
-    lea rcx, [tok_buffer]
+    ; Auto-register global
+    lea rcx, [func_call_name]
     call global_sym_add
     
-    ; Now read from the allocated global address
     mov rbx, rax
     mov rdi, [jit_cursor]
-    mov word [rdi], 0xB948          ; MOV RCX, imm64
+    mov word [rdi], 0xB948
     mov [rdi + 2], rbx
     add rdi, 10
-    mov dword [rdi], 0x018B48       ; MOV RAX, [RCX] (48 8B 01)
+    mov dword [rdi], 0x018B48
     add rdi, 3
     mov [jit_cursor], rdi
     ret
@@ -2280,6 +2398,7 @@ next_token:
 ; =============================================================================
 peek_token:
     push rax
+    push rbx
     
     ; Save lexer position
     mov rax, [lex_pos]
@@ -2290,18 +2409,19 @@ peek_token:
     ; Read next token (modifies cur_tok_type/value)
     call next_token
     
-    ; Copy to peek_tok_* as well
+    ; Copy to peek_tok_*
     mov eax, [cur_tok_type]
     mov [peek_tok_type], eax
     mov rax, [cur_tok_value]
     mov [peek_tok_value], rax
     
-    ; Restore lexer position only (cur_tok_* keeps peeked value)
+    ; Restore lexer position
     pop rax
     mov [lex_line], eax
     pop rax
     mov [lex_pos], rax
     
+    pop rbx
     pop rax
     ret
 

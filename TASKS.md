@@ -1,8 +1,8 @@
 # SYNAPSE Development Tasks
 
-## 🏆 Current Status: v2.5.0 (Phase 19 Complete)
+## 🏆 Current Status: v2.6.0 (Phase 20 Complete)
 
-**Achievement:** Memory Manager (Alloc & Pointers) + Deep Network!
+**Achievement:** Vector Operations + Memory Manager + Deep Network!
 
 ---
 
@@ -101,16 +101,23 @@
 - [x] Tests: `arrays.syn`
 - [x] **100 + 101 + 102 = 303**
 
+### Phase 20: Vector Operations ✅
+- [x] `vec_add(a, b, out, len)` - full vector addition
+- [x] Array read in while: `let val = arr[i]`
+- [x] Array write in while: `out[i] = sum`
+- [x] Fixed MOV RCX, RAX opcode bug (0xC88948 → 0xC18948)
+- [x] Tests: `vectors_debug.syn`
+- [x] **[10,20,30] + [1,2,3] = [11,22,33]**
+
 ---
 
-##  FUTURE PHASES
+## 🔮 FUTURE PHASES
 
-### Phase 20: Vector Operations (v2.6)
-- [ ] `vec_add(a, b, out, len)`
-- [ ] `dot_product(a, b, len)`
-- [ ] Neural Network Training preparation
+### Phase 21: Dot Product (v2.7)
+- [ ] `dot_product(a, b, len)` returning scalar
+- [ ] Neural Network forward pass
 
-### Phase 14: Training (v3.0)
+### Phase 22: Training (v3.0)
 - [ ] Gradient calculation
 - [ ] Backpropagation
 - [ ] Weight updates

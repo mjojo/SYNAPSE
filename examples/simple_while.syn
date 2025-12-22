@@ -1,0 +1,51 @@
+fn add_arrays(a, b, out, len) {
+    print(2001)
+    
+    let i = 0
+    while (i < len) {
+        print(8001)
+        print(i)
+        let valA = a[i]
+        print(valA)
+        let valB = b[i]
+        print(valB)
+        let sum = valA + valB
+        print(sum)
+        print(8002)
+        out[i] = sum
+        print(8003)
+        let i = i + 1
+    }
+    print(2002)
+    return 0
+}
+
+fn main() {
+    print(1001)
+    
+    let len = 3
+    let A = alloc(len)
+    A[0] = 10
+    A[1] = 20
+    A[2] = 30
+    
+    let B = alloc(len)
+    B[0] = 1
+    B[1] = 2
+    B[2] = 3
+    
+    let C = alloc(len)
+    
+    add_arrays(A, B, C, len)
+    
+    print(444)
+    let r0 = C[0]
+    print(r0)
+    let r1 = C[1]
+    print(r1)
+    let r2 = C[2]
+    print(r2)
+    
+    print(1002)
+    return 0
+}

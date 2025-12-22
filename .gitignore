@@ -2,7 +2,18 @@
 *.exe
 *.obj
 *.o
+
+# Temporary files
+*.log
+error.txt
+output.txt
+debug.txt
+out.txt
+errors.txt
+
+# Neural network data (large files)
 *.bin
+data/
 
 # Backup files
 *.bak

@@ -2,6 +2,31 @@
 
 ---
 
+## [2.6.0] - 2025-12-22
+
+### 🚀 VECTOR OPERATIONS RELEASE!
+
+**SYNAPSE v2.6** introduces full Vector Operations support!
+
+### Added - Phase 20: Vector Operations
+- **Vector Addition**: `C = A + B` works with arrays in loops
+- **Array Read in While**: `let val = arr[i]` inside loops
+- **Array Write in While**: `out[i] = value` inside loops  
+- **Multi-parameter Functions**: Up to 4+ array parameters
+- **Complex Expressions**: `a[i] + b[i]` evaluated correctly
+
+### Fixed
+- **Critical Bug**: Fixed `MOV RCX, RAX` opcode in `.while_array_assign`
+  - Was: `0xC88948` (MOV RAX, RCX) - WRONG!
+  - Now: `0xC18948` (MOV RCX, RAX) - CORRECT!
+
+### Technical Achievements
+- Vector sum: `[10,20,30] + [1,2,3] = [11,22,33]` ✅
+- Full while loop with array read/write ✅
+- 4-parameter function calls with pointers ✅
+
+---
+
 ## [2.5.0] - 2025-12-21
 
 ### 🧠 MEMORY MANAGER RELEASE!

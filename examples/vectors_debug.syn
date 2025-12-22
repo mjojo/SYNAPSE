@@ -1,0 +1,64 @@
+// vectors_debug.syn - Debugging memory
+
+fn vec_add(a, b, out, len) {
+    print(1001)
+    print(a)
+    print(b)
+    print(out)
+    print(len)
+    
+    let i = 0
+    while (i < len) {
+        print(i)
+        
+        let valA = a[i]
+        print(valA)
+        let valB = b[i]
+        print(valB)
+        let sum = valA + valB
+        print(sum)
+        
+        out[i] = sum
+        
+        let i = i + 1
+    }
+    print(1002)
+    return 0
+}
+
+fn main() {
+    print(111)
+    
+    let len = 3
+    
+    print(222)
+    let A = alloc(len)
+    print(A)
+    
+    let B = alloc(len)
+    print(B)
+    
+    let C = alloc(len)
+    print(C)
+    
+    A[0] = 10
+    A[1] = 20
+    A[2] = 30
+    
+    B[0] = 1
+    B[1] = 2
+    B[2] = 3
+    
+    print(333)
+    vec_add(A, B, C, len)
+    
+    print(444)
+    let r0 = C[0]
+    print(r0)
+    let r1 = C[1]
+    print(r1)
+    let r2 = C[2]
+    print(r2)
+    
+    return 0
+}

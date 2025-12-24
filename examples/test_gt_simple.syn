@@ -1,0 +1,14 @@
+// Test > operator simple
+
+fn main() {
+    print(111)
+    
+    let x = 5
+    let y = 0
+    
+    let result = x > y
+    print(result)
+    
+    print(999)
+    return 0
+}

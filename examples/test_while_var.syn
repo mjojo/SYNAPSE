@@ -1,0 +1,15 @@
+// While with simple variable
+
+fn main() {
+    print(111)
+    
+    let sp = 3
+    
+    while sp {
+        print(sp)
+        sp = sp - 1
+    }
+    
+    print(999)
+    return 0
+}

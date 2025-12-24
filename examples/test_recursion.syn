@@ -1,0 +1,17 @@
+// Test simple recursion
+
+fn countdown(n) {
+    if n == 0 {
+        return 0
+    }
+    print(n)
+    countdown(n - 1)
+    return 0
+}
+
+fn main() {
+    print(111)
+    countdown(5)
+    print(999)
+    return 0
+}

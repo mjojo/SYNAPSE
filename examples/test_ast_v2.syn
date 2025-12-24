@@ -1,0 +1,85 @@
+// ============================================================
+// SYNAPSE SELF-HOSTED AST - WORKING VERSION
+// Phase 30: Ouroboros Protocol
+// ============================================================
+
+fn make_node(type, val) {
+    let node = alloc(4)
+    node[0] = type
+    node[1] = val
+    node[2] = 0
+    node[3] = 0
+    return node
+}
+
+fn main() {
+    print(888888)
+    
+    // === BUILD AST ===
+    // Target code: fn main() { let x = 42; let y = 100 }
+    // Node types: FN=2, BLOCK=3, LET=4, NUM=5
+    
+    let fn_node = make_node(2, 109)
+    let block = make_node(3, 0)
+    let let_x = make_node(4, 120)
+    let num_42 = make_node(5, 42)
+    let let_y = make_node(4, 121)
+    let num_100 = make_node(5, 100)
+    
+    // Link tree structure
+    fn_node[2] = block
+    block[2] = let_x
+    let_x[2] = num_42
+    let_x[3] = let_y
+    let_y[2] = num_100
+    
+    print(111111)
+    
+    // === ITERATIVE DFS WALKER ===
+    // Using explicit stack (two arrays: nodes + depths)
+    
+    let stack_n = alloc(64)
+    let stack_d = alloc(64)
+    let sp = 0
+    
+    // Push root
+    stack_n[0] = fn_node
+    stack_d[0] = 0
+    sp = 1
+    
+    print(222222)
+    
+    while (sp > 0) {
+        // Pop
+        sp = sp - 1
+        let node = stack_n[sp]
+        let depth = stack_d[sp]
+        
+        // Print node
+        let indent = depth * 1000
+        let t = node[0]
+        let v = node[1]
+        print(indent)
+        print(t)
+        print(v)
+        
+        // Push sibling first (LIFO means child processed first)
+        let sib = node[3]
+        if (sib > 0) {
+            stack_n[sp] = sib
+            stack_d[sp] = depth
+            sp = sp + 1
+        }
+        
+        // Push child
+        let child = node[2]
+        if (child > 0) {
+            stack_n[sp] = child
+            stack_d[sp] = depth + 1
+            sp = sp + 1
+        }
+    }
+    
+    print(666666)
+    return 0
+}

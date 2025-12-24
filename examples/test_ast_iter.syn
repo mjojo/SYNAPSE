@@ -1,0 +1,118 @@
+// ============================================================
+// SYNAPSE SELF-HOSTED AST ENGINE - ITERATIVE WALKER
+// ============================================================
+
+// --- CORE FUNCTIONS ---
+
+// Создать новый узел (4 qwords: type, val, child, sibling)
+fn safe_new(type, val) {
+    let node = alloc(4)
+    node[0] = type
+    node[1] = val
+    node[2] = 0
+    node[3] = 0
+    return node
+}
+
+// Прикрепить ребенка
+fn ast_child(parent, child) {
+    parent[2] = child
+    return 0
+}
+
+// Прикрепить соседа
+fn ast_sibling(node, next) {
+    node[3] = next
+    return 0
+}
+
+// --- ITERATIVE WALKER (no recursion) ---
+// Используем явный стек для обхода дерева
+
+fn walk_tree(root) {
+    // Stack для DFS: хранит (node, depth) пары
+    // Используем два массива: один для узлов, один для глубин
+    let stack_nodes = alloc(256)
+    let stack_depth = alloc(256)
+    let sp = 0
+    
+    // Push root
+    stack_nodes[sp] = root
+    stack_depth[sp] = 0
+    sp = sp + 1
+    
+    while sp > 0 {
+        // Pop
+        sp = sp - 1
+        let node = stack_nodes[sp]
+        let depth = stack_depth[sp]
+        
+        // Print current node
+        let indent = depth * 1000
+        let t = node[0]
+        let v = node[1]
+        
+        print(indent)
+        print(t)
+        print(v)
+        
+        // Push sibling first (so child is processed first - LIFO)
+        let sib = node[3]
+        if sib != 0 {
+            stack_nodes[sp] = sib
+            stack_depth[sp] = depth
+            sp = sp + 1
+        }
+        
+        // Push child
+        let child = node[2]
+        if child != 0 {
+            stack_nodes[sp] = child
+            stack_depth[sp] = depth + 1
+            sp = sp + 1
+        }
+    }
+    
+    return 0
+}
+
+fn main() {
+    print(888888)
+    
+    // Строим AST для:
+    // fn main() { let x = 42; let y = 100 }
+    
+    // NODE_FN=2, NODE_BLOCK=3, NODE_LET=4, NODE_NUM=5
+    
+    // 1. FN node (type=2, val='m'=109)
+    let fn_node = safe_new(2, 109)
+    
+    // 2. BLOCK node (type=3)
+    let block = safe_new(3, 0)
+    ast_child(fn_node, block)
+    
+    // 3. LET x (type=4, val='x'=120)
+    let let_x = safe_new(4, 120)
+    ast_child(block, let_x)
+    
+    // 4. NUM 42 (type=5, val=42)
+    let num_42 = safe_new(5, 42)
+    ast_child(let_x, num_42)
+    
+    // 5. LET y (type=4, val='y'=121) - sibling of let_x
+    let let_y = safe_new(4, 121)
+    ast_sibling(let_x, let_y)
+    
+    // 6. NUM 100 (type=5, val=100)
+    let num_100 = safe_new(5, 100)
+    ast_child(let_y, num_100)
+    
+    print(777777)
+    
+    // Walk the tree iteratively
+    walk_tree(fn_node)
+    
+    print(666666)
+    
+    return 0
+}

@@ -1,0 +1,42 @@
+// Minimal AST test - no loops, no recursion
+
+fn make_node(type, val) {
+    let node = alloc(4)
+    node[0] = type
+    node[1] = val
+    node[2] = 0
+    node[3] = 0
+    return node
+}
+
+fn main() {
+    print(111)
+    
+    // Create FN node
+    let n1 = make_node(2, 109)
+    print(222)
+    
+    // Create BLOCK node
+    let n2 = make_node(3, 0)
+    print(333)
+    
+    // Link: n1.child = n2
+    n1[2] = n2
+    print(444)
+    
+    // Read back
+    let t1 = n1[0]
+    let v1 = n1[1]
+    print(t1)
+    print(v1)
+    
+    // Get child and read
+    let child = n1[2]
+    let t2 = child[0]
+    let v2 = child[1]
+    print(t2)
+    print(v2)
+    
+    print(999)
+    return 0
+}

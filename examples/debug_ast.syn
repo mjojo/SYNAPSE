@@ -1,0 +1,128 @@
+// ============================================================
+// SYNAPSE SELF-HOSTED AST ENGINE (Phase 30)
+// ============================================================
+
+// --- 1. CONSTANTS (Типы узлов) ---
+let NODE_PROG  = 1
+let NODE_FN    = 2
+let NODE_BLOCK = 3
+let NODE_LET   = 4
+let NODE_NUM   = 5
+let NODE_CALL  = 6
+let NODE_RET   = 7
+
+// --- 3. CORE FUNCTIONS ---
+
+// Создать новый узел (безопасный режим - alloc для каждого)
+// Возвращает УКАЗАТЕЛЬ на узел
+fn safe_new(type, val) {
+    let node = alloc(4)
+    node[0] = type
+    node[1] = val
+    node[2] = 0
+    node[3] = 0
+    return node
+}
+
+// Прикрепить ребенка (вглубь)
+fn ast_child(parent, child) {
+    parent[2] = child
+    return 0
+}
+
+// Прикрепить соседа (вправо)
+fn ast_sibling(node, next) {
+    node[3] = next
+    return 0
+}
+
+// --- 4. VISUALIZER (Walker) ---
+
+fn walk(node, depth) {
+    if node == 0 { return 0 }
+    
+    // Печатаем отступ (эмуляция: глубина * 1111)
+    let indent = depth * 1111
+    print(indent)
+    
+    let type = node[0]
+    let val = node[1]
+    
+    // Вывод: TYPE, VALUE
+    print(type) 
+    print(val)
+    
+    // Рекурсия: Сначала ребенок (глубина + 1)
+    let child = node[2]
+    if child != 0 {
+        walk(child, depth + 1)
+    }
+    
+    // Рекурсия: Потом сосед (та же глубина)
+    let sibling = node[3]
+    if sibling != 0 {
+        walk(sibling, depth)
+    }
+    
+    return 0
+}
+
+// --- 5. MAIN (Manual Parser Test) ---
+
+fn main() {
+    prints("=== SELF-HOSTED AST (Phase 30) ===")
+    prints("Building tree for:")
+    prints("fn main() { let x = 42; let y = 100 }")
+    prints("")
+    
+    // Строим дерево вручную:
+    // fn main() {
+    //    let x = 42
+    //    let y = 100
+    // }
+    
+    // 1. Узел FN "main" (val = 109 = 'm')
+    let root = safe_new(2, 109)
+    
+    // 2. Узел BLOCK
+    let blk = safe_new(3, 0)
+    ast_child(root, blk)
+    
+    // 3. Узел LET "x" (val = 120 = 'x')
+    let let_x = safe_new(4, 120)
+    ast_child(blk, let_x)
+    
+    // 4. Узел NUM 42 (child of LET x)
+    let num_42 = safe_new(5, 42)
+    ast_child(let_x, num_42)
+    
+    // 5. Узел LET "y" (val = 121 = 'y') -> SIBLING of LET x
+    let let_y = safe_new(4, 121)
+    ast_sibling(let_x, let_y)
+    
+    // 6. Узел NUM 100 (child of LET y)
+    let num_100 = safe_new(5, 100)
+    ast_child(let_y, num_100)
+    
+    // --- ЗАПУСК ОБХОДА ---
+    prints("")
+    prints("--- AST WALK ---")
+    prints("Format: INDENT | TYPE | VALUE")
+    prints("Types: 2=FN, 3=BLOCK, 4=LET, 5=NUM")
+    prints("")
+    
+    walk(root, 0)
+    
+    prints("")
+    prints("--- EXPECTED TREE ---")
+    prints("FN(m=109)")
+    prints("  BLOCK")
+    prints("    LET(x=120)")
+    prints("      NUM(42)")
+    prints("    LET(y=121)")
+    prints("      NUM(100)")
+    prints("")
+    prints("=== DONE ===")
+    
+    return 0
+}

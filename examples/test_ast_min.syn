@@ -1,0 +1,52 @@
+// ============================================================
+// SYNAPSE SELF-HOSTED AST ENGINE - MINIMAL TEST
+// ============================================================
+
+// Создать новый узел
+fn safe_new(type, val) {
+    let node = alloc(4)
+    node[0] = type
+    node[1] = val
+    node[2] = 0
+    node[3] = 0
+    return node
+}
+
+// Прикрепить ребенка
+fn ast_child(parent, child) {
+    parent[2] = child
+    return 0
+}
+
+// Печать одного узла
+fn print_node(node) {
+    let t = node[0]
+    let v = node[1]
+    print(t)
+    print(v)
+    return 0
+}
+
+fn main() {
+    prints("=== AST MINIMAL TEST ===")
+    
+    // Создаём два узла
+    let n1 = safe_new(2, 109)
+    let n2 = safe_new(5, 42)
+    
+    // Связываем
+    ast_child(n1, n2)
+    
+    prints("Node 1 (FN):")
+    print_node(n1)
+    
+    prints("Node 2 (NUM):")
+    print_node(n2)
+    
+    prints("Child of N1:")
+    let c = n1[2]
+    print_node(c)
+    
+    prints("=== DONE ===")
+    return 0
+}

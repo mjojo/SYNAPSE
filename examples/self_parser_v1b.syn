@@ -1,0 +1,201 @@
+// ============================================================
+// SYNAPSE SELF-HOSTED PARSER V1 (Phase 31) - Simplified
+// ============================================================
+
+// --- GLOBAL TOKEN BUFFER ---
+let g_types = alloc(100)
+let g_vals  = alloc(100)
+let g_cursor = 0
+
+// --- AST ENGINE ---
+
+fn ast_new(type, val) {
+    let node = alloc(4)
+    node[0] = type
+    node[1] = val
+    node[2] = 0
+    node[3] = 0
+    return node
+}
+
+// --- PARSER HELPERS ---
+
+fn get_type() {
+    let c = g_cursor
+    let t = g_types[c]
+    return t
+}
+
+fn get_val() {
+    let c = g_cursor
+    let v = g_vals[c]
+    return v
+}
+
+fn advance() {
+    g_cursor = g_cursor + 1
+    return 0
+}
+
+// --- PARSER ---
+
+fn parse_num() {
+    let v = get_val()
+    advance()
+    let n = ast_new(5, v)
+    return n
+}
+
+fn parse_let() {
+    // eat 'let'
+    advance()
+    
+    // get name
+    let name = get_val()
+    advance()
+    
+    // eat '='
+    advance()
+    
+    // parse number
+    let expr = parse_num()
+    
+    // create LET node
+    let node = ast_new(4, name)
+    node[2] = expr
+    
+    return node
+}
+
+fn parse_block() {
+    // eat '{'
+    advance()
+    
+    let block = ast_new(3, 0)
+    
+    // parse one statement
+    let stmt = parse_let()
+    block[2] = stmt
+    
+    // eat '}'
+    advance()
+    
+    return block
+}
+
+fn parse_fn() {
+    // eat 'fn'
+    advance()
+    
+    // get name
+    let name = get_val()
+    advance()
+    
+    // parse block
+    let body = parse_block()
+    
+    // create FN node
+    let fn_node = ast_new(2, name)
+    fn_node[2] = body
+    
+    return fn_node
+}
+
+// --- WALKER ---
+
+fn walk_tree(root) {
+    let stack_n = alloc(64)
+    let stack_d = alloc(64)
+    let sp = 0
+    
+    stack_n[0] = root
+    stack_d[0] = 0
+    sp = 1
+    
+    while (sp > 0) {
+        sp = sp - 1
+        let node = stack_n[sp]
+        let depth = stack_d[sp]
+        
+        let indent = depth * 1111
+        let t = node[0]
+        let v = node[1]
+        print(indent)
+        print(t)
+        print(v)
+        
+        let sib = node[3]
+        if (sib > 0) {
+            stack_n[sp] = sib
+            stack_d[sp] = depth
+            sp = sp + 1
+        }
+        
+        let child = node[2]
+        if (child > 0) {
+            stack_n[sp] = child
+            stack_d[sp] = depth + 1
+            sp = sp + 1
+        }
+    }
+    
+    return 0
+}
+
+// --- MAIN ---
+
+fn main() {
+    print(100000)
+    
+    // Fill token buffer for: fn main { let x = 55 }
+    // TOK_FN=1, TOK_ID=2, TOK_NUM=3, TOK_LBRACE=4, TOK_RBRACE=5, TOK_LET=6, TOK_EQ=7
+    
+    let types = g_types
+    let vals = g_vals
+    
+    // fn
+    types[0] = 1
+    vals[0] = 0
+    
+    // main
+    types[1] = 2
+    vals[1] = 109
+    
+    // {
+    types[2] = 4
+    vals[2] = 0
+    
+    // let
+    types[3] = 6
+    vals[3] = 0
+    
+    // x
+    types[4] = 2
+    vals[4] = 120
+    
+    // =
+    types[5] = 7
+    vals[5] = 0
+    
+    // 55
+    types[6] = 3
+    vals[6] = 55
+    
+    // }
+    types[7] = 5
+    vals[7] = 0
+    
+    print(111111)
+    
+    // Parse
+    let root = parse_fn()
+    
+    print(222222)
+    
+    // Walk
+    walk_tree(root)
+    
+    print(333333)
+    
+    return 0
+}

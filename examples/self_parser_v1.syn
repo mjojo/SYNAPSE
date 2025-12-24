@@ -1,0 +1,239 @@
+// ============================================================
+// SYNAPSE SELF-HOSTED PARSER V1 (Phase 31)
+// The Synthetic Brain - First Parser in SYNAPSE
+// ============================================================
+
+// --- 1. CONSTANTS ---
+// AST Node Types
+let NODE_PROG  = 1
+let NODE_FN    = 2
+let NODE_BLOCK = 3
+let NODE_LET   = 4
+let NODE_NUM   = 5
+
+// Token Types (matching lexer)
+let TOK_EOF    = 0
+let TOK_FN     = 1
+let TOK_ID     = 2
+let TOK_NUM    = 3
+let TOK_LBRACE = 4
+let TOK_RBRACE = 5
+let TOK_LET    = 6
+let TOK_EQ     = 7
+
+// --- 2. GLOBAL MEMORY ---
+
+// Token Buffer (lexer output simulation)
+let g_types = alloc(100)
+let g_vals  = alloc(100)
+let g_cursor = 0
+
+// --- 3. AST ENGINE ---
+
+fn ast_new(type, val) {
+    let node = alloc(4)
+    node[0] = type
+    node[1] = val
+    node[2] = 0
+    node[3] = 0
+    return node
+}
+
+fn ast_child(parent, child) {
+    parent[2] = child
+    return 0
+}
+
+fn ast_sibling(node, next) {
+    node[3] = next
+    return 0
+}
+
+// --- 4. PARSER LOGIC ---
+
+// Get current token type
+fn peek() {
+    let idx = g_cursor
+    let t = g_types[idx]
+    return t
+}
+
+// Get current token value
+fn peek_val() {
+    let idx = g_cursor
+    let v = g_vals[idx]
+    return v
+}
+
+// Consume token and advance
+fn eat(expected) {
+    let cur = peek()
+    if (cur == expected) {
+        g_cursor = g_cursor + 1
+        return 1
+    }
+    // Syntax error
+    print(999999)
+    print(expected)
+    print(cur)
+    return 0
+}
+
+// Parse expression (V1: numbers only)
+fn parse_expr() {
+    let val = peek_val()
+    eat(3)  // TOK_NUM = 3
+    let node = ast_new(5, val)  // NODE_NUM = 5
+    return node
+}
+
+// Parse let statement: "let x = 55"
+fn parse_let() {
+    eat(6)  // TOK_LET = 6
+    
+    let name = peek_val()
+    eat(2)  // TOK_ID = 2
+    
+    eat(7)  // TOK_EQ = 7
+    
+    let expr = parse_expr()
+    
+    let node = ast_new(4, name)  // NODE_LET = 4
+    ast_child(node, expr)
+    
+    return node
+}
+
+// Parse statement
+fn parse_stmt() {
+    let t = peek()
+    // For V1: only LET supported
+    let stmt = parse_let()
+    return stmt
+}
+
+// Parse block: "{ stmt }"
+fn parse_block() {
+    eat(4)  // TOK_LBRACE = 4
+    
+    let block_node = ast_new(3, 0)  // NODE_BLOCK = 3
+    
+    let first_stmt = parse_stmt()
+    ast_child(block_node, first_stmt)
+    
+    eat(5)  // TOK_RBRACE = 5
+    return block_node
+}
+
+// Parse function: "fn name { body }"
+fn parse_fn() {
+    eat(1)  // TOK_FN = 1
+    
+    let name = peek_val()
+    eat(2)  // TOK_ID = 2
+    
+    let body = parse_block()
+    
+    let func_node = ast_new(2, name)  // NODE_FN = 2
+    ast_child(func_node, body)
+    
+    return func_node
+}
+
+// --- 5. ITERATIVE AST WALKER ---
+
+fn walk_tree(root) {
+    let stack_n = alloc(64)
+    let stack_d = alloc(64)
+    let sp = 0
+    
+    stack_n[0] = root
+    stack_d[0] = 0
+    sp = 1
+    
+    while (sp > 0) {
+        sp = sp - 1
+        let node = stack_n[sp]
+        let depth = stack_d[sp]
+        
+        let indent = depth * 1111
+        let t = node[0]
+        let v = node[1]
+        print(indent)
+        print(t)
+        print(v)
+        
+        // Push sibling first (LIFO)
+        let sib = node[3]
+        if (sib > 0) {
+            stack_n[sp] = sib
+            stack_d[sp] = depth
+            sp = sp + 1
+        }
+        
+        // Push child
+        let child = node[2]
+        if (child > 0) {
+            stack_n[sp] = child
+            stack_d[sp] = depth + 1
+            sp = sp + 1
+        }
+    }
+    
+    return 0
+}
+
+// --- 6. MAIN ---
+
+fn main() {
+    print(100000)
+    
+    // === LEXER SIMULATION ===
+    // Code: fn main { let x = 55 }
+    
+    // Token 0: fn (TOK_FN=1)
+    g_types[0] = 1
+    g_vals[0]  = 0
+    
+    // Token 1: main (TOK_ID=2, val=109='m')
+    g_types[1] = 2
+    g_vals[1]  = 109
+    
+    // Token 2: { (TOK_LBRACE=4)
+    g_types[2] = 4
+    g_vals[2]  = 0
+    
+    // Token 3: let (TOK_LET=6)
+    g_types[3] = 6
+    g_vals[3]  = 0
+    
+    // Token 4: x (TOK_ID=2, val=120='x')
+    g_types[4] = 2
+    g_vals[4]  = 120
+    
+    // Token 5: = (TOK_EQ=7)
+    g_types[5] = 7
+    g_vals[5]  = 0
+    
+    // Token 6: 55 (TOK_NUM=3)
+    g_types[6] = 3
+    g_vals[6]  = 55
+    
+    // Token 7: } (TOK_RBRACE=5)
+    g_types[7] = 5
+    g_vals[7]  = 0
+    
+    print(111111)
+    
+    // === RUN PARSER ===
+    let root = parse_fn()
+    
+    print(222222)
+    
+    // === VISUALIZE AST ===
+    walk_tree(root)
+    
+    print(333333)
+    
+    return 0
+}

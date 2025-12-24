@@ -1,0 +1,382 @@
+// self_parser_v4.syn - Phase 31: AST Construction
+// Builds a hierarchical Abstract Syntax Tree from tokens.
+
+// --- GLOBAL MEMORY ---
+let g_types = 0
+let g_vals = 0
+let g_count = 0
+
+let g_ast = 0
+let g_ast_idx = 0
+
+// --- AST NODE TYPES ---
+let NODE_PROG = 1
+let NODE_FN = 2
+let NODE_BLOCK = 3
+let NODE_LET = 4
+let NODE_NUM = 5
+let NODE_RET = 7
+
+// --- TOKEN TYPES (must match lexer) ---
+let TOK_FN = 10
+let TOK_IDENT = 20
+let TOK_NUM = 30
+let TOK_OP = 40
+let TOK_LET = 11
+let TOK_RETURN = 12
+
+// --- PARSER STATE ---
+let p_pos = 0
+
+// ============================================================
+// HELPER: Create new AST Node
+// Returns index in g_ast
+// ============================================================
+fn ast_new(ntype, val) {
+    let idx = 0
+    idx = g_ast_idx
+    
+    g_ast[idx] = ntype
+    g_ast[idx + 1] = val
+    g_ast[idx + 2] = 0
+    g_ast[idx + 3] = 0
+    
+    g_ast_idx = g_ast_idx + 4
+    return idx
+}
+
+// ============================================================
+// PARSER FUNCTIONS
+// ============================================================
+
+fn parse_expr() {
+    let t = 0
+    let v = 0
+    let node = 0
+    
+    t = g_types[p_pos]
+    v = g_vals[p_pos]
+    
+    if (t == 30) {
+        p_pos = p_pos + 1
+        node = ast_new(5, v)
+        return node
+    }
+    
+    if (t == 20) {
+        p_pos = p_pos + 1
+        node = ast_new(5, v)
+        return node
+    }
+    
+    return 0
+}
+
+fn parse_stmt() {
+    let t = 0
+    let v = 0
+    let name = 0
+    let expr = 0
+    let node = 0
+    
+    t = g_types[p_pos]
+    v = g_vals[p_pos]
+    
+    if (t == 11) {
+        p_pos = p_pos + 1
+        
+        name = g_vals[p_pos]
+        p_pos = p_pos + 1
+        
+        p_pos = p_pos + 1
+        
+        expr = parse_expr()
+        
+        node = ast_new(4, name)
+        g_ast[node + 2] = expr
+        return node
+    }
+    
+    if (t == 12) {
+        p_pos = p_pos + 1
+        expr = parse_expr()
+        node = ast_new(7, 0)
+        g_ast[node + 2] = expr
+        return node
+    }
+    
+    return 0
+}
+
+fn parse_block() {
+    let block_node = 0
+    let last_stmt = 0
+    let first_stmt = 0
+    let running = 0
+    let t = 0
+    let v = 0
+    let stmt = 0
+    
+    p_pos = p_pos + 1
+    
+    block_node = ast_new(3, 0)
+    last_stmt = 0
+    first_stmt = 0
+    
+    running = 1
+    while (running > 0) {
+        t = g_types[p_pos]
+        v = g_vals[p_pos]
+        
+        if (v == 125) {
+            running = 0
+            p_pos = p_pos + 1
+        }
+        if (running > 0) {
+            stmt = parse_stmt()
+            
+            if (first_stmt == 0) {
+                first_stmt = stmt
+                g_ast[block_node + 2] = stmt
+            } else {
+                g_ast[last_stmt + 3] = stmt
+            }
+            last_stmt = stmt
+        }
+    }
+    return block_node
+}
+
+fn parse_fn() {
+    let name = 0
+    let body = 0
+    let node = 0
+    
+    p_pos = p_pos + 1
+    
+    name = g_vals[p_pos]
+    p_pos = p_pos + 1
+    
+    p_pos = p_pos + 2
+    
+    body = parse_block()
+    
+    node = ast_new(2, name)
+    g_ast[node + 2] = body
+    return node
+}
+
+fn parse_program() {
+    let root = 0
+    let last_fn = 0
+    let t = 0
+    let f = 0
+    
+    root = ast_new(1, 0)
+    last_fn = 0
+    
+    while (p_pos < g_count) {
+        t = g_types[p_pos]
+        if (t == 10) {
+            f = parse_fn()
+            
+            if (g_ast[root + 2] == 0) {
+                g_ast[root + 2] = f
+            } else {
+                g_ast[last_fn + 3] = f
+            }
+            last_fn = f
+        } else {
+            p_pos = p_pos + 1
+        }
+    }
+    return root
+}
+
+// ============================================================
+// DEBUG: Print AST (non-recursive version)
+// ============================================================
+fn print_node(node, depth) {
+    let ntype = 0
+    let val = 0
+    let i = 0
+    
+    if (node == 0) {
+        return 0
+    }
+    
+    ntype = g_ast[node]
+    val = g_ast[node + 1]
+    
+    i = 0
+    while (i < depth) {
+        puts("  ")
+        i = i + 1
+    }
+    
+    if (ntype == 1) {
+        puts("PROGRAM")
+    }
+    if (ntype == 2) {
+        puts("FUNCTION")
+        print(val)
+    }
+    if (ntype == 3) {
+        puts("BLOCK")
+    }
+    if (ntype == 4) {
+        puts("LET")
+        print(val)
+    }
+    if (ntype == 5) {
+        puts("NUMBER")
+        print(val)
+    }
+    if (ntype == 7) {
+        puts("RETURN")
+    }
+    
+    return 0
+}
+
+fn walk_ast(root) {
+    let stack = 0
+    let depths = 0
+    let sp = 0
+    let node = 0
+    let depth = 0
+    let child = 0
+    let sib = 0
+    let iter = 0
+    let max_iter = 0
+    
+    stack = alloc(256)
+    depths = alloc(256)
+    sp = 0
+    max_iter = 100
+    
+    stack[sp] = root
+    depths[sp] = 0
+    sp = sp + 1
+    
+    iter = 0
+    while (sp > 0) {
+        iter = iter + 1
+        if (iter > max_iter) {
+            puts("MAX ITER")
+            return 0
+        }
+        
+        sp = sp - 1
+        node = stack[sp]
+        depth = depths[sp]
+        
+        if (node > 0) {
+            print_node(node, depth)
+            
+            child = g_ast[node + 2]
+            sib = g_ast[node + 3]
+            
+            if (sib > 0) {
+                stack[sp] = sib
+                depths[sp] = depth
+                sp = sp + 1
+            }
+            
+            if (child > 0) {
+                stack[sp] = child
+                depths[sp] = depth + 1
+                sp = sp + 1
+            }
+        }
+    }
+    
+    return 0
+}
+
+// ============================================================
+// MAIN
+// ============================================================
+fn main() {
+    let src = 0
+    let root = 0
+    
+    puts("=== AST BUILDER V1 ===")
+    
+    g_types = alloc(1024)
+    g_vals = alloc(1024)
+    g_count = 0
+    g_ast = alloc(4096)
+    g_ast_idx = 4
+    
+    puts("Source: fn main() { let x = 55 return 123 }")
+    
+    // Manually populate tokens to test AST logic
+    // Token format: type, value
+    
+    // fn (type=10)
+    g_types[0] = 10
+    g_vals[0] = 102
+    
+    // main (type=20, val=first char 'm'=109)
+    g_types[1] = 20
+    g_vals[1] = 109
+    
+    // ( (type=40, val=40)
+    g_types[2] = 40
+    g_vals[2] = 40
+    
+    // ) (type=40, val=41)
+    g_types[3] = 40
+    g_vals[3] = 41
+    
+    // { (type=40, val=123)
+    g_types[4] = 40
+    g_vals[4] = 123
+    
+    // let (type=11)
+    g_types[5] = 11
+    g_vals[5] = 0
+    
+    // x (type=20, val='x'=120)
+    g_types[6] = 20
+    g_vals[6] = 120
+    
+    // = (type=40, val=61)
+    g_types[7] = 40
+    g_vals[7] = 61
+    
+    // 55 (type=30, val=55)
+    g_types[8] = 30
+    g_vals[8] = 55
+    
+    // return (type=12)
+    g_types[9] = 12
+    g_vals[9] = 0
+    
+    // 123 (type=30, val=123)
+    g_types[10] = 30
+    g_vals[10] = 123
+    
+    // } (type=40, val=125)
+    g_types[11] = 40
+    g_vals[11] = 125
+    
+    g_count = 12
+    
+    puts("--- Tokens Ready ---")
+    print(g_count)
+    
+    p_pos = 0
+    root = parse_program()
+    
+    puts("--- AST Built ---")
+    puts("Root node at:")
+    print(root)
+    
+    puts("--- Walking AST ---")
+    walk_ast(root)
+    
+    puts("=== DONE ===")
+    return 0
+}

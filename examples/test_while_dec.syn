@@ -1,0 +1,29 @@
+// Test local variable decrement in while loop
+
+fn main() {
+    let sp = 0
+    let iter = 0
+    
+    sp = 5
+    puts("Initial sp:")
+    print(sp)
+    
+    while (sp > 0) {
+        puts("Before decrement, sp=")
+        print(sp)
+        
+        sp = sp - 1
+        
+        puts("After decrement, sp=")
+        print(sp)
+        
+        iter = iter + 1
+        if (iter > 10) {
+            puts("SAFETY BREAK")
+            return 0
+        }
+    }
+    
+    puts("Loop done")
+    return 0
+}

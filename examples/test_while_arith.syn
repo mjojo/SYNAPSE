@@ -1,0 +1,32 @@
+// Test arithmetic in while loop
+
+fn main() {
+    let x = 0
+    let iter = 0
+    
+    x = 10
+    puts("Initial x:")
+    print(x)
+    
+    while (x > 0) {
+        puts("x before ops:")
+        print(x)
+        
+        // Try different operations
+        x = x + 1
+        puts("After x+1:")
+        print(x)
+        
+        x = x - 2
+        puts("After x-2:")
+        print(x)
+        
+        iter = iter + 1
+        if (iter > 3) {
+            puts("BREAK")
+            return 0
+        }
+    }
+    
+    return 0
+}

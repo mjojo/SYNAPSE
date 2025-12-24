@@ -2,6 +2,52 @@
 
 ---
 
+## [2.9.4] - 2025-12-24
+
+### Phase 31: The Tree of Life (AST Construction) 🌳
+
+**Critical Bug Fix**: Subtraction operator was generating incorrect x86-64 code!
+
+### Fixed
+- **Subtraction operator**: `MOV RAX, RCX` was encoded as `0xC18948` (MOV RCX, RAX - backwards!)
+  - Correct encoding: `0xC88948` (48 89 C8 = MOV RAX, RCX)
+  - This caused `x - 1` to produce garbage values inside while loops
+  - All arithmetic now works correctly: 10 + 1 = 11, 11 - 2 = 9 ✓
+
+### Added - Self-Hosted AST Builder
+- **`self_parser_v4.syn`**: Full Lexer → Parser → AST pipeline
+  - Tokenizes source into `g_types[]` and `g_vals[]`
+  - Parses into hierarchical AST in `g_ast[]` heap
+  - Node format: [Type, Value, Child, Sibling] (4 QWORDs per node)
+  - `ast_new(type, val)` - allocate new node
+  - `parse_program()`, `parse_fn()`, `parse_block()`, `parse_stmt()`
+  - `walk_ast(root)` - iterative depth-first tree traversal
+
+### AST Node Types
+```
+NODE_PROG  = 1  // Program root
+NODE_FN    = 2  // Function: val=name, child=body
+NODE_BLOCK = 3  // Block: child=first_stmt
+NODE_LET   = 4  // Let: val=name, child=expr
+NODE_NUM   = 5  // Number: val=value
+NODE_RET   = 7  // Return: child=expr
+```
+
+### AST Output Example
+```
+Source: fn main() { let x = 55 return 123 }
+
+PROGRAM
+  FUNCTION (109='m')
+    BLOCK
+      LET (120='x')
+        NUMBER (55)
+      RETURN
+        NUMBER (123)
+```
+
+---
+
 ## [2.9.3] - 2025-01-13
 
 ### Phase 30.5: Self-Hosted Parser 🎯

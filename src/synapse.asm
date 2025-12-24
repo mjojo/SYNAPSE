@@ -148,7 +148,7 @@ section '.idata' import data readable
 section '.data' data readable writeable
 
     banner      db '============================================',13,10
-                db '  SYNAPSE v2.9.3 Compiler - Self-Hosting',13,10
+                db '  SYNAPSE v2.9.4 Compiler - Self-Hosting',13,10
                 db '  Full Pipeline: Lex -> Parse -> JIT -> Run',13,10
                 db '============================================',13,10,13,10,0
     
@@ -2636,10 +2636,10 @@ compile_expr:
     
     ; SUB RCX, RAX; MOV RAX, RCX
     mov rdi, [jit_cursor]
-    mov dword [rdi], 0xC12948
+    mov dword [rdi], 0xC12948     ; 48 29 C1 = SUB RCX, RAX
     add qword [jit_cursor], 3
     mov rdi, [jit_cursor]
-    mov dword [rdi], 0xC18948
+    mov dword [rdi], 0xC88948     ; 48 89 C8 = MOV RAX, RCX (fixed!)
     add qword [jit_cursor], 3
     
     jmp .expr_loop

@@ -148,7 +148,7 @@ section '.idata' import data readable
 section '.data' data readable writeable
 
     banner      db '============================================',13,10
-                db '  SYNAPSE v2.9.1 Compiler - Self-Hosting',13,10
+                db '  SYNAPSE v2.9.2 Compiler - Self-Hosting',13,10
                 db '  Full Pipeline: Lex -> Parse -> JIT -> Run',13,10
                 db '============================================',13,10,13,10,0
     
@@ -1357,7 +1357,12 @@ compile_while:
 
 .while_nested_while:
     call next_token         ; Consume 'while' (from peek)
+    ; IMPORTANT: Save R12/R13 which hold parent while loop addresses!
+    push r12
+    push r13
     call compile_while      ; Recursive call
+    pop r13
+    pop r12
     jmp .body_loop
 
 .while_let:
@@ -1372,7 +1377,12 @@ compile_while:
 
 .while_if:
     ; compile_if expects 'if' as current token from peek
+    ; IMPORTANT: Save R12/R13 which hold while loop addresses!
+    push r12
+    push r13
     call compile_if
+    pop r13
+    pop r12
     jmp .body_loop
 
 .while_func_call:
@@ -1427,11 +1437,16 @@ compile_while:
     pop r15
     
     ; Compile right-hand side expression
+    ; IMPORTANT: Save R12/R13 which hold while loop addresses!
+    push r12
+    push r13
     push r14
     push r15
     call compile_expr
     pop r15
     pop r14
+    pop r13
+    pop r12
     
     ; Generate: MOV [RBP + offset], RAX (local copy)
     mov rdi, [jit_cursor]
@@ -1461,9 +1476,14 @@ compile_while:
     mov r14, rax            ; R14 = global address
     
     ; Compile right-hand side expression
+    ; IMPORTANT: Save R12/R13 which hold while loop addresses!
+    push r12
+    push r13
     push r14
     call compile_expr
     pop r14
+    pop r13
+    pop r12
     
     ; Global only - write to global
     mov rdi, [jit_cursor]
@@ -1487,14 +1507,13 @@ compile_while:
     jz .body_loop           ; Variable not found
     mov r15b, al            ; R15b = local offset
     
-    ; Save R15 across compile_expr
+    ; Save R12/R13/R15 across compile_expr (R12/R13 hold while loop addresses!)
+    push r12
+    push r13
     push r15
     
     ; Compile index expression
     call compile_expr       ; RAX = index
-    
-    ; Restore R15
-    pop r15
     
     ; --- SAFE TOKEN CONSUMPTION ---
     ; We need to skip ']' and '='. 
@@ -1504,6 +1523,9 @@ compile_while:
     call next_token         ; Consume '='
     pop rax
     ; ------------------------------
+    
+    ; Restore R15 for use (keep R12/R13 on stack)
+    pop r15
     
     ; Generate: MOV RCX, RAX (Move index to RCX)
     mov rdi, [jit_cursor]
@@ -1533,7 +1555,12 @@ compile_while:
     
     ; Compile value expression (RHS)
     ; This will result in RAX = Value
+    ; Note: R12/R13 still on stack protecting while loop addresses
     call compile_expr
+    
+    ; Restore R12/R13 (while loop addresses)
+    pop r13
+    pop r12
     
     ; Generate: POP R8 (Restore BASE)
     mov rdi, [jit_cursor]
@@ -1574,11 +1601,16 @@ compile_while:
 
 .while_parse_arg_loop:
     ; Parse argument expression
+    ; IMPORTANT: Save R12/R13 which hold while loop addresses!
+    push r12
+    push r13
     push r14                    ; Save func address
     push r15                    ; Save arg counter
     call compile_expr
     pop r15                     ; Restore arg counter
     pop r14                     ; Restore func address
+    pop r13
+    pop r12
     
     ; Generate: PUSH RAX (push argument onto stack)
     mov rdi, [jit_cursor]
@@ -1888,9 +1920,12 @@ compile_if:
     jz .if_var_global
     mov r15b, al            ; R15 = local offset
     
+    ; IMPORTANT: Save R12 which holds if-block JZ patch location!
+    push r12
     push r15
     call compile_expr
     pop r15
+    pop r12
     
     ; Local store
     mov rdi, [jit_cursor]
@@ -1906,9 +1941,12 @@ compile_if:
     test r14, r14
     jz .if_body
     
+    ; IMPORTANT: Save R12 which holds if-block JZ patch location!
+    push r12
     push r14
     call compile_expr
     pop r14
+    pop r12
     
     ; Global store
     mov rdi, [jit_cursor]
@@ -1926,9 +1964,12 @@ compile_if:
     call sym_find
     mov r15b, al
     
+    ; IMPORTANT: Save R12 which holds if-block JZ patch location!
+    push r12
     push r15
     call compile_expr       ; Index
     pop r15
+    ; Keep R12 on stack for second compile_expr
     
     ; Consume ] and =
     call next_token ; ]
@@ -1936,7 +1977,7 @@ compile_if:
     
     ; Save Index (RAX) -> RCX -> Stack
     mov rdi, [jit_cursor]
-    mov dword [rdi], 0xC88948   ; MOV RCX, RAX
+    mov dword [rdi], 0xC18948   ; MOV RCX, RAX
     add rdi, 3
     mov byte [rdi], 0x51        ; PUSH RCX
     add rdi, 1
@@ -1952,6 +1993,9 @@ compile_if:
     mov [jit_cursor], rdi
     
     call compile_expr       ; Value -> RAX
+    
+    ; Restore R12
+    pop r12
     
     ; Restore R8, RCX
     mov rdi, [jit_cursor]
@@ -1978,11 +2022,14 @@ compile_if:
 
 .if_parse_arg_loop:
     ; Parse argument expression
+    ; IMPORTANT: Save R12 which holds if-block JZ patch location!
+    push r12
     push r14                    ; Save func address
     push r15                    ; Save arg counter
     call compile_expr
     pop r15                     ; Restore arg counter
     pop r14                     ; Restore func address
+    pop r12
     
     ; Generate: PUSH RAX (push argument onto stack)
     mov rdi, [jit_cursor]
@@ -2162,9 +2209,14 @@ compile_if:
     test rax, rax
     jz .else_var_global
     mov r15b, al
+    ; IMPORTANT: Save R12/R13 which hold if-block patch locations!
+    push r12
+    push r13
     push r15
     call compile_expr
     pop r15
+    pop r13
+    pop r12
     mov rdi, [jit_cursor]
     mov dword [rdi], 0x458948
     mov [rdi+3], r15b
@@ -2177,9 +2229,14 @@ compile_if:
     mov r14, rax
     test r14, r14
     jz .else_body
+    ; IMPORTANT: Save R12/R13 which hold if-block patch locations!
+    push r12
+    push r13
     push r14
     call compile_expr
     pop r14
+    pop r13
+    pop r12
     mov rdi, [jit_cursor]
     mov word [rdi], 0xB948
     mov [rdi+2], r14
@@ -2193,13 +2250,17 @@ compile_if:
     lea rcx, [func_call_name]
     call sym_find
     mov r15b, al
+    ; IMPORTANT: Save R12/R13 which hold if-block patch locations!
+    push r12
+    push r13
     push r15
     call compile_expr
     pop r15
+    ; Keep R12/R13 on stack for second compile_expr
     call next_token ; ]
     call next_token ; =
     mov rdi, [jit_cursor]
-    mov dword [rdi], 0xC88948
+    mov dword [rdi], 0xC18948
     add rdi, 3
     mov byte [rdi], 0x51
     add rdi, 1
@@ -2212,6 +2273,9 @@ compile_if:
     add rdi, 2
     mov [jit_cursor], rdi
     call compile_expr
+    ; Restore R12/R13
+    pop r13
+    pop r12
     mov rdi, [jit_cursor]
     mov word [rdi], 0x5841
     add rdi, 2
@@ -2233,11 +2297,16 @@ compile_if:
     xor r15d, r15d              ; R15 = argument counter
 
 .else_parse_arg_loop:
+    ; IMPORTANT: Save R12/R13 which hold if-block patch locations!
+    push r12
+    push r13
     push r14
     push r15
     call compile_expr
     pop r15
     pop r14
+    pop r13
+    pop r12
     
     mov rdi, [jit_cursor]
     mov byte [rdi], 0x50        ; PUSH RAX
@@ -2417,7 +2486,7 @@ compile_expr:
     mov dword [rdi], 0xC12948
     add qword [jit_cursor], 3
     mov rdi, [jit_cursor]
-    mov dword [rdi], 0xC88948
+    mov dword [rdi], 0xC18948
     add qword [jit_cursor], 3
     
     jmp .expr_loop

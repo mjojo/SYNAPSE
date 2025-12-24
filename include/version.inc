@@ -4,7 +4,7 @@
 
 SYNAPSE_VERSION_MAJOR = 2
 SYNAPSE_VERSION_MINOR = 9
-SYNAPSE_VERSION_PATCH = 1
+SYNAPSE_VERSION_PATCH = 2
 
 ; Stage: 1=alpha, 2=beta, 3=rc, 4=stable
 SYNAPSE_VERSION_STAGE = 4
@@ -15,7 +15,7 @@ SYNAPSE_BUILD_DATE = 20251224
 ; Component versions
 SYNAPSE_LEXER_VERSION = 4        ; +token grouping
 SYNAPSE_PARSER_VERSION = 7       ; +file I/O parsing
-SYNAPSE_JIT_VERSION = 8          ; +multi-arg calls in while/if
+SYNAPSE_JIT_VERSION = 9          ; +R12/R13 preservation, MOV RCX fix
 SYNAPSE_AVX_VERSION = 1
 SYNAPSE_NEURAL_VERSION = 2
 SYNAPSE_CRYPTO_VERSION = 1

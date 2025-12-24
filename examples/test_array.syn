@@ -1,0 +1,38 @@
+// Test if inside while with array write
+
+fn main() {
+    let arr = 0
+    let i = 0
+    let c = 0
+    let cnt = 0
+    
+    arr = alloc(10)
+    cnt = 0
+    
+    puts("Loop:")
+    i = 0
+    while (i < 5) {
+        c = i
+        if (c == 2) {
+            arr[cnt] = 200
+            cnt = cnt + 1
+        }
+        if (c == 3) {
+            arr[cnt] = 300
+            cnt = cnt + 1
+        }
+        i = i + 1
+    }
+    
+    puts("Count:")
+    print(cnt)
+    puts("Values:")
+    i = 0
+    while (i < cnt) {
+        print(arr[i])
+        i = i + 1
+    }
+    
+    puts("Done")
+    return 0
+}

@@ -1,0 +1,76 @@
+// self_parser.syn - Phase 30: Token Storage (Minimal)
+// Simplified: fewer variables, simpler logic
+
+fn main() {
+    let tk_types = 0
+    let tk_vals = 0
+    let tk_count = 0
+    let src = 0
+    let len = 0
+    let i = 0
+    let c = 0
+    let j = 0
+    
+    puts("=== PARSER v0.1 ===")
+    
+    // Memory setup
+    tk_types = alloc(64)
+    tk_vals = alloc(64)
+    tk_count = 0
+    
+    // Test source - just operators first
+    src = "( ) { }"
+    len = strlen(src)
+    
+    puts("Source:")
+    puts(src)
+    puts("---")
+    
+    // Simple lexer - operators only
+    i = 0
+    while (i < len) {
+        c = get_byte(src, i)
+        
+        if (c == 32) {
+            i = i + 1
+        }
+        if (c == 40) {
+            tk_types[tk_count] = 4
+            tk_vals[tk_count] = 40
+            tk_count = tk_count + 1
+            i = i + 1
+        }
+        if (c == 41) {
+            tk_types[tk_count] = 4
+            tk_vals[tk_count] = 41
+            tk_count = tk_count + 1
+            i = i + 1
+        }
+        if (c == 123) {
+            tk_types[tk_count] = 4
+            tk_vals[tk_count] = 123
+            tk_count = tk_count + 1
+            i = i + 1
+        }
+        if (c == 125) {
+            tk_types[tk_count] = 4
+            tk_vals[tk_count] = 125
+            tk_count = tk_count + 1
+            i = i + 1
+        }
+    }
+    
+    // Verify
+    puts("--- From memory ---")
+    j = 0
+    while (j < tk_count) {
+        print(tk_types[j])
+        print(tk_vals[j])
+        j = j + 1
+    }
+    
+    puts("Count:")
+    print(tk_count)
+    
+    return 0
+}

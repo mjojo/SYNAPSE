@@ -1,256 +1,332 @@
-// self_parser_v2.syn - Phase 30.5: Self-hosted parser
-// Lexer + Parser in SYNAPSE
+// ============================================================
+// SYNAPSE SELF-HOSTED COMPILER V2 (Phase 32)
+// Lexer + Parser Integration - The Grand Unification
+// ============================================================
 
-// Global arrays (simulated with alloc)
-let g_types = 0
-let g_vals = 0
-let g_count = 0
-let g_pos = 0
+// --- AST ENGINE ---
 
-// Token types
-// 10 = FN, 11 = LET, 12 = RETURN
-// 20 = IDENT
-// 30 = NUMBER  
-// 40 = OPERATOR (with value = ASCII)
-
-fn peek(offset) {
-    let idx = 0
-    idx = g_pos + offset
-    if (idx < g_count) { return g_types[idx] }
-    return 0
+fn ast_new(type, val) {
+    let node = alloc(4)
+    node[0] = type
+    node[1] = val
+    node[2] = 0
+    node[3] = 0
+    return node
 }
 
-fn peek_val(offset) {
-    let idx = 0
-    idx = g_pos + offset
-    if (idx < g_count) { return g_vals[idx] }
-    return 0
-}
+// --- LEXER HELPERS ---
 
-fn eat(expected) {
-    let t = 0
-    t = peek(0)
-    if (t == expected) {
-        g_pos = g_pos + 1
-        return 1
-    }
-    puts("Parse error: unexpected token")
-    return 0
-}
-
-fn eat_op(expected_val) {
-    let t = 0
-    let v = 0
-    t = peek(0)
-    v = peek_val(0)
-    if (t == 40) {
-        if (v == expected_val) {
-            g_pos = g_pos + 1
-            return 1
+fn is_digit(c) {
+    let result = 0
+    if (c > 47) {
+        if (c < 58) {
+            result = 1
         }
     }
-    puts("Parse error: unexpected operator")
-    return 0
+    return result
 }
 
-fn parse_stmt() {
-    let t = 0
-    t = peek(0)
-    
-    // LET statement
-    if (t == 11) {
-        puts("  STMT: let")
-        eat(11)
-        eat(20)
-        eat_op(61)
-        eat(30)
-        return 1
+fn is_alpha(c) {
+    let result = 0
+    if (c > 96) {
+        if (c < 123) {
+            result = 1
+        }
     }
-    
-    // RETURN statement
-    if (t == 12) {
-        puts("  STMT: return")
-        eat(12)
-        eat(20)
-        return 1
-    }
-    
-    return 0
+    return result
 }
 
-fn parse_fn() {
-    let ok = 0
-    let v = 0
-    
-    // fn
-    eat(10)
-    
-    // name
-    v = peek_val(0)
-    puts("FUNCTION:")
-    print(v)
-    eat(20)
-    
-    // ( )
-    eat_op(40)
-    eat_op(41)
-    
-    // { body }
-    eat_op(123)
-    
-    // Parse statements until }
-    ok = 1
-    while (ok == 1) {
-        v = peek_val(0)
-        if (v == 125) { ok = 0 }
-        if (ok == 1) { parse_stmt() }
-    }
-    
-    eat_op(125)
-    
-    puts("END FUNCTION")
-    return 1
-}
+// --- THE LEXER ---
 
-fn do_parse(dummy) {
-    let t = 0
-    
-    puts("INSIDE do_parse")
-    return 1
-}
-
-fn lex(src) {
-    let len = 0
+fn lex(src, src_len, types, vals) {
     let i = 0
-    let c = 0
-    let t = 0
+    let tok_count = 0
     
-    len = strlen(src)
-    i = 0
-    
-    while (i < len) {
-        c = get_byte(src, i)
-        t = 0
+    while (i < src_len) {
+        let c = get_byte(src, i)
+        let handled = 0
         
-        // Skip space
-        if (c == 32) { t = 1 }
-        if (t == 1) { i = i + 1 }
-        if (t == 1) { c = 0 }
+        // Skip whitespace (space=32, newline=10, tab=9)
+        if (c == 32) {
+            i = i + 1
+            handled = 1
+        }
+        if (c == 10) {
+            i = i + 1
+            handled = 1
+        }
+        if (c == 9) {
+            i = i + 1
+            handled = 1
+        }
         
-        // ( = 40
-        if (c == 40) { t = 2 }
-        if (t == 2) { g_types[g_count] = 40 }
-        if (t == 2) { g_vals[g_count] = 40 }
-        if (t == 2) { g_count = g_count + 1 }
-        if (t == 2) { i = i + 1 }
-        if (t == 2) { c = 0 }
+        // Check 'fn' (f=102, n=110)
+        if (handled == 0) {
+            if (c == 102) {
+                let n = get_byte(src, i + 1)
+                if (n == 110) {
+                    types[tok_count] = 1
+                    vals[tok_count] = 0
+                    tok_count = tok_count + 1
+                    i = i + 2
+                    handled = 1
+                }
+            }
+        }
         
-        // ) = 41
-        if (c == 41) { t = 3 }
-        if (t == 3) { g_types[g_count] = 40 }
-        if (t == 3) { g_vals[g_count] = 41 }
-        if (t == 3) { g_count = g_count + 1 }
-        if (t == 3) { i = i + 1 }
-        if (t == 3) { c = 0 }
+        // Check 'let' (l=108, e=101, t=116)
+        if (handled == 0) {
+            if (c == 108) {
+                let e = get_byte(src, i + 1)
+                if (e == 101) {
+                    let t = get_byte(src, i + 2)
+                    if (t == 116) {
+                        types[tok_count] = 6
+                        vals[tok_count] = 0
+                        tok_count = tok_count + 1
+                        i = i + 3
+                        handled = 1
+                    }
+                }
+            }
+        }
         
-        // { = 123
-        if (c == 123) { t = 4 }
-        if (t == 4) { g_types[g_count] = 40 }
-        if (t == 4) { g_vals[g_count] = 123 }
-        if (t == 4) { g_count = g_count + 1 }
-        if (t == 4) { i = i + 1 }
-        if (t == 4) { c = 0 }
+        // Check 'return' (r=114)
+        if (handled == 0) {
+            if (c == 114) {
+                let e = get_byte(src, i + 1)
+                if (e == 101) {
+                    // Skip 'return' (6 chars)
+                    types[tok_count] = 8
+                    vals[tok_count] = 0
+                    tok_count = tok_count + 1
+                    i = i + 6
+                    handled = 1
+                }
+            }
+        }
         
-        // } = 125
-        if (c == 125) { t = 5 }
-        if (t == 5) { g_types[g_count] = 40 }
-        if (t == 5) { g_vals[g_count] = 125 }
-        if (t == 5) { g_count = g_count + 1 }
-        if (t == 5) { i = i + 1 }
-        if (t == 5) { c = 0 }
+        // Check '{' (123)
+        if (handled == 0) {
+            if (c == 123) {
+                types[tok_count] = 4
+                vals[tok_count] = 0
+                tok_count = tok_count + 1
+                i = i + 1
+                handled = 1
+            }
+        }
         
-        // = = 61
-        if (c == 61) { t = 6 }
-        if (t == 6) { g_types[g_count] = 40 }
-        if (t == 6) { g_vals[g_count] = 61 }
-        if (t == 6) { g_count = g_count + 1 }
-        if (t == 6) { i = i + 1 }
-        if (t == 6) { c = 0 }
+        // Check '}' (125)
+        if (handled == 0) {
+            if (c == 125) {
+                types[tok_count] = 5
+                vals[tok_count] = 0
+                tok_count = tok_count + 1
+                i = i + 1
+                handled = 1
+            }
+        }
         
-        // fn: f=102
-        if (c == 102) { t = 10 }
-        if (t == 10) { g_types[g_count] = 10 }
-        if (t == 10) { g_vals[g_count] = 102 }
-        if (t == 10) { g_count = g_count + 1 }
-        if (t == 10) { i = i + 2 }
-        if (t == 10) { c = 0 }
+        // Check '=' (61)
+        if (handled == 0) {
+            if (c == 61) {
+                types[tok_count] = 7
+                vals[tok_count] = 0
+                tok_count = tok_count + 1
+                i = i + 1
+                handled = 1
+            }
+        }
         
-        // let: l=108
-        if (c == 108) { t = 11 }
-        if (t == 11) { g_types[g_count] = 11 }
-        if (t == 11) { g_vals[g_count] = 108 }
-        if (t == 11) { g_count = g_count + 1 }
-        if (t == 11) { i = i + 3 }
-        if (t == 11) { c = 0 }
+        // Check number
+        if (handled == 0) {
+            let d = is_digit(c)
+            if (d == 1) {
+                let num = c - 48
+                let next = get_byte(src, i + 1)
+                let d2 = is_digit(next)
+                if (d2 == 1) {
+                    num = num * 10 + next - 48
+                    i = i + 2
+                } else {
+                    i = i + 1
+                }
+                types[tok_count] = 3
+                vals[tok_count] = num
+                tok_count = tok_count + 1
+                handled = 1
+            }
+        }
         
-        // main: m=109
-        if (c == 109) { t = 20 }
-        if (t == 20) { g_types[g_count] = 20 }
-        if (t == 20) { g_vals[g_count] = 109 }
-        if (t == 20) { g_count = g_count + 1 }
-        if (t == 20) { i = i + 4 }
-        if (t == 20) { c = 0 }
+        // Check identifier (single letter for simplicity)
+        if (handled == 0) {
+            let a = is_alpha(c)
+            if (a == 1) {
+                types[tok_count] = 2
+                vals[tok_count] = c
+                tok_count = tok_count + 1
+                i = i + 1
+                handled = 1
+            }
+        }
         
-        // x: x=120
-        if (c == 120) { t = 21 }
-        if (t == 21) { g_types[g_count] = 20 }
-        if (t == 21) { g_vals[g_count] = 120 }
-        if (t == 21) { g_count = g_count + 1 }
-        if (t == 21) { i = i + 1 }
-        if (t == 21) { c = 0 }
-        
-        // 5: digit=53
-        if (c == 53) { t = 30 }
-        if (t == 30) { g_types[g_count] = 30 }
-        if (t == 30) { g_vals[g_count] = 55 }
-        if (t == 30) { g_count = g_count + 1 }
-        if (t == 30) { i = i + 2 }
-        if (t == 30) { c = 0 }
-        
-        if (c > 0) { i = i + 1 }
+        // Unknown char - skip
+        if (handled == 0) {
+            i = i + 1
+        }
     }
     
-    return g_count
+    return tok_count
 }
+
+// --- PARSER ---
+
+fn parse_all(types, vals, tok_count) {
+    // Parse: fn <name> { let <var> = <num> }
+    // Token order: FN, ID, LBRACE, LET, ID, EQ, NUM, RBRACE
+    
+    // Read tokens by index
+    // 0: fn (skip)
+    // 1: name
+    let fn_name = vals[1]
+    
+    // 2: { (skip)
+    // 3: let (skip)
+    // 4: var name
+    let var_name = vals[4]
+    
+    // 5: = (skip)
+    // 6: number
+    let num_val = vals[6]
+    
+    // 7: } (skip)
+    
+    // Build AST bottom-up
+    // NODE_NUM = 5
+    let num_node = ast_new(5, num_val)
+    
+    // NODE_LET = 4
+    let let_node = ast_new(4, var_name)
+    let_node[2] = num_node
+    
+    // NODE_BLOCK = 3
+    let block_node = ast_new(3, 0)
+    block_node[2] = let_node
+    
+    // NODE_FN = 2
+    let fn_node = ast_new(2, fn_name)
+    fn_node[2] = block_node
+    
+    return fn_node
+}
+
+// --- ITERATIVE WALKER ---
+
+fn walk_tree(root) {
+    let stack_n = alloc(64)
+    let stack_d = alloc(64)
+    let sp = 0
+    
+    stack_n[0] = root
+    stack_d[0] = 0
+    sp = 1
+    
+    while (sp > 0) {
+        sp = sp - 1
+        let node = stack_n[sp]
+        let depth = stack_d[sp]
+        
+        let indent = depth * 1111
+        let t = node[0]
+        let v = node[1]
+        print(indent)
+        print(t)
+        print(v)
+        
+        let sib = node[3]
+        if (sib > 0) {
+            stack_n[sp] = sib
+            stack_d[sp] = depth
+            sp = sp + 1
+        }
+        
+        let child = node[2]
+        if (child > 0) {
+            stack_n[sp] = child
+            stack_d[sp] = depth + 1
+            sp = sp + 1
+        }
+    }
+    
+    return 0
+}
+
+// --- MAIN ---
 
 fn main() {
-    let src = 0
-    let cnt = 0
+    print(100000)
     
-    puts("=== SYNAPSE PARSER V2 ===")
+    // === 1. CREATE SOURCE CODE IN MEMORY ===
+    // Code: "fn m { let x = 55 }"
+    let src = alloc_bytes(32)
     
-    // Init globals
-    g_types = alloc(256)
-    g_vals = alloc(256)
-    g_count = 0
-    g_pos = 0
+    // fn m { let x = 55 }
+    set_byte(src, 0, 102)   // f
+    set_byte(src, 1, 110)   // n
+    set_byte(src, 2, 32)    // space
+    set_byte(src, 3, 109)   // m
+    set_byte(src, 4, 32)    // space
+    set_byte(src, 5, 123)   // {
+    set_byte(src, 6, 32)    // space
+    set_byte(src, 7, 108)   // l
+    set_byte(src, 8, 101)   // e
+    set_byte(src, 9, 116)   // t
+    set_byte(src, 10, 32)   // space
+    set_byte(src, 11, 120)  // x
+    set_byte(src, 12, 32)   // space
+    set_byte(src, 13, 61)   // =
+    set_byte(src, 14, 32)   // space
+    set_byte(src, 15, 53)   // 5
+    set_byte(src, 16, 53)   // 5
+    set_byte(src, 17, 32)   // space
+    set_byte(src, 18, 125)  // }
     
-    src = "fn main() { let x = 55 }"
-    puts("Source:")
-    puts(src)
+    let src_len = 19
     
-    // Lex
-    puts("--- LEXING ---")
-    cnt = lex(src)
-    puts("Returned tokens:")
-    print(cnt)
-    puts("g_count:")
-    print(g_count)
+    print(200000)
     
-    // Parse
-    puts("Calling parse...")
-    do_parse(0)
+    // === 2. ALLOCATE TOKEN BUFFERS ===
+    let types = alloc(32)
+    let vals = alloc(32)
     
-    puts("=== SUCCESS ===")
+    // === 3. RUN LEXER ===
+    let tok_count = lex(src, src_len, types, vals)
+    
+    print(tok_count)
+    
+    // Debug: print all tokens
+    print(250000)
+    let i = 0
+    while (i < tok_count) {
+        let t = types[i]
+        let v = vals[i]
+        print(t)
+        print(v)
+        i = i + 1
+    }
+    
+    print(300000)
+    
+    // === 4. RUN PARSER ===
+    let root = parse_all(types, vals, tok_count)
+    
+    print(400000)
+    
+    // === 5. WALK AST ===
+    walk_tree(root)
+    
+    print(500000)
+    
     return 0
 }

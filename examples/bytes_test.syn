@@ -1,0 +1,38 @@
+// bytes_test.syn - Test byte-level operations
+
+fn main() {
+    print(1000)
+    
+    // Allocate 16 bytes
+    let buf = alloc_bytes(16)
+    print(buf)
+    
+    // Write "HELLO" as bytes (H=72, E=69, L=76, O=79)
+    set_byte(buf, 0, 72)
+    set_byte(buf, 1, 69)
+    set_byte(buf, 2, 76)
+    set_byte(buf, 3, 76)
+    set_byte(buf, 4, 79)
+    set_byte(buf, 5, 0)
+    
+    print(2000)
+    
+    // Read back and print ASCII codes
+    print(get_byte(buf, 0))
+    print(get_byte(buf, 1))
+    print(get_byte(buf, 2))
+    
+    print(3000)
+    
+    // Test strlen
+    let len = strlen(buf)
+    print(len)
+    
+    print(4000)
+    
+    // Test puts (should print "HELLO")
+    puts(buf)
+    
+    print(5000)
+    return 0
+}

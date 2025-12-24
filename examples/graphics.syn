@@ -1,0 +1,40 @@
+// graphics.syn - Phase 29: GDI Graphics Test
+// Creates a window and draws a colorful gradient
+
+fn main() {
+    print(1111) // Graphics Test Start
+    
+    // Create window 400x300
+    let ok = window(400, 300)
+    print(ok)   // Should be 1 if successful
+    
+    if (ok) {
+        print(2222) // Window created!
+        
+        // Declare loop variables BEFORE loop
+        let x = 0
+        let y = 0
+        let color = 0
+        
+        // Double loop - 64x64 pixels 
+        y = 0
+        while (y < 64) {
+            x = 0
+            while (x < 64) {
+                // Build color: blue*65536 + green*256
+                color = x * 65536 + y * 256
+                pixel(x, y, color)
+                x = x + 1
+            }
+            y = y + 1
+        }
+        
+        print(3333) // Drawing complete!
+        
+        // Keep window open
+        sleep(3000)
+    }
+    
+    print(4444) // Exit
+    return 0
+}

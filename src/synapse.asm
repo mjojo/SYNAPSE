@@ -25,6 +25,7 @@ section '.idata' import data readable
     ; RVA to LookupTable, TimeDate, Forwarder, Name, RVA to AddressTable
     dd RVA kernel32_lookup, 0, 0, RVA kernel32_name, RVA kernel32_table
     dd RVA user32_lookup,   0, 0, RVA user32_name,   RVA user32_table
+    dd RVA gdi32_lookup,    0, 0, RVA gdi32_name,    RVA gdi32_table
     dd 0, 0, 0, 0, 0
 
     ; =========================================================================
@@ -44,6 +45,8 @@ section '.idata' import data readable
         dq RVA _CloseHandle
         dq RVA _GetCommandLineA
         dq RVA _WriteFile
+        dq RVA _GetModuleHandleA
+        dq RVA _Sleep
         dq 0
 
     kernel32_table:
@@ -58,6 +61,8 @@ section '.idata' import data readable
         CloseHandle     dq RVA _CloseHandle
         GetCommandLineA dq RVA _GetCommandLineA
         WriteFile       dq RVA _WriteFile
+        GetModuleHandleA dq RVA _GetModuleHandleA
+        Sleep           dq RVA _Sleep
                         dq 0
 
     _GetStdHandle   db 0,0,'GetStdHandle',0
@@ -71,21 +76,71 @@ section '.idata' import data readable
     _CloseHandle    db 0,0,'CloseHandle',0
     _GetCommandLineA db 0,0,'GetCommandLineA',0
     _WriteFile      db 0,0,'WriteFile',0
+    _GetModuleHandleA db 0,0,'GetModuleHandleA',0
+    _Sleep          db 0,0,'Sleep',0
 
     ; =========================================================================
-    ; USER32 (NEW!)
+    ; USER32
     ; =========================================================================
     user32_name db 'USER32.DLL', 0
 
     user32_lookup:
         dq RVA _MessageBoxA
+        dq RVA _RegisterClassA
+        dq RVA _CreateWindowExA
+        dq RVA _DefWindowProcA
+        dq RVA _GetDC
+        dq RVA _ReleaseDC
+        dq RVA _PeekMessageA
+        dq RVA _TranslateMessage
+        dq RVA _DispatchMessageA
+        dq RVA _ShowWindow
+        dq RVA _UpdateWindow
+        dq RVA _PostQuitMessage
         dq 0
 
     user32_table:
-        MessageBoxA dq RVA _MessageBoxA
+        MessageBoxA     dq RVA _MessageBoxA
+        RegisterClassA  dq RVA _RegisterClassA
+        CreateWindowExA dq RVA _CreateWindowExA
+        DefWindowProcA  dq RVA _DefWindowProcA
+        GetDC           dq RVA _GetDC
+        ReleaseDC       dq RVA _ReleaseDC
+        PeekMessageA    dq RVA _PeekMessageA
+        TranslateMessage dq RVA _TranslateMessage
+        DispatchMessageA dq RVA _DispatchMessageA
+        ShowWindow      dq RVA _ShowWindow
+        UpdateWindow    dq RVA _UpdateWindow
+        PostQuitMessage dq RVA _PostQuitMessage
+                        dq 0
+
+    _MessageBoxA    db 0,0,'MessageBoxA',0
+    _RegisterClassA db 0,0,'RegisterClassA',0
+    _CreateWindowExA db 0,0,'CreateWindowExA',0
+    _DefWindowProcA db 0,0,'DefWindowProcA',0
+    _GetDC          db 0,0,'GetDC',0
+    _ReleaseDC      db 0,0,'ReleaseDC',0
+    _PeekMessageA   db 0,0,'PeekMessageA',0
+    _TranslateMessage db 0,0,'TranslateMessage',0
+    _DispatchMessageA db 0,0,'DispatchMessageA',0
+    _ShowWindow     db 0,0,'ShowWindow',0
+    _UpdateWindow   db 0,0,'UpdateWindow',0
+    _PostQuitMessage db 0,0,'PostQuitMessage',0
+
+    ; =========================================================================
+    ; GDI32 (NEW!)
+    ; =========================================================================
+    gdi32_name db 'GDI32.DLL', 0
+
+    gdi32_lookup:
+        dq RVA _SetPixel
+        dq 0
+
+    gdi32_table:
+        SetPixel    dq RVA _SetPixel
                     dq 0
 
-    _MessageBoxA db 0,0,'MessageBoxA',0
+    _SetPixel db 0,0,'SetPixel',0
 
 section '.data' data readable writeable
 
@@ -151,13 +206,25 @@ section '.data' data readable writeable
     str_fread      db 'fread',0
     str_fwrite     db 'fwrite',0
     str_msgbox     db 'msgbox',0
+    str_window     db 'window',0
+    str_pixel      db 'pixel',0
+    str_win_update db 'win_update',0
+    str_sleep      db 'sleep',0
+    str_get_byte   db 'get_byte',0
+    str_set_byte   db 'set_byte',0
+    str_strlen     db 'strlen',0
+    str_alloc_bytes db 'alloc_bytes',0
+    
+    class_name     db 'SYNAPSE_WND',0
+    window_title   db 'SYNAPSE Graphics',0
+    
     dbg_fwrite_msg db '[FWRITE] ',0
     newline_str    db 13,10
     print_prefix   db '> ',0
     dbg_print_enter db '[PRINT] Entering intrinsic_print',13,10,0
     dbg_print_addr  db '[PRINT] global_sym_find returned: ',0
     
-    default_file db 'examples\gui.syn',0
+    default_file db 'examples\graphics.syn',0
     
     ; Token types for internal use
     TOK_EOF     = 0
@@ -208,6 +275,17 @@ section '.bss' data readable writeable
     bytes_read      dd ?
     fwrite_result   dd ?    ; For intrinsic_fwrite
     fread_result    dd ?    ; For intrinsic_fread
+    
+    ; Command line argument (source file)
+    arg_file        rb 256  ; Source file from command line
+    
+    ; Window/Graphics handling
+    wnd_class       rb 80   ; WNDCLASSA structure
+    msg_struct      rb 48   ; MSG structure
+    h_wnd           dq ?    ; Window Handle
+    h_dc            dq ?    ; Device Context Handle
+    h_instance      dq ?    ; Module instance handle
+    win_running     dd ?    ; Window still running flag
     
     ; File handling
     file_handle     dq ?
@@ -286,6 +364,56 @@ start:
     call [GetStdHandle]
     mov [stdin], rax
     
+    ; Parse command line - extract filename argument
+    call [GetCommandLineA]
+    ; RAX points to command line string like: synapse.exe examples\hello.syn
+    
+    ; Skip exe name (skip until space or end)
+    mov rsi, rax
+.skip_exe:
+    lodsb
+    test al, al
+    jz .use_default         ; No arguments, use default
+    cmp al, ' '
+    jne .skip_exe
+    
+    ; Skip spaces
+.skip_spaces:
+    lodsb
+    test al, al
+    jz .use_default
+    cmp al, ' '
+    je .skip_spaces
+    
+    ; RSI-1 now points to filename start
+    dec rsi
+    lea rdi, [arg_file]
+    
+.copy_arg:
+    lodsb
+    stosb
+    test al, al
+    jz .arg_done
+    cmp al, ' '
+    jne .copy_arg
+    ; End of argument, null terminate
+    dec rdi
+    mov byte [rdi], 0
+    
+.arg_done:
+    jmp .show_banner
+    
+.use_default:
+    ; Copy default filename to arg_file
+    lea rsi, [default_file]
+    lea rdi, [arg_file]
+.copy_default:
+    lodsb
+    stosb
+    test al, al
+    jnz .copy_default
+
+.show_banner:
     ; Banner
     lea rcx, [banner]
     call print_string
@@ -305,7 +433,7 @@ start:
     lea rcx, [load_msg]
     call print_string
     
-    lea rcx, [default_file]
+    lea rcx, [arg_file]
     call load_file
     test rax, rax
     jz .err_file
@@ -414,7 +542,7 @@ start:
 .err_file:
     lea rcx, [err_file]
     call print_string
-    lea rcx, [default_file]
+    lea rcx, [arg_file]
     call print_string
     lea rcx, [newline]
     call print_string
@@ -1213,7 +1341,16 @@ compile_while:
     cmp rax, KW_IF
     je .while_if
     
+    ; Handle WHILE (nested while inside while)
+    cmp rax, KW_WHILE
+    je .while_nested_while
+    
     jmp .skip_unknown
+
+.while_nested_while:
+    call next_token         ; Consume 'while' (from peek)
+    call compile_while      ; Recursive call
+    jmp .body_loop
 
 .while_let:
     call next_token         ; Consume 'let'
@@ -1471,7 +1608,8 @@ compile_while:
     jmp .body_loop
 
 .consume_rbrace:
-    call next_token         ; Consume '}'
+    call next_token         ; Consume '}' (peek_token restored lex_pos before it)
+    call next_token         ; Read token AFTER '}'
 
 .body_done:
     ; Generate: JMP (back to loop start - condition)
@@ -1580,6 +1718,8 @@ compile_if:
     je .if_return
     cmp rax, KW_IF
     je .if_nested_if
+    cmp rax, KW_WHILE
+    je .if_nested_while
     jmp .if_skip_unknown
 
 .if_try_ident:
@@ -1611,6 +1751,12 @@ compile_if:
 .if_nested_if:
     call compile_if
     call next_token                 ; Skip '}' of nested if
+    jmp .if_body
+
+.if_nested_while:
+    ; Don't call next_token - compile_while expects 'while' as current token
+    ; and will call next_token itself to get '('
+    call compile_while
     jmp .if_body
 
 .if_body_done:
@@ -1684,6 +1830,8 @@ compile_if:
     je .else_return
     cmp rax, KW_IF
     je .else_nested_if
+    cmp rax, KW_WHILE
+    je .else_nested_while
     jmp .else_skip_unknown
     
 .else_skip_newline:
@@ -1706,6 +1854,11 @@ compile_if:
 .else_nested_if:
     call compile_if
     call next_token                 ; Skip '}' of nested if
+    jmp .else_body
+
+.else_nested_while:
+    ; Don't call next_token - compile_while expects 'while' as current token
+    call compile_while
     jmp .else_body
 
 .else_body_done:
@@ -2026,7 +2179,7 @@ compile_term:
     push r14
     
     ; Compile index expression (next_token will skip '[')
-    call compile_expr       ; RAX = index value
+    call compile_expr
     
     ; --- SAFE TOKEN SKIP ---
     push rax
@@ -2791,6 +2944,46 @@ init_intrinsics:
     lea rdx, [intrinsic_msgbox]
     call func_add
     
+    ; Register 'window' intrinsic (create graphics window)
+    lea rcx, [str_window]
+    lea rdx, [intrinsic_window]
+    call func_add
+    
+    ; Register 'pixel' intrinsic (draw pixel)
+    lea rcx, [str_pixel]
+    lea rdx, [intrinsic_pixel]
+    call func_add
+    
+    ; Register 'win_update' intrinsic (process window messages)
+    lea rcx, [str_win_update]
+    lea rdx, [intrinsic_win_update]
+    call func_add
+    
+    ; Register 'sleep' intrinsic (delay execution)
+    lea rcx, [str_sleep]
+    lea rdx, [intrinsic_sleep]
+    call func_add
+    
+    ; Register 'get_byte' intrinsic (read byte from memory)
+    lea rcx, [str_get_byte]
+    lea rdx, [intrinsic_get_byte]
+    call func_add
+    
+    ; Register 'set_byte' intrinsic (write byte to memory)
+    lea rcx, [str_set_byte]
+    lea rdx, [intrinsic_set_byte]
+    call func_add
+    
+    ; Register 'strlen' intrinsic (string length)
+    lea rcx, [str_strlen]
+    lea rdx, [intrinsic_strlen]
+    call func_add
+    
+    ; Register 'alloc_bytes' intrinsic (allocate bytes, not qwords)
+    lea rcx, [str_alloc_bytes]
+    lea rdx, [intrinsic_alloc_bytes]
+    call func_add
+    
     pop rbx
     ret
 
@@ -3116,6 +3309,247 @@ intrinsic_msgbox:
     ret
 
 ; -----------------------------------------------------------------------------
+; Window Procedure (Minimal) - Called by Windows for window messages
+; -----------------------------------------------------------------------------
+WindowProc:
+    ; RCX=hWnd, RDX=uMsg, R8=wParam, R9=lParam
+    push rbx
+    sub rsp, 32                 ; Shadow space (stack is now 16-byte aligned)
+    
+    cmp edx, 0x0002         ; WM_DESTROY
+    je .wndproc_destroy
+    cmp edx, 0x0010         ; WM_CLOSE
+    je .wndproc_close
+    
+    ; Default processing - params are already in correct registers
+    call [DefWindowProcA]
+    add rsp, 32
+    pop rbx
+    ret
+
+.wndproc_close:
+    ; Post quit message
+    xor ecx, ecx
+    call [PostQuitMessage]
+    xor eax, eax
+    add rsp, 32
+    pop rbx
+    ret
+
+.wndproc_destroy:
+    mov dword [win_running], 0
+    xor eax, eax
+    add rsp, 32
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_window(width, height)
+; Creates a window and returns 1 if successful, 0 otherwise.
+; -----------------------------------------------------------------------------
+intrinsic_window:
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    sub rsp, 112            ; Stack space for CreateWindowExA (12 args), aligned
+    
+    ; Stack: 112 (sub) + 40 (pushes) + 8 (ret) = 160 bytes above args
+    ; [RSP + 160] = Arg2 (Height) - Last pushed
+    ; [RSP + 168] = Arg1 (Width) - First pushed
+    
+    mov r12, [rsp + 168]    ; Width
+    mov r13, [rsp + 160]    ; Height
+    
+    ; Get module handle
+    xor rcx, rcx
+    call [GetModuleHandleA]
+    mov [h_instance], rax
+    mov rbx, rax
+    
+    ; Set running flag
+    mov dword [win_running], 1
+    
+    ; 1. Fill WNDCLASSA structure
+    lea rdi, [wnd_class]
+    
+    ; Zero out the structure first
+    push rdi
+    mov rcx, 80
+    xor al, al
+.zero_wndclass:
+    mov [rdi], al
+    inc rdi
+    dec rcx
+    jnz .zero_wndclass
+    pop rdi
+    
+    mov dword [rdi + 0], 0x0003     ; style = CS_HREDRAW | CS_VREDRAW
+    lea rax, [WindowProc]
+    mov [rdi + 8], rax              ; lpfnWndProc
+    mov dword [rdi + 16], 0         ; cbClsExtra
+    mov dword [rdi + 20], 0         ; cbWndExtra
+    mov [rdi + 24], rbx             ; hInstance
+    mov qword [rdi + 32], 0         ; hIcon
+    mov qword [rdi + 40], 0         ; hCursor  
+    mov qword [rdi + 48], 6         ; hbrBackground = COLOR_WINDOW+1
+    mov qword [rdi + 56], 0         ; lpszMenuName
+    lea rax, [class_name]
+    mov [rdi + 64], rax             ; lpszClassName
+    
+    ; RegisterClassA
+    mov rcx, rdi
+    call [RegisterClassA]
+    
+    test eax, eax
+    jz .win_fail
+    
+    ; 2. CreateWindowExA(dwExStyle, lpClassName, lpWindowName, dwStyle,
+    ;                    x, y, width, height, hWndParent, hMenu, hInstance, lpParam)
+    mov ecx, 0                      ; dwExStyle
+    lea rdx, [class_name]           ; lpClassName
+    lea r8, [window_title]          ; lpWindowName
+    mov r9d, 0x10CF0000             ; WS_VISIBLE | WS_OVERLAPPEDWINDOW
+    
+    ; Stack args - zero out entire slot then write value
+    mov qword [rsp + 32], 100       ; X
+    mov qword [rsp + 40], 100       ; Y
+    mov rax, r12
+    mov [rsp + 48], rax             ; Width (as 64-bit)
+    mov rax, r13
+    mov [rsp + 56], rax             ; Height (as 64-bit)
+    mov qword [rsp + 64], 0         ; hWndParent
+    mov qword [rsp + 72], 0         ; hMenu
+    mov [rsp + 80], rbx             ; hInstance
+    mov qword [rsp + 88], 0         ; lpParam
+    
+    call [CreateWindowExA]
+    mov [h_wnd], rax
+    
+    test rax, rax
+    jz .win_fail
+    
+    ; 3. ShowWindow
+    mov rcx, rax
+    mov edx, 1                      ; SW_SHOWNORMAL
+    call [ShowWindow]
+    
+    ; 4. UpdateWindow
+    mov rcx, [h_wnd]
+    call [UpdateWindow]
+    
+    ; 5. GetDC for drawing
+    mov rcx, [h_wnd]
+    call [GetDC]
+    mov [h_dc], rax
+    
+    mov rax, 1
+    jmp .win_done
+
+.win_fail:
+    xor rax, rax
+
+.win_done:
+    add rsp, 112
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_pixel(x, y, color)
+; SetPixel(hdc, x, y, color) - Draws a single pixel
+; -----------------------------------------------------------------------------
+intrinsic_pixel:
+    push rbx
+    sub rsp, 48
+    
+    ; Stack: 48 (sub) + 8 (push) + 8 (ret) = 64 bytes above args
+    ; [RSP + 64] = Arg3 (Color) - Last pushed
+    ; [RSP + 72] = Arg2 (Y)
+    ; [RSP + 80] = Arg1 (X) - First pushed
+    
+    mov rcx, [h_dc]         ; HDC
+    mov edx, [rsp + 80]     ; X
+    mov r8d, [rsp + 72]     ; Y
+    mov r9d, [rsp + 64]     ; Color (0x00BBGGRR)
+    
+    call [SetPixel]
+    
+    add rsp, 48
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_win_update()
+; Processes Windows messages. Returns 1 if running, 0 if quit requested.
+; -----------------------------------------------------------------------------
+intrinsic_win_update:
+    push rbx
+    sub rsp, 48
+    
+.update_loop:
+    ; PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE)
+    lea rcx, [msg_struct]
+    xor rdx, rdx            ; hWnd = NULL (all windows)
+    xor r8, r8              ; wMsgFilterMin
+    xor r9, r9              ; wMsgFilterMax
+    mov qword [rsp + 32], 1 ; PM_REMOVE
+    
+    call [PeekMessageA]
+    test eax, eax
+    jz .no_more_msgs
+    
+    ; Check for WM_QUIT (message field at offset 8 in MSG struct)
+    lea rax, [msg_struct]
+    mov eax, [rax + 8]          ; message field
+    cmp eax, 0x0012             ; WM_QUIT
+    je .quit_msg
+    
+    ; TranslateMessage
+    lea rcx, [msg_struct]
+    call [TranslateMessage]
+    
+    ; DispatchMessageA
+    lea rcx, [msg_struct]
+    call [DispatchMessageA]
+    
+    jmp .update_loop
+
+.no_more_msgs:
+    mov eax, [win_running]
+    add rsp, 48
+    pop rbx
+    ret
+
+.quit_msg:
+    mov dword [win_running], 0
+    xor eax, eax
+    add rsp, 48
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_sleep(ms)
+; Sleep for specified milliseconds
+; -----------------------------------------------------------------------------
+intrinsic_sleep:
+    push rbx
+    sub rsp, 32
+    
+    ; Stack: 32 + 8 + 8 = 48
+    mov ecx, [rsp + 48]     ; milliseconds
+    call [Sleep]
+    
+    xor eax, eax
+    add rsp, 32
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
 ; intrinsic_fread(handle, buffer, len)
 ; Reads bytes from file. Returns: Bytes read
 ; -----------------------------------------------------------------------------
@@ -3193,6 +3627,60 @@ intrinsic_fwrite:
     pop rdi
     pop rsi
     pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_get_byte(ptr, index)
+; Returns: byte value at ptr+index (zero-extended to 64-bit)
+; Args pushed: ptr first, index second
+; Stack after CALL: [RSP]=ret, [RSP+8]=index, [RSP+16]=ptr
+; -----------------------------------------------------------------------------
+intrinsic_get_byte:
+    mov rax, [rsp + 16]         ; ptr (first arg = higher offset)
+    add rax, [rsp + 8]          ; + index (second arg = RSP+8)
+    movzx rax, byte [rax]       ; Load byte, zero-extend
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_set_byte(ptr, index, value)
+; Writes low byte of value to ptr+index
+; Args pushed: ptr, index, value
+; Stack after CALL: [RSP]=ret, [RSP+8]=value, [RSP+16]=index, [RSP+24]=ptr
+; -----------------------------------------------------------------------------
+intrinsic_set_byte:
+    mov rax, [rsp + 24]         ; ptr (first arg)
+    add rax, [rsp + 16]         ; + index (second arg)
+    mov rcx, [rsp + 8]          ; value (third arg)
+    mov [rax], cl               ; Store low byte only
+    xor eax, eax                ; Return 0
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_strlen(str)
+; Returns: length of null-terminated string (not counting null)
+; Stack after CALL: [RSP]=ret, [RSP+8]=str
+; -----------------------------------------------------------------------------
+intrinsic_strlen:
+    mov rax, [rsp + 8]          ; str ptr
+    xor rcx, rcx                ; counter = 0
+.strlen_loop:
+    cmp byte [rax + rcx], 0
+    je .strlen_done
+    inc rcx
+    jmp .strlen_loop
+.strlen_done:
+    mov rax, rcx                ; Return length
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_alloc_bytes(count)
+; Allocates count bytes of memory (unlike alloc which allocates count*8 bytes)
+; Stack after CALL: [RSP]=ret, [RSP+8]=count
+; -----------------------------------------------------------------------------
+intrinsic_alloc_bytes:
+    mov rcx, [rsp + 8]          ; count (bytes)
+    mov rax, [heap_ptr]         ; Return current heap ptr
+    add [heap_ptr], rcx         ; Advance by count bytes
     ret
 
 func_add:

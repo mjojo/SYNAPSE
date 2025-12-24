@@ -1,0 +1,10 @@
+fn main() {
+    let buf = alloc_bytes(8)
+    set_byte(buf, 0, 65)
+    set_byte(buf, 1, 0)
+    let c = get_byte(buf, 0)
+    print(c)
+    let len = strlen(buf)
+    print(len)
+    return 0
+}

@@ -1,0 +1,14 @@
+// Extreme debug test
+fn main() {
+    print(1)
+    
+    let ok = 1
+    
+    if (ok) {
+        print(2)
+    }
+    
+    print(3)
+    print(4)
+    return 0
+}

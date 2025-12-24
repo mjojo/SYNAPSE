@@ -1,0 +1,19 @@
+// if with while - minimal
+fn main() {
+    print(1)
+    
+    let ok = 1
+    let x = 0
+    
+    if (ok) {
+        print(2)
+        while (x < 1) {
+            print(3)
+            x = x + 1
+        }
+        print(4)
+    }
+    
+    print(5)
+    return 0
+}

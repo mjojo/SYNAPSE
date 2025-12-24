@@ -1,0 +1,13 @@
+// Minimal if test - no while
+fn main() {
+    print(1111)
+    
+    let ok = 1
+    
+    if (ok) {
+        print(2222)
+    }
+    
+    print(9999)
+    return 0
+}

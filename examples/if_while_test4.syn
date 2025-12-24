@@ -1,0 +1,23 @@
+// Test - print 9999 BEFORE if
+fn main() {
+    print(1111)
+    
+    let ok = 1
+    let x = 0
+    
+    print(9999)
+    
+    if (ok) {
+        print(2222)
+        
+        x = 0
+        while (x < 2) {
+            print(x)
+            x = x + 1
+        }
+        
+        print(3333)
+    }
+    
+    return 0
+}

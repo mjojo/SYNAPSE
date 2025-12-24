@@ -1,0 +1,10 @@
+fn main() {
+    let x = 1
+    if (x) {
+        while (x < 2) {
+            x = x + 1
+        }
+    }
+    print(999)
+    return 0
+}

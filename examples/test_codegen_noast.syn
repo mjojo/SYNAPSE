@@ -1,0 +1,81 @@
+// Debugging - remove AST parts
+
+let g_jit = 0
+let g_jit_idx = 0
+
+fn emit(b) {
+    set_byte(g_jit, g_jit_idx, b)
+    g_jit_idx = g_jit_idx + 1
+    return 0
+}
+
+fn emit64(val) {
+    let i = 0
+    let v = 0
+    let b = 0
+    let d = 0
+    
+    v = val
+    i = 0
+    while (i < 8) {
+        d = v / 256
+        b = v - (d * 256)
+        emit(b)
+        v = d
+        i = i + 1
+    }
+    return 0
+}
+
+fn gen_prologue() {
+    puts("Gen: prologue")
+    emit(85)
+    emit(72)
+    emit(137)
+    emit(229)
+    return 0
+}
+
+fn gen_number(val) {
+    puts("Gen: number")
+    print(val)
+    emit(72)
+    emit(184)
+    emit64(val)
+    return 0
+}
+
+fn gen_epilogue() {
+    puts("Gen: epilogue")
+    emit(93)
+    emit(195)
+    return 0
+}
+
+fn main() {
+    let i = 0
+    let b = 0
+    
+    puts("=== CODEGEN DEBUG ===")
+    
+    g_jit = alloc(512)
+    g_jit_idx = 0
+    
+    puts("Direct generation...")
+    gen_prologue()
+    gen_number(123)
+    gen_epilogue()
+    
+    puts("Bytes:")
+    print(g_jit_idx)
+    
+    i = 0
+    while (i < g_jit_idx) {
+        b = get_byte(g_jit, i)
+        print(b)
+        i = i + 1
+    }
+    
+    puts("=== DONE ===")
+    return 0
+}

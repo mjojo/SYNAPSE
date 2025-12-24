@@ -1,0 +1,22 @@
+// Test division in function
+
+fn div_test(val) {
+    let d = 0
+    let b = 0
+    d = val / 256
+    b = val - (d * 256)
+    puts("d=")
+    print(d)
+    puts("b=")
+    print(b)
+    return b
+}
+
+fn main() {
+    puts("=== DIV TEST ===")
+    div_test(123)
+    div_test(256)
+    div_test(1000)
+    puts("=== DONE ===")
+    return 0
+}

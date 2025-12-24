@@ -250,17 +250,18 @@ section '.data' data readable writeable
     OP_PLUS     = 1
     OP_MINUS    = 2
     OP_MUL      = 3
-    OP_LT       = 4
-    OP_GT       = 5
-    OP_EQ       = 6
-    OP_LPAREN   = 7
-    OP_RPAREN   = 8
-    OP_LBRACE   = 9
-    OP_RBRACE   = 10
-    OP_ASSIGN   = 11
-    OP_COMMA    = 12
-    OP_LBRACKET = 13
-    OP_RBRACKET = 14
+    OP_DIV      = 4
+    OP_LT       = 5
+    OP_GT       = 6
+    OP_EQ       = 7
+    OP_LPAREN   = 8
+    OP_RPAREN   = 9
+    OP_LBRACE   = 10
+    OP_RBRACE   = 11
+    OP_ASSIGN   = 12
+    OP_COMMA    = 13
+    OP_LBRACKET = 14
+    OP_RBRACKET = 15
     
     ; Keyword table
     kw_fn       db 'fn',0
@@ -2588,6 +2589,8 @@ compile_expr:
     je .do_sub
     cmp rax, OP_MUL
     je .do_mul
+    cmp rax, OP_DIV
+    je .do_div
     cmp rax, OP_LT
     je .do_lt
     cmp rax, OP_GT
@@ -2662,6 +2665,41 @@ compile_expr:
     mov rdi, [jit_cursor]
     mov dword [rdi], 0xC1AF0F48
     add qword [jit_cursor], 4
+    
+    jmp .expr_loop
+
+.do_div:
+    ; Division: left / right
+    ; Stack: RAX = left value
+    call next_token
+    
+    ; PUSH RAX (save left)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    call next_token
+    call compile_term   ; RAX = right (divisor)
+    
+    ; POP RCX (RCX = left, RAX = right)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    inc qword [jit_cursor]
+    
+    ; XCHG RAX, RCX (now RAX = left, RCX = right/divisor)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC88748     ; 48 87 C8 = XCHG RAX, RCX
+    add qword [jit_cursor], 3
+    
+    ; CQO (sign extend RAX to RDX:RAX)
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0x9948       ; 48 99 = CQO
+    add qword [jit_cursor], 2
+    
+    ; IDIV RCX (RDX:RAX / RCX, quotient in RAX)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xF9F748    ; 48 F7 F9 = IDIV RCX
+    add qword [jit_cursor], 3
     
     jmp .expr_loop
 
@@ -3287,6 +3325,8 @@ next_token:
     je .op_minus
     cmp al, '*'
     je .op_mul
+    cmp al, '/'
+    je .op_div
     cmp al, '<'
     je .op_lt
     cmp al, '>'
@@ -3319,6 +3359,9 @@ next_token:
     jmp .done
 .op_mul:
     mov qword [cur_tok_value], OP_MUL
+    jmp .done
+.op_div:
+    mov qword [cur_tok_value], OP_DIV
     jmp .done
 .op_lt:
     mov qword [cur_tok_value], OP_LT

@@ -1,0 +1,195 @@
+// self_codegen.syn - Phase 32: AST to Machine Code
+// Walks the AST and emits x64 machine code bytes.
+
+// --- GLOBAL MEMORY ---
+let g_ast = 0
+let g_ast_idx = 0
+
+// --- JIT STATE ---
+let g_jit = 0
+let g_jit_idx = 0
+
+// --- HELPER: Emit Byte ---
+fn emit(b) {
+    set_byte(g_jit, g_jit_idx, b)
+    g_jit_idx = g_jit_idx + 1
+    return 0
+}
+
+// --- HELPER: Emit QWORD (Little Endian) ---
+fn emit64(val) {
+    let i = 0
+    let v = 0
+    let b = 0
+    let d = 0
+    
+    v = val
+    i = 0
+    while (i < 8) {
+        d = v / 256
+        b = v - (d * 256)
+        emit(b)
+        v = d
+        i = i + 1
+    }
+    return 0
+}
+
+// ============================================================
+// CODE GENERATOR
+// ============================================================
+
+fn codegen(node) {
+    let ntype = 0
+    let val = 0
+    let child = 0
+    let sib = 0
+    
+    if (node == 0) {
+        return 0
+    }
+    
+    ntype = g_ast[node]
+    val = g_ast[node + 1]
+    child = g_ast[node + 2]
+    sib = g_ast[node + 3]
+    
+    // --- NODE_PROG (1) ---
+    if (ntype == 1) {
+        puts("Gen: Program")
+        codegen(child)
+    }
+    
+    // --- NODE_FN (2) ---
+    if (ntype == 2) {
+        puts("Gen: Function Prologue")
+        // PUSH RBP (0x55)
+        emit(85)
+        
+        // MOV RBP, RSP (48 89 E5)
+        emit(72)
+        emit(137)
+        emit(229)
+        
+        // Generate Body
+        codegen(child)
+    }
+    
+    // --- NODE_BLOCK (3) ---
+    if (ntype == 3) {
+        puts("Gen: Block")
+        codegen(child)
+    }
+    
+    // --- NODE_LET (4) ---
+    if (ntype == 4) {
+        puts("Gen: Let (TODO)")
+        // Need symbol table for stack offsets
+    }
+    
+    // --- NODE_NUM (5) ---
+    if (ntype == 5) {
+        puts("Gen: Number")
+        print(val)
+        // MOV RAX, imm64 (48 B8 ...)
+        emit(72)
+        emit(184)
+        emit64(val)
+    }
+    
+    // --- NODE_RET (7) ---
+    if (ntype == 7) {
+        puts("Gen: Return")
+        // Generate Expression (result in RAX)
+        codegen(child)
+        
+        // Epilogue: POP RBP, RET
+        emit(93)
+        emit(195)
+    }
+    
+    // Visit Sibling (Next Statement/Function)
+    codegen(sib)
+    
+    return 0
+}
+
+// --- AST BUILDER ---
+fn ast_new(ntype, val) {
+    let idx = 0
+    idx = g_ast_idx
+    g_ast[idx] = ntype
+    g_ast[idx + 1] = val
+    g_ast[idx + 2] = 0
+    g_ast[idx + 3] = 0
+    g_ast_idx = g_ast_idx + 4
+    return idx
+}
+
+fn main() {
+    let root = 0
+    let fn_node = 0
+    let ret_node = 0
+    let num_node = 0
+    let i = 0
+    let b = 0
+    
+    puts("=== CODEGEN V1 ===")
+    puts("Target: fn main() { return 123 }")
+    
+    // 1. INIT
+    g_ast = alloc(1024)
+    g_jit = alloc(1024)
+    g_jit_idx = 0
+    g_ast_idx = 4
+    
+    // 2. MANUALLY BUILD AST for: fn main() { return 123 }
+    // Structure: PROG -> FN -> RET -> NUM
+    
+    root = ast_new(1, 0)
+    fn_node = ast_new(2, 0)
+    ret_node = ast_new(7, 0)
+    num_node = ast_new(5, 123)
+    
+    // Link: PROG.child = FN
+    g_ast[root + 2] = fn_node
+    
+    // Link: FN.child = RET
+    g_ast[fn_node + 2] = ret_node
+    
+    // Link: RET.child = NUM
+    g_ast[ret_node + 2] = num_node
+    
+    puts("--- AST Built ---")
+    puts("Generating x64 code...")
+    puts("")
+    
+    codegen(root)
+    
+    puts("")
+    puts("--- JIT OUTPUT ---")
+    puts("Bytes generated:")
+    print(g_jit_idx)
+    
+    puts("")
+    puts("Machine code (decimal):")
+    i = 0
+    while (i < g_jit_idx) {
+        b = get_byte(g_jit, i)
+        print(b)
+        i = i + 1
+    }
+    
+    puts("")
+    puts("--- EXPECTED ---")
+    puts("55       = PUSH RBP")
+    puts("72 137 229 = MOV RBP, RSP")
+    puts("72 184   = MOV RAX, imm64")
+    puts("123 0 0 0 0 0 0 0 = 123 (LE)")
+    puts("93       = POP RBP")
+    puts("195      = RET")
+    
+    puts("")
+    puts("=== DONE ===")
+    return 0
+}

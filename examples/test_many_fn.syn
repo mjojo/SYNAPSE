@@ -1,0 +1,26 @@
+// Test many functions
+
+let g_val = 0
+
+fn f1() { return 1 }
+fn f2() { return 2 }
+fn f3() { return 3 }
+fn f4() { return 4 }
+fn f5() { return 5 }
+fn f6() { return 6 }
+fn f7() { return 7 }
+fn f8() { return 8 }
+
+fn main() {
+    puts("Testing many functions")
+    print(f1())
+    print(f2())
+    print(f3())
+    print(f4())
+    print(f5())
+    print(f6())
+    print(f7())
+    print(f8())
+    puts("Done")
+    return 0
+}

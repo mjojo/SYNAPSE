@@ -1,0 +1,110 @@
+// Debugging codegen issue
+
+let g_ast = 0
+let g_ast_idx = 0
+let g_jit = 0
+let g_jit_idx = 0
+
+fn emit(b) {
+    set_byte(g_jit, g_jit_idx, b)
+    g_jit_idx = g_jit_idx + 1
+    return 0
+}
+
+fn emit64(val) {
+    let i = 0
+    let v = 0
+    let b = 0
+    let d = 0
+    
+    v = val
+    i = 0
+    while (i < 8) {
+        d = v / 256
+        b = v - (d * 256)
+        emit(b)
+        v = d
+        i = i + 1
+    }
+    return 0
+}
+
+fn ast_new(ntype, val) {
+    let idx = 0
+    idx = g_ast_idx
+    g_ast[idx] = ntype
+    g_ast[idx + 1] = val
+    g_ast[idx + 2] = 0
+    g_ast[idx + 3] = 0
+    g_ast_idx = g_ast_idx + 4
+    return idx
+}
+
+fn gen_prologue() {
+    puts("Gen: prologue")
+    emit(85)
+    emit(72)
+    emit(137)
+    emit(229)
+    return 0
+}
+
+fn gen_number(val) {
+    puts("Gen: number")
+    print(val)
+    emit(72)
+    emit(184)
+    emit64(val)
+    return 0
+}
+
+fn gen_epilogue() {
+    puts("Gen: epilogue")
+    emit(93)
+    emit(195)
+    return 0
+}
+
+fn main() {
+    let root = 0
+    let fn_node = 0
+    let ret_node = 0
+    let num_node = 0
+    let i = 0
+    let b = 0
+    
+    puts("=== CODEGEN DEBUG ===")
+    
+    g_ast = alloc(512)
+    g_jit = alloc(512)
+    g_jit_idx = 0
+    g_ast_idx = 4
+    
+    puts("Building AST...")
+    root = ast_new(1, 0)
+    fn_node = ast_new(2, 0)
+    ret_node = ast_new(7, 0)
+    num_node = ast_new(5, 123)
+    
+    g_ast[root + 2] = fn_node
+    g_ast[fn_node + 2] = ret_node
+    g_ast[ret_node + 2] = num_node
+    
+    puts("Direct generation...")
+    gen_prologue()
+    gen_number(123)
+    gen_epilogue()
+    
+    puts("Bytes:")
+    print(g_jit_idx)
+    
+    i = 0
+    while (i < g_jit_idx) {
+        b = get_byte(g_jit, i)
+        print(b)
+        i = i + 1
+    }
+    
+    puts("=== DONE ===")
+    return 0
+}

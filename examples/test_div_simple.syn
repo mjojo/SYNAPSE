@@ -1,0 +1,15 @@
+// Test simple division
+
+fn test_div(val) {
+    let d = 0
+    d = val / 256
+    print(d)
+    return d
+}
+
+fn main() {
+    puts("=== DIV TEST ===")
+    test_div(512)
+    puts("=== DONE ===")
+    return 0
+}

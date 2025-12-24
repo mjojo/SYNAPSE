@@ -1,0 +1,60 @@
+// Simple codegen test - no recursion
+
+let g_jit = 0
+let g_jit_idx = 0
+
+fn emit(b) {
+    set_byte(g_jit, g_jit_idx, b)
+    g_jit_idx = g_jit_idx + 1
+    return 0
+}
+
+fn main() {
+    let i = 0
+    let b = 0
+    
+    puts("=== EMIT TEST ===")
+    
+    g_jit = alloc(256)
+    g_jit_idx = 0
+    
+    puts("Emitting bytes...")
+    
+    // PUSH RBP
+    emit(85)
+    
+    // MOV RBP, RSP (48 89 E5)
+    emit(72)
+    emit(137)
+    emit(229)
+    
+    // MOV RAX, 123 (48 B8 + 8 bytes)
+    emit(72)
+    emit(184)
+    emit(123)
+    emit(0)
+    emit(0)
+    emit(0)
+    emit(0)
+    emit(0)
+    emit(0)
+    emit(0)
+    
+    // POP RBP, RET
+    emit(93)
+    emit(195)
+    
+    puts("Bytes written:")
+    print(g_jit_idx)
+    
+    puts("Reading back:")
+    i = 0
+    while (i < g_jit_idx) {
+        b = get_byte(g_jit, i)
+        print(b)
+        i = i + 1
+    }
+    
+    puts("=== DONE ===")
+    return 0
+}

@@ -1,0 +1,13 @@
+// Test division in main
+
+fn main() {
+    let x = 0
+    let d = 0
+    
+    puts("=== DIV TEST ===")
+    x = 512
+    d = x / 256
+    print(d)
+    puts("=== DONE ===")
+    return 0
+}

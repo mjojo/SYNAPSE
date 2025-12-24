@@ -1,0 +1,26 @@
+fn is_alpha(c) {
+    print(c)
+    if (c > 96) {
+        print(1001)
+        if (c < 123) { 
+            print(1002)
+            return 1 
+        }
+    }
+    if (c > 64) {
+        print(2001)
+        if (c < 91) { 
+            print(2002)
+            return 1 
+        }
+    }
+    return 0
+}
+
+fn main() {
+    print(8888)
+    let result = is_alpha(108)
+    print(result)
+    print(9999)
+    return 0
+}

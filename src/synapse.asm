@@ -47,6 +47,7 @@ section '.idata' import data readable
         dq RVA _WriteFile
         dq RVA _GetModuleHandleA
         dq RVA _Sleep
+        dq RVA _GetLastError
         dq 0
 
     kernel32_table:
@@ -63,6 +64,7 @@ section '.idata' import data readable
         WriteFile       dq RVA _WriteFile
         GetModuleHandleA dq RVA _GetModuleHandleA
         Sleep           dq RVA _Sleep
+        GetLastError    dq RVA _GetLastError
                         dq 0
 
     _GetStdHandle   db 0,0,'GetStdHandle',0
@@ -78,6 +80,7 @@ section '.idata' import data readable
     _WriteFile      db 0,0,'WriteFile',0
     _GetModuleHandleA db 0,0,'GetModuleHandleA',0
     _Sleep          db 0,0,'Sleep',0
+    _GetLastError   db 0,0,'GetLastError',0
 
     ; =========================================================================
     ; USER32
@@ -233,6 +236,7 @@ section '.data' data readable writeable
     TOK_KEYWORD = 3
     TOK_OP      = 4
     TOK_NEWLINE = 5
+    TOK_STRING  = 6
     
     ; Keywords
     KW_FN       = 1
@@ -349,6 +353,10 @@ section '.bss' data readable writeable
     ; Result
     exec_result     dq ?
     num_buffer      rb 32
+    
+    ; String literal table
+    string_table    rb 65536
+    string_ptr      dq ?
 
 section '.text' code readable executable
 
@@ -1637,52 +1645,70 @@ compile_while:
     ret
 
 
+
+
+; =============================================================================
+; compile_if_manual - Wrapper to enter compile_if when 'if' was already consumed
+; Used by .force_nested_if when identifier was actually 'if'
+; =============================================================================
+compile_if_manual:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    jmp compile_if.manual_entry  ; Skip the next_token that consumes 'if'
+
 ; =============================================================================
 ; compile_if - Compile: if (cond) { body } [else { body }]
-; 
-; JIT Layout:
-;   1. TEST RAX, RAX (condition result)
-;   2. JZ .else_or_end (if false, jump to else or end)
-;   3. [IF BODY CODE]
-;   4. JMP .end (skip else block) - only if else exists
-;   5. .else_label: [ELSE BODY CODE] - only if else exists
-;   6. .end_label:
+; REWRITTEN: Now supports assignments and function calls inside body!
 ; =============================================================================
 compile_if:
     push rbx
     push r12
     push r13
     push r14
+    push r15
     
-    ; Skip 'if' - cur_tok becomes '('
+    ; Skip 'if'
     call next_token
+
+.manual_entry:              ; Entry point when 'if' was already consumed (by if_handle_ident)
+    ; --- FIX: Skip '(' if present ---
+    ; compile_expr expects to read the first term immediately.
+    ; If syntax is "if (cond)", we are at '(' after reading 'if'.
+    ; We peek and skip '(' so compile_expr reads the actual condition.
     
+    call peek_token
+    cmp dword [peek_tok_type], TOK_OP
+    jne .no_paren_skip_if
+    cmp qword [peek_tok_value], OP_LPAREN
+    jne .no_paren_skip_if
+    
+    call next_token         ; Consume '('
+.no_paren_skip_if:
+    ; ---------------------
+
     ; Compile condition
-    call compile_expr       ; Result in RAX
+    call compile_expr
     
-    ; --- FIX: SAVE RAX before next_token ---
-    push rax                ; Save condition result!
-    
-    ; Skip ')' - compile_expr leaves us at ')'
-    call next_token         ; This clobbers RAX!
-    
-    pop rax                 ; Restore condition result
-    ; --- FIX END ---
+    ; Skip ')'
+    call next_token
     
     ; Generate: TEST RAX, RAX
     mov rdi, [jit_cursor]
     mov dword [rdi], 0xC08548
     add qword [jit_cursor], 3
     
-    ; Generate: JZ rel32 (skip to else/end if false)
+    ; Generate: JZ rel32 (skip to else/end)
     mov rdi, [jit_cursor]
-    mov word [rdi], 0x840F          ; JZ opcode
+    mov word [rdi], 0x840F
     add qword [jit_cursor], 2
-    mov r12, [jit_cursor]           ; R12 = address for JZ backpatch
-    mov dword [rdi+2], 0            ; placeholder
+    mov r12, [jit_cursor]           ; R12 = JZ patch location
+    mov dword [rdi+2], 0
     add qword [jit_cursor], 4
     
-    ; Find and skip '{'
+    ; Find '{'
 .find_lbrace:
     cmp dword [cur_tok_type], TOK_OP
     jne .skip_to_lbrace
@@ -1694,22 +1720,26 @@ compile_if:
 .found_lbrace:
     call next_token                 ; Skip '{'
     
-    ; === Compile IF body ===
+    ; === IF BODY LOOP ===
 .if_body:
+    call peek_token
+    
     cmp dword [cur_tok_type], TOK_OP
-    jne .check_if_stmt
+    jne .check_if_content
     cmp qword [cur_tok_value], OP_RBRACE
     je .if_body_done
     
-.check_if_stmt:
+.check_if_content:
     cmp dword [cur_tok_type], TOK_EOF
     je .if_body_done
-    cmp dword [cur_tok_type], TOK_NEWLINE
-    je .if_skip_newline
     
-    ; Check for keywords (let, return, if)
+    ; Explicitly handle Newlines to avoid peek confusion
+    cmp dword [cur_tok_type], TOK_NEWLINE
+    je .if_skip_unknown
+    
+    ; Check Keyword FIRST (before ident)
     cmp dword [cur_tok_type], TOK_KEYWORD
-    jne .if_try_ident
+    jne .check_ident
     
     mov rax, [cur_tok_value]
     cmp rax, KW_LET
@@ -1722,18 +1752,10 @@ compile_if:
     je .if_nested_while
     jmp .if_skip_unknown
 
-.if_try_ident:
-    ; If identifier, compile as term (function call or variable load)
-    ; compile_term does NOT call next_token first, so it uses current token
+.check_ident:
     cmp dword [cur_tok_type], TOK_IDENT
-    jne .if_skip_unknown
-    call compile_term
-    ; Result discarded - no assignment needed for standalone calls
-    jmp .if_body
-    
-.if_skip_newline:
-    call next_token
-    jmp .if_body
+    je .if_handle_ident
+    jmp .if_skip_unknown
     
 .if_skip_unknown:
     call next_token
@@ -1743,85 +1765,264 @@ compile_if:
     call next_token
     call compile_let
     jmp .if_body
-    
 .if_return:
+    call next_token
     call compile_return
     jmp .if_body
-
 .if_nested_if:
+    ; Recursive call - compile_if will call next_token itself
     call compile_if
-    call next_token                 ; Skip '}' of nested if
     jmp .if_body
-
 .if_nested_while:
-    ; Don't call next_token - compile_while expects 'while' as current token
-    ; and will call next_token itself to get '('
     call compile_while
     jmp .if_body
 
+; --- IF BLOCK IDENTIFIER HANDLER ---
+.if_handle_ident:
+    call next_token     ; Consume identifier
+    
+    ; Save name
+    lea rsi, [tok_buffer]
+    lea rdi, [func_call_name]
+    mov rcx, 60
+.copy_if_name:
+    mov al, [rsi]
+    mov [rdi], al
+    test al, al
+    jz .copy_if_done
+    inc rsi
+    inc rdi
+    dec rcx
+    jnz .copy_if_name
+.copy_if_done:
+    
+    ; === PARANOID CHECK: Is identifier actually 'if'? ===
+    ; Check for "if" - 'i' (0x69), 'f' (0x66), null (0x00)
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 'i'
+    jne .not_hidden_if
+    cmp byte [rsi+1], 'f'
+    jne .not_hidden_if
+    cmp byte [rsi+2], 0
+    jne .not_hidden_if
+    jmp .force_nested_if    ; It was 'if'!
+.not_hidden_if:
+    
+    ; Check for "while" - 'w' 'h' 'i' 'l' 'e' null
+    cmp byte [rsi], 'w'
+    jne .not_hidden_while
+    cmp byte [rsi+1], 'h'
+    jne .not_hidden_while
+    cmp byte [rsi+2], 'i'
+    jne .not_hidden_while
+    cmp byte [rsi+3], 'l'
+    jne .not_hidden_while
+    cmp byte [rsi+4], 'e'
+    jne .not_hidden_while
+    cmp byte [rsi+5], 0
+    jne .not_hidden_while
+    jmp .force_nested_while ; It was 'while'!
+.not_hidden_while:
+    ; ============================================================
+    
+    call next_token
+    cmp dword [cur_tok_type], TOK_OP
+    jne .if_body
+    cmp qword [cur_tok_value], OP_ASSIGN
+    je .if_var_assign
+    cmp qword [cur_tok_value], OP_LBRACKET
+    je .if_array_assign
+    cmp qword [cur_tok_value], OP_LPAREN
+    je .if_func_call
+    jmp .if_body
+
+.force_nested_if:
+    ; We already consumed 'if' as identifier, jump to compile_if's manual entry
+    ; which skips the next_token that would consume 'if'
+    call compile_if_manual
+    jmp .if_body
+
+.force_nested_while:
+    ; We already consumed 'while', backtrack and let compile_while handle it
+    mov rax, [lex_pos]
+    sub rax, 5          ; "while" is 5 chars - backtrack
+    mov [lex_pos], rax
+    call compile_while
+    jmp .if_body
+
+.if_var_assign:
+    ; var = expr
+    lea rcx, [func_call_name]
+    call sym_find
+    test rax, rax
+    jz .if_var_global
+    mov r15b, al            ; R15 = local offset
+    
+    push r15
+    call compile_expr
+    pop r15
+    
+    ; Local store
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0x458948
+    mov [rdi+3], r15b
+    add qword [jit_cursor], 4
+    jmp .if_body
+
+.if_var_global:
+    lea rcx, [func_call_name]
+    call global_sym_find
+    mov r14, rax
+    test r14, r14
+    jz .if_body
+    
+    push r14
+    call compile_expr
+    pop r14
+    
+    ; Global store
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0xB948
+    mov [rdi+2], r14
+    add rdi, 10
+    mov dword [rdi], 0x018948
+    add rdi, 3
+    mov [jit_cursor], rdi
+    jmp .if_body
+
+.if_array_assign:
+    ; arr[i] = val
+    lea rcx, [func_call_name]
+    call sym_find
+    mov r15b, al
+    
+    push r15
+    call compile_expr       ; Index
+    pop r15
+    
+    ; Consume ] and =
+    call next_token ; ]
+    call next_token ; =
+    
+    ; Save Index (RAX) -> RCX -> Stack
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC88948   ; MOV RCX, RAX
+    add rdi, 3
+    mov byte [rdi], 0x51        ; PUSH RCX
+    add rdi, 1
+    mov [jit_cursor], rdi
+    
+    ; Load Base -> R8 -> Stack
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0x458B4C   ; MOV R8, [RBP+disp]
+    mov [rdi+3], r15b
+    add rdi, 4
+    mov word [rdi], 0x5041      ; PUSH R8
+    add rdi, 2
+    mov [jit_cursor], rdi
+    
+    call compile_expr       ; Value -> RAX
+    
+    ; Restore R8, RCX
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0x5841      ; POP R8
+    add rdi, 2
+    mov byte [rdi], 0x59        ; POP RCX
+    add rdi, 1
+    ; MOV [R8 + RCX*8], RAX
+    mov dword [rdi], 0xC8048949
+    add rdi, 4
+    mov [jit_cursor], rdi
+    jmp .if_body
+
+.if_func_call:
+    ; name(args)
+    lea rcx, [func_call_name]
+    call func_find
+    mov r14, rax
+    test r14, r14
+    jz .if_skip_call
+    
+    call compile_expr       ; Arg 1 (simplified for single arg)
+    
+    ; PUSH RAX
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    call next_token         ; Skip )
+    
+    ; CALL
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0xB848
+    mov [rdi+2], r14
+    add rdi, 10
+    mov word [rdi], 0xD0FF
+    add rdi, 2
+    mov dword [rdi], 0x08C48348 ; ADD RSP, 8
+    add rdi, 4
+    mov [jit_cursor], rdi
+    jmp .if_body
+
+.if_skip_call:
+    call next_token ; skip )
+    jmp .if_body
+
 .if_body_done:
-    ; Skip '}' of if block
-    call next_token
+    call next_token ; Skip '}'
     
-    ; === Check for ELSE ===
-    ; Skip newlines before checking for else
-.skip_before_else:
-    cmp dword [cur_tok_type], TOK_NEWLINE
-    jne .check_else
-    call next_token
-    jmp .skip_before_else
-    
-.check_else:
+    ; === ELSE CHECK ===
+    call peek_token
     cmp dword [cur_tok_type], TOK_KEYWORD
     jne .no_else
     cmp qword [cur_tok_value], KW_ELSE
     jne .no_else
     
-    ; === FOUND ELSE ===
+    call next_token ; Skip 'else'
     
-    ; Generate: JMP rel32 (skip else block after if body)
+    ; JMP over else
     mov rdi, [jit_cursor]
-    mov byte [rdi], 0xE9            ; JMP opcode
-    add qword [jit_cursor], 1
-    mov r13, [jit_cursor]           ; R13 = address for JMP backpatch
-    mov dword [rdi+1], 0            ; placeholder
-    add qword [jit_cursor], 4
+    mov byte [rdi], 0xE9
+    inc rdi
+    mov r13, rdi    ; JMP patch loc
+    add rdi, 4
+    mov [jit_cursor], rdi
     
-    ; Backpatch JZ to HERE (start of else block)
+    ; Patch JZ
     mov rax, [jit_cursor]
     sub rax, r12
     sub rax, 4
     mov [r12], eax
     
-    ; Skip 'else'
+    ; Find {
+.find_else_brace:
     call next_token
-    
-    ; Find and skip '{' of else block
-.find_else_lbrace:
     cmp dword [cur_tok_type], TOK_OP
-    jne .skip_to_else_lbrace
+    jne .find_else_brace
     cmp qword [cur_tok_value], OP_LBRACE
-    je .found_else_lbrace
-.skip_to_else_lbrace:
-    call next_token
-    jmp .find_else_lbrace
-.found_else_lbrace:
-    call next_token                 ; Skip '{'
+    je .found_else_brace
+    jmp .find_else_brace
+.found_else_brace:
     
-    ; === Compile ELSE body ===
+    ; === ELSE BODY LOOP ===
 .else_body:
+    call peek_token
     cmp dword [cur_tok_type], TOK_OP
-    jne .check_else_stmt
+    jne .check_else_content
     cmp qword [cur_tok_value], OP_RBRACE
     je .else_body_done
     
-.check_else_stmt:
+.check_else_content:
     cmp dword [cur_tok_type], TOK_EOF
     je .else_body_done
+    
+    ; Explicitly handle Newlines
     cmp dword [cur_tok_type], TOK_NEWLINE
-    je .else_skip_newline
+    je .else_skip_unknown
+    
+    ; Check Keyword FIRST
     cmp dword [cur_tok_type], TOK_KEYWORD
-    jne .else_skip_unknown
+    jne .check_else_ident
     
     mov rax, [cur_tok_value]
     cmp rax, KW_LET
@@ -1833,56 +2034,172 @@ compile_if:
     cmp rax, KW_WHILE
     je .else_nested_while
     jmp .else_skip_unknown
-    
-.else_skip_newline:
-    call next_token
-    jmp .else_body
-    
+
+.check_else_ident:
+    cmp dword [cur_tok_type], TOK_IDENT
+    je .else_handle_ident
+    jmp .else_skip_unknown
+
 .else_skip_unknown:
     call next_token
     jmp .else_body
-    
 .else_let:
     call next_token
     call compile_let
     jmp .else_body
-    
 .else_return:
+    call next_token
     call compile_return
     jmp .else_body
-
 .else_nested_if:
     call compile_if
-    call next_token                 ; Skip '}' of nested if
     jmp .else_body
-
 .else_nested_while:
-    ; Don't call next_token - compile_while expects 'while' as current token
     call compile_while
     jmp .else_body
 
+; --- ELSE IDENTIFIER HANDLER ---
+.else_handle_ident:
+    call next_token
+    lea rsi, [tok_buffer]
+    lea rdi, [func_call_name]
+    mov rcx, 60
+.copy_else_name:
+    mov al, [rsi]
+    mov [rdi], al
+    test al, al
+    jz .copy_else_done
+    inc rsi
+    inc rdi
+    dec rcx
+    jnz .copy_else_name
+.copy_else_done:
+    
+    call next_token
+    cmp qword [cur_tok_value], OP_ASSIGN
+    je .else_var_assign
+    cmp qword [cur_tok_value], OP_LBRACKET
+    je .else_array_assign
+    cmp qword [cur_tok_value], OP_LPAREN
+    je .else_func_call
+    jmp .else_body
+
+.else_var_assign:
+    lea rcx, [func_call_name]
+    call sym_find
+    test rax, rax
+    jz .else_var_global
+    mov r15b, al
+    push r15
+    call compile_expr
+    pop r15
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0x458948
+    mov [rdi+3], r15b
+    add qword [jit_cursor], 4
+    jmp .else_body
+
+.else_var_global:
+    lea rcx, [func_call_name]
+    call global_sym_find
+    mov r14, rax
+    test r14, r14
+    jz .else_body
+    push r14
+    call compile_expr
+    pop r14
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0xB948
+    mov [rdi+2], r14
+    add rdi, 10
+    mov dword [rdi], 0x018948
+    add rdi, 3
+    mov [jit_cursor], rdi
+    jmp .else_body
+
+.else_array_assign:
+    lea rcx, [func_call_name]
+    call sym_find
+    mov r15b, al
+    push r15
+    call compile_expr
+    pop r15
+    call next_token ; ]
+    call next_token ; =
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC88948
+    add rdi, 3
+    mov byte [rdi], 0x51
+    add rdi, 1
+    mov [jit_cursor], rdi
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0x458B4C
+    mov [rdi+3], r15b
+    add rdi, 4
+    mov word [rdi], 0x5041
+    add rdi, 2
+    mov [jit_cursor], rdi
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0x5841
+    add rdi, 2
+    mov byte [rdi], 0x59
+    add rdi, 1
+    mov dword [rdi], 0xC8048949
+    add rdi, 4
+    mov [jit_cursor], rdi
+    jmp .else_body
+
+.else_func_call:
+    lea rcx, [func_call_name]
+    call func_find
+    mov r14, rax
+    test r14, r14
+    jz .else_skip_call
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    call next_token
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0xB848
+    mov [rdi+2], r14
+    add rdi, 10
+    mov word [rdi], 0xD0FF
+    add rdi, 2
+    mov dword [rdi], 0x08C48348
+    add rdi, 4
+    mov [jit_cursor], rdi
+    jmp .else_body
+.else_skip_call:
+    call next_token
+    jmp .else_body
+
 .else_body_done:
-    ; Backpatch JMP to HERE (after else block)
+    call next_token ; }
+    
+    ; Patch JMP
     mov rax, [jit_cursor]
     sub rax, r13
     sub rax, 4
     mov [r13], eax
-    
-    jmp .compile_if_exit
-
-.no_else:
-    ; No else - just backpatch JZ to HERE
-    mov rax, [jit_cursor]
-    sub rax, r12
-    sub rax, 4
-    mov [r12], eax
 
 .compile_if_exit:
+    pop r15
     pop r14
     pop r13
     pop r12
     pop rbx
     ret
+
+.no_else:
+    ; Patch JZ
+    mov rax, [jit_cursor]
+    sub rax, r12
+    sub rax, 4
+    mov [r12], eax
+    jmp .compile_if_exit
+
 
 ; =============================================================================
 ; compile_return - Compile: return expr
@@ -1894,18 +2211,11 @@ compile_return:
     call compile_expr
     ; Result already in RAX
     
-    ; Generate function epilogue and RET
+    ; Generate function epilogue: LEAVE (MOV RSP, RBP; POP RBP) + RET
     mov rdi, [jit_cursor]
     
-    ; ADD RSP, 256 (48 81 C4 00 01 00 00) - 7 bytes
-    mov byte [rdi], 0x48
-    mov byte [rdi+1], 0x81
-    mov byte [rdi+2], 0xC4
-    mov dword [rdi+3], 256
-    add rdi, 7
-    
-    ; POP RBP (0x5D)
-    mov byte [rdi], 0x5D
+    ; LEAVE (0xC9)
+    mov byte [rdi], 0xC9
     inc rdi
     
     ; RET (0xC3)
@@ -2090,21 +2400,51 @@ compile_expr:
     ret
 
 ; =============================================================================
-; compile_term - Compile single term (number or variable)
-; REWRITTEN: Uses peek_token instead of manual lexer manipulation
+; compile_term - Compile single term (number, variable, or parenthesized expr)
+; REWRITTEN: Now supports ( expression )
 ; =============================================================================
 compile_term:
+    cmp dword [cur_tok_type], TOK_STRING
+    je .string
+    
     cmp dword [cur_tok_type], TOK_NUMBER
     je .number
     
     cmp dword [cur_tok_type], TOK_IDENT
     je .variable
     
+    ; --- NEW: Support for '(' ---
+    cmp dword [cur_tok_type], TOK_OP
+    jne .default_zero
+    cmp qword [cur_tok_value], OP_LPAREN
+    je .paren_expr
+    
+.default_zero:
     ; Default: return 0
     mov rdi, [jit_cursor]
     mov word [rdi], 0xB848
     mov qword [rdi+2], 0
     add qword [jit_cursor], 10
+    ret
+
+.string:
+    ; Treat string as pointer (number)
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0xB848      ; MOV RAX, imm64
+    mov rax, [cur_tok_value]
+    mov [rdi+2], rax
+    add qword [jit_cursor], 10
+    ret
+
+.paren_expr:
+    ; We are at '('. compile_expr will read first term.
+    ; Call compile_expr to parse the inner expression.
+    call compile_expr
+    
+    ; After compile_expr returns, we should be at ')' (peeked but not consumed).
+    ; Consume ')' here.
+    call next_token
+    ; cur_tok should now be ')' - we don't validate, just trust it
     ret
 
 .number:
@@ -2411,6 +2751,10 @@ next_token:
     cmp al, 10
     je .newline
     
+    ; String literal
+    cmp al, '"'
+    je .string_literal
+    
     ; Comment
     cmp al, '/'
     je .maybe_comment
@@ -2439,6 +2783,39 @@ next_token:
     
     ; Operators
     jmp .operator
+
+.string_literal:
+    ; 1. Save start address to cur_tok_value
+    mov rax, [string_ptr]
+    mov [cur_tok_value], rax
+    
+    ; 2. Loop to copy chars
+    inc rsi                 ; Skip opening quote
+    mov rdi, rax            ; Destination
+    
+.str_loop:
+    cmp rsi, [lex_end]
+    jge .eof                ; EOF inside string (error ideally)
+    
+    mov al, [rsi]
+    cmp al, '"'
+    je .str_done
+    
+    mov [rdi], al
+    inc rsi
+    inc rdi
+    jmp .str_loop
+    
+.str_done:
+    mov byte [rdi], 0       ; Null terminate
+    inc rdi
+    mov [string_ptr], rdi   ; Update global pointer
+    
+    inc rsi                 ; Skip closing quote
+    mov [lex_pos], rsi
+    
+    mov dword [cur_tok_type], TOK_STRING
+    jmp .done
 
 .eof:
     mov dword [cur_tok_type], TOK_EOF
@@ -3206,15 +3583,15 @@ intrinsic_fopen:
     push rbx
     push rsi
     push rdi
-    sub rsp, 64
+    sub rsp, 48    ; Changed from 64 to 48
     
     ; SYNAPSE args on stack (L-to-R push: fname first, mode second)
-    ; Offset: 64 (local) + 24 (saved regs) + 8 (ret) = 96
-    ; [RSP + 96]  = Arg2 (Mode) - Last pushed (top)
-    ; [RSP + 104] = Arg1 (Filename) - First pushed
-    
-    mov rcx, [rsp + 104]    ; Arg1: Filename (lpFileName)
-    mov rbx, [rsp + 96]     ; Arg2: Mode
+    ; Offset: 48 (local) + 24 (saved regs) + 8 (ret) = 80
+    ; [RSP + 80] = Arg2 (Mode)
+    ; [RSP + 88] = Arg1 (Filename)
+
+    mov rcx, [rsp + 88]     ; Arg1: Filename (lpFileName)
+    mov rbx, [rsp + 80]     ; Arg2: Mode
     
     test rbx, rbx
     jnz .mode_write
@@ -3248,9 +3625,9 @@ intrinsic_fopen:
 .check_handle:
     cmp rax, -1             ; INVALID_HANDLE_VALUE
     jne .fopen_ok
-    xor rax, rax            ; Return 0 on error
+    call [GetLastError]     ; Return error code instead of 0
 .fopen_ok:
-    add rsp, 64
+    add rsp, 48             ; Cleanup 48
     pop rdi
     pop rsi
     pop rbx
@@ -3960,6 +4337,11 @@ mem_init:
     call [VirtualAlloc]
     mov [heap_base], rax
     mov [heap_ptr], rax
+    
+    ; Init string table pointer
+    lea rax, [string_table]
+    mov [string_ptr], rax
+    
     add rsp, 40
     ret
 

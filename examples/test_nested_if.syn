@@ -1,0 +1,21 @@
+fn nested_test(x) {
+    print(100)
+    if (x > 5) {
+        print(200)
+        if (x > 8) {
+            print(300)
+            return 1
+        }
+        print(400)
+    }
+    print(500)
+    return 0
+}
+
+fn main() {
+    print(8888)
+    let r = nested_test(10)
+    print(r)
+    print(9999)  
+    return 0
+}

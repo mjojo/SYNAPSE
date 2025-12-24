@@ -1,0 +1,42 @@
+fn is_alpha(c) {
+    if (c > 96) {
+        if (c < 123) { return 1 }
+    }
+    if (c > 64) {
+        if (c < 91) { return 1 }
+    }
+    return 0
+}
+
+fn is_space(c) {
+    if (c < 33) { return 1 }
+    return 0
+}
+
+fn main() {
+    print(8888)
+    
+    let code = alloc_bytes(4)
+    set_byte(code, 0, 97)
+    set_byte(code, 1, 98)
+    set_byte(code, 2, 0)
+    
+    print(1111)
+    
+    let i = 0
+    let c = get_byte(code, 0)
+    print(c)
+    print(is_alpha(c))
+    
+    print(2222)
+    
+    if (is_alpha(c)) {
+        print(3333)
+        i = i + 1
+        c = get_byte(code, i)
+        print(c)
+    }
+    
+    print(9999)
+    return 0
+}

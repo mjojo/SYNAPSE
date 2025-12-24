@@ -1,0 +1,14 @@
+fn my_check(val) {
+    if (val > 96) {
+        if (val > 10) {
+            return 888
+        }
+    }
+    return 0
+}
+
+fn main() {
+    let r = my_check(97)
+    print(r)
+    return 0
+}

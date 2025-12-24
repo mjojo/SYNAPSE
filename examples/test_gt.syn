@@ -1,0 +1,19 @@
+fn main() {
+    print(1111)
+    
+    if (108 > 57) {
+        print(1)
+    } else {
+        print(0)
+    }
+    
+    let a = 108
+    let b = 57
+    if (a > b) {
+        print(2)
+    } else {
+        print(0)
+    }
+    
+    return 0
+}

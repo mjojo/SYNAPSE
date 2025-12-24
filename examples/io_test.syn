@@ -1,0 +1,35 @@
+// io_test.syn - Verify File System Intrinsics
+
+fn main() {
+    print(1001) // Start IO Test
+    
+    // 1. WRITE TEST (SKIPPED - Error 123)
+    let filename = "test.txt"
+    // puts(filename)
+    // let handle = fopen(filename, 1) // Mode 1 = Write
+    // print(handle) 
+    
+    // if (handle == 0) { ... }
+    // ...
+    // fclose(handle)
+     
+    puts("Attempting to read test.txt...")
+    let handle_r = fopen("test.txt", 0) // Mode 0 = Read
+    print(handle_r)
+    
+    // Skip check to force read
+    // if (handle_r == 0) { ... }
+    
+    let buf = alloc_bytes(128)
+    set_byte(buf, 0, 0)
+    
+    let read_bytes = fread(handle_r, buf, 128)
+    print(read_bytes)
+    
+    set_byte(buf, read_bytes, 0)
+    puts("File contents:")
+    puts(buf)
+    
+    fclose(handle_r)
+    return 0
+}

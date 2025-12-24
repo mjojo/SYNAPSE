@@ -1,54 +1,74 @@
-// shell.syn - SYNAPSE Interactive OS
-// Phase 26: String Logic & Command Router
+// shell.syn - The SYNAPSE Command Line Interface
+
+fn trim(s) {
+    let len = strlen(s)
+    let i = 0
+    let c = 0
+    while (i < len) {
+        c = get_byte(s, i)
+        // Remove \r (13) and \n (10)
+        if (c == 13) { set_byte(s, i, 0) }
+        if (c == 10) { set_byte(s, i, 0) }
+        let i = i + 1
+    }
+    return 0
+}
 
 fn main() {
-    print(1111) // Booting Kernel...
-    
-    // 1. Memory allocation
-    let cmd = alloc(13) // Buffer for input (100+ bytes)
+    print(2025) // Init Shell
+    puts("SYNAPSE v2.5 Interactive Shell")
+    puts("Type 'help' for commands.")
+
     let running = 1
-    
-    // 2. Command strings (ASCII packed as integers)
-    
-    // "exit" -> 'e' 'x' 'i' 't' -> 0x74697865 -> 1953069157
-    let CMD_EXIT = alloc(2)
-    CMD_EXIT[0] = 1953069157
-    
-    // "help" -> 'h' 'e' 'l' 'p' -> 0x706C6568 -> 1886152040
-    let CMD_HELP = alloc(2)
-    CMD_HELP[0] = 1886152040
-    
-    // "ver" -> 'v' 'e' 'r' 0 -> 0x00726576 -> 7497078
-    let CMD_VER = alloc(2)
-    CMD_VER[0] = 7497078
-    
-    print(2222) // Ready marker
-    
-    // 3. Main REPL loop
-    while (running) {
-        // Read user input
-        input(cmd, 100)
+    let cmd_buf = alloc_bytes(64) // Buffer for commands
+
+    while (running > 0) {
+        // Simple prompt (puts adds newline, so it's not perfect inline, but works)
+        puts(">> ") 
         
-        // Command router
-        if (streq(cmd, CMD_EXIT)) {
-            puts("Shutting down...")
+        input(cmd_buf, 64)
+        trim(cmd_buf)
+        
+        // Command Routing
+        if (streq(cmd_buf, "exit")) {
+            puts("Exiting...")
             let running = 0
         } else {
-            if (streq(cmd, CMD_HELP)) {
-                puts("--- COMMANDS ---")
-                puts(" help : Show this list")
-                puts(" ver  : Show version")
-                puts(" exit : Quit system")
+            if (streq(cmd_buf, "help")) {
+                puts("COMMANDS:")
+                puts("  version  - Show OS version")
+                puts("  calc     - Run test calc")
+                puts("  exit     - Quit")
             } else {
-                if (streq(cmd, CMD_VER)) {
-                    puts("SYNAPSE Kernel v2.6")
-                    puts("Build: Dec 2025")
+                if (streq(cmd_buf, "version")) {
+                    puts("SynapseOS Kernel v0.1 (Alpha)")
                 } else {
-                    puts("Unknown command.")
+                    if (streq(cmd_buf, "cat test.txt")) {
+                        let f = fopen("test.txt", 0)
+                        if (f > 0) {
+                            let b = alloc_bytes(1024)
+                            let n = fread(f, b, 1024)
+                            set_byte(b, n, 0) // Null terminate
+                            puts(b)
+                            fclose(f)
+                        } else {
+                            puts("Error: test.txt not found or open failed.")
+                        }
+                    } else {
+                        if (streq(cmd_buf, "calc")) {
+                            puts("Calculating vector...")
+                            print(10 * 10 + 5)
+                        } else {
+                            // Ignore empty lines
+                            let len = strlen(cmd_buf)
+                            if (len > 0) {
+                                puts("Unknown command.")
+                            }
+                        }
+                    }
                 }
             }
         }
     }
-    
     return 0
 }

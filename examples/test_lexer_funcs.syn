@@ -1,0 +1,41 @@
+fn is_digit(c) {
+    if (c > 47) {
+        if (c < 58) { return 1 }
+    }
+    return 0
+}
+
+fn is_alpha(c) {
+    if (c > 96) {
+        if (c < 123) { return 1 }
+    } else {
+        if (c > 64) {
+            if (c < 91) { return 1 }
+        }
+    }
+    return 0
+}
+
+fn is_space(c) {
+    if (c < 33) { return 1 }
+    return 0
+}
+
+fn main() {
+    print(1111)
+    
+    // Test 'l' (108)
+    let c = 108
+    print(c)
+    
+    let a = is_alpha(c)
+    print(a) // Expected: 1
+    
+    let d = is_digit(c)
+    print(d) // Expected: 0
+    
+    // let s = is_space(c)
+    // print(s) // Expected: 0
+    
+    return 0
+}

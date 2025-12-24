@@ -1,0 +1,14 @@
+fn nested_ret(val) {
+    if (val > 96) {
+        if (val < 123) {
+            return 888
+        }
+    }
+    return 0
+}
+
+fn main() {
+    let r = nested_ret(108)
+    print(r)
+    return 0
+}

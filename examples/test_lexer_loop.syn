@@ -1,0 +1,22 @@
+fn check(val) {
+    print(777)
+    print(val)
+    if (val < 5) { return 1 }
+    return 0
+}
+
+fn main() {
+    print(1111)
+    let i = 0
+    let loop = 1
+    
+    while (loop) {
+        print(i)
+        i = i + 1
+        print(555)
+        print(i)
+        loop = check(i)
+    }
+    print(9999)
+    return 0
+}

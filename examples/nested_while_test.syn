@@ -1,0 +1,22 @@
+fn main() {
+    let i = 0
+    let c = 5
+    
+    print(100)
+    
+    while (i < 3) {
+        print(i)
+        
+        // Nested while
+        while (c > 0) {
+            print(c)
+            c = c - 1
+        }
+        
+        i = i + 1
+        c = 5
+    }
+    
+    print(999)
+    return 0
+}

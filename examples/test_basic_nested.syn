@@ -1,0 +1,12 @@
+fn main() {
+    print(8888)
+    if (1 > 0) {
+        print(1111)
+        if (1 > 0) {
+            print(2222)
+        }
+        print(3333)
+    }
+    print(9999)
+    return 0
+}

@@ -1,0 +1,19 @@
+fn test(x) {
+    print(1)
+    if (x > 5) {
+        print(2)
+        if (x > 3) {
+            print(3)
+            return 1
+        }
+        print(4)
+    }
+    print(5)
+    return 0
+}
+
+fn main() {
+    let r = test(10)
+    print(r)
+    return 0
+}

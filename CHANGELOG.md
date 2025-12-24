@@ -2,6 +2,89 @@
 
 ---
 
+## [2.9.1] - 2025-12-24
+
+### Phase 29.5: Token Grouping 🎯
+
+**Major JIT Compiler Fix**: Multi-argument function calls now work in while/if blocks!
+
+### Fixed
+- **Multi-arg calls in while**: `set_byte(tok, ti, c)` inside while loops
+- **Multi-arg calls in if**: Function calls with 2+ arguments inside if blocks
+- **Multi-arg calls in else**: Same fix for else blocks
+- **Proper stack cleanup**: `ADD RSP, arg_count * 8` instead of hardcoded 8
+
+### Added - Token Grouping Lexer
+- **`self_lexer_v2.syn`**: Advanced lexer with token buffering
+  - Groups characters into words: `fn`, `main`, `print`, `123`
+  - Uses accumulation buffer with `set_byte(tok, ti, c)`
+  - Flushes on whitespace and operators
+  - Proper token boundaries
+
+### Token Grouping Output
+```
+=== LEXER V2 ===
+fn
+main
+(
+)
+{
+print
+(
+123
+)
+return
+0
+}
+=== DONE ===
+```
+
+---
+
+## [2.9.0] - 2025-12-24
+
+### 🎄 SELF-HOSTING RELEASE - MERRY CHRISTMAS! 🎄
+
+**SYNAPSE v2.9** achieves a historic milestone: the first component of a self-hosted compiler!
+
+### Added - Phase 29: The Architect (Self-Hosting Lexer)
+- **`self_lexer_final.syn`**: First lexer written in SYNAPSE itself!
+  - Reads source files using `fopen/fread/fclose`
+  - Tokenizes into IDENT, DIGIT, LPAREN, RPAREN
+  - Uses byte-level memory operations
+- **`alloc_bytes(size)`**: Allocate byte-addressable memory
+- **`get_byte(ptr, idx)`**: Read single byte from memory
+- **`set_byte(ptr, idx, val)`**: Write single byte to memory
+
+### Technical Discoveries - "The Full Hoist Pattern"
+- **6 Variables Maximum**: More variables can destabilize JIT
+- **Single Statement Per Line**: No semicolons on same line
+- **if After get_byte Works**: But requires proper code structure
+- **No Nested While Loops**: Use separate if statements instead
+
+### Self-Lexer Output
+```
+=== SYNAPSE SELF-LEXER v1.0 ===
+Source: print(123)
+---------
+IDENT > 112 (p)
+IDENT > 114 (r)
+IDENT > 105 (i)
+IDENT > 110 (n)
+IDENT > 116 (t)
+LPAREN
+DIGIT > 49 (1)
+DIGIT > 50 (2)
+DIGIT > 51 (3)
+RPAREN
+=== DONE ===
+```
+
+### Milestone
+**SYNAPSE can now read and tokenize its own source files!** This is the foundation for self-hosting - next phases will implement the parser and code generator in SYNAPSE itself.
+
+---
+
 ## [2.8.0] - 2025-12-22
 
 ### 🚀 GUI RELEASE - WINDOWS INTEGRATION!

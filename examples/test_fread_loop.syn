@@ -1,0 +1,45 @@
+// test_fread_loop.syn - File reading + loop
+
+fn main() {
+    let fname = 0
+    let h = 0
+    let buf = 0
+    let n = 0
+    let i = 0
+    let c = 0
+    
+    puts("=== FREAD + LOOP TEST ===")
+    
+    fname = "examples/hello.syn"
+    h = fopen(fname, 0)
+    print(h)
+    
+    if (h == 0) {
+        puts("FAIL")
+        return 1
+    }
+    
+    buf = alloc_bytes(256)
+    n = fread(h, buf, 256)
+    set_byte(buf, n, 0)
+    fclose(h)
+    
+    puts("Content:")
+    puts(buf)
+    puts("Length:")
+    print(n)
+    
+    puts("--- LOOP ---")
+    i = 0
+    while (i < n) {
+        c = get_byte(buf, i)
+        print(c)
+        if (c == 40) {
+            puts("LPAREN!")
+        }
+        i = i + 1
+    }
+    puts("--- END ---")
+    
+    return 0
+}

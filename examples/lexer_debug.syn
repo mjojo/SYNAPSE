@@ -1,81 +1,134 @@
+// lexer_debug.syn - Tracing the infinite loop
+
 fn is_digit(c) {
-    if (c < 48) { return 0 }
-    if (c > 57) { return 0 }
-    return 1
+    if (c > 47) {
+        if (c < 58) { return 1 }
+    }
+    return 0
 }
 
 fn is_alpha(c) {
+    print(c) 
+    // a-z
     if (c > 96) {
         if (c < 123) { return 1 }
-    }
-    if (c > 64) {
-        if (c < 91) { return 1 }
     }
     return 0
 }
 
 fn is_space(c) {
-    if (c < 33) { return 1 }
+    if (c == 32) { return 1 }
+    if (c == 10) { return 1 }
     return 0
 }
 
 fn scan(source) {
-    print(8888)
+    puts("[DEBUG] Starting Scan...")
     
-    let len = strlen(source)
     let i = 0
-    let c = 0
+    let len = strlen(source)
+    let safety = 0
     
     while (i < len) {
-        c = get_byte(source, i)
-        print(7700)
+        // Use 'let' for all inner logic vars to ensure clean scope/slots
+        let c = get_byte(source, i)
+        
+        puts("--- Loop Iteration ---")
         print(i)
         print(c)
         
-        if (is_space(c)) {
-            print(7701)
+        // Check Space (Inline)
+        let check_space = 0
+        if (c == 32) { let check_space = 1 }
+        if (c == 10) { let check_space = 1 }
+        
+        if (check_space) {
+            puts("  -> Space")
+            // Use ASSIGNMENT for i to avoid infinite loop shadowing
             i = i + 1
         } else {
-            if (is_alpha(c)) {
-                print(7702)
-                // Skip word character by character
-                while (is_alpha(c)) {
-                    print(7703)
-                    print(c)
+            // Check Alpha (Inline)
+            let check_alpha = 0
+            if (c > 96) {
+                if (c < 123) { let check_alpha = 1 }
+            }
+            
+            if (check_alpha) {
+                puts("  -> Identifier Start")
+                
+                let loop_inner = 1
+                while (loop_inner) {
                     i = i + 1
-                    c = get_byte(source, i)
-                }
-                print(1)
-            } else {
-                if (is_digit(c)) {
-                    print(7704)
-                    while (is_digit(c)) {
-                        i = i + 1
-                        c = get_byte(source, i)
+                    let c = get_byte(source, i)
+                    
+                    let still_inner = 0
+                    if (c > 96) {
+                        if (c < 123) { let still_inner = 1 }
                     }
-                    print(2)
+                    
+                    if (still_inner) {
+                        // continue
+                    } else {
+                        let loop_inner = 0
+                    }
+                }
+                puts("  -> Identifier End")
+                
+            } else {
+                // Check Digit
+                let check_digit = 0
+                if (c > 47) {
+                    if (c < 58) { let check_digit = 1 }
+                }
+                
+                if (check_digit) {
+                    puts("  -> Number Start")
+                    
+                    let loop_inner = 1
+                    while (loop_inner) {
+                        i = i + 1
+                        let c = get_byte(source, i)
+                        
+                        let still_inner = 0
+                        if (c > 47) {
+                            if (c < 58) { let still_inner = 1 }
+                        }
+                        
+                        if (still_inner) {
+                            // continue
+                        } else {
+                            let loop_inner = 0
+                        }
+                    }
+                    puts("  -> Number End")
                 } else {
-                    print(7705)
-                    print(3)
-                    print(c)
+                    puts("  -> Operator")
                     i = i + 1
                 }
             }
         }
+        
+        let safety = safety + 1
+        if (safety > 50) {
+            puts("[EMERGENCY] Safety break triggered!")
+            return 0
+        }
     }
-    print(9999)
+    
+    puts("[SUCCESS] Scan complete.")
     return 0
 }
 
 fn main() {
-    let code = alloc_bytes(8)
+    // Phase 26 allows us to use string literals!
+    // But we need a mutable buffer for safety if we plan to modify it (not needed here)
+    // Let's just pass the literal directly.
     
-    // Just "ab" to keep it simple
-    set_byte(code, 0, 97)   // a
-    set_byte(code, 1, 98)   // b
-    set_byte(code, 2, 0)
+    let code = "let x = 123"
     
+    puts("Code to scan:")
     puts(code)
+    
     scan(code)
     
     return 0

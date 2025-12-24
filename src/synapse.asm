@@ -148,7 +148,7 @@ section '.idata' import data readable
 section '.data' data readable writeable
 
     banner      db '============================================',13,10
-                db '  SYNAPSE v2.8 Compiler',13,10
+                db '  SYNAPSE v2.9.1 Compiler - Self-Hosting',13,10
                 db '  Full Pipeline: Lex -> Parse -> JIT -> Run',13,10
                 db '============================================',13,10,13,10,0
     
@@ -1376,10 +1376,7 @@ compile_while:
     jmp .body_loop
 
 .while_func_call:
-    ; Consume the identifier (it was only peeked)
-    call next_token
-    
-    ; Save function name
+    ; SAVE function name FIRST (it is in tok_buffer from peek)
     lea rsi, [tok_buffer]
     lea rdi, [func_call_name]
     mov rcx, 60
@@ -1393,6 +1390,10 @@ compile_while:
     dec rcx
     jnz .copy_while_fname
 .copy_while_fdone:
+    
+    ; NOW consume the identifier
+    call next_token
+
     
     ; Check for '(' or '=' or '['
     call next_token
@@ -1568,20 +1569,45 @@ compile_while:
     test r14, r14
     jz .while_skip_call
     
-    ; Always parse argument expression
+    ; === Parse ALL arguments (multi-arg support) ===
+    xor r15d, r15d              ; R15 = argument counter
+
+.while_parse_arg_loop:
+    ; Parse argument expression
+    push r14                    ; Save func address
+    push r15                    ; Save arg counter
     call compile_expr
+    pop r15                     ; Restore arg counter
+    pop r14                     ; Restore func address
     
-    ; Generate: PUSH RAX
+    ; Generate: PUSH RAX (push argument onto stack)
     mov rdi, [jit_cursor]
-    mov byte [rdi], 0x50
+    mov byte [rdi], 0x50        ; PUSH RAX
     inc qword [jit_cursor]
     
-    ; Expect ')'
+    inc r15d                    ; Count argument
+    
+    ; Check for ',' (more arguments) or ')' (end)
+    cmp dword [cur_tok_type], TOK_OP
+    jne .while_args_done
+    cmp qword [cur_tok_value], OP_COMMA
+    jne .while_check_rparen
+    ; Found ',' - skip it then continue
+    call next_token             ; Skip ','
+    jmp .while_parse_arg_loop
+    
+.while_check_rparen:
+    cmp qword [cur_tok_value], OP_RPAREN
+    je .while_args_done
+    jmp .while_parse_arg_loop   ; Try parsing more
+
+.while_args_done:
+    ; Skip ')' if present
     cmp dword [cur_tok_type], TOK_OP
     jne .while_skip_paren
     cmp qword [cur_tok_value], OP_RPAREN
     jne .while_skip_paren
-    call next_token
+    call next_token             ; Consume ')'
 .while_skip_paren:
     
     ; Generate CALL
@@ -1596,10 +1622,13 @@ compile_while:
     mov word [rdi], 0xD0FF
     add rdi, 2
     
-    ; ADD RSP, 8
-    mov dword [rdi], 0x08C48348
+    ; Cleanup ALL arguments: ADD RSP, arg_count * 8
+    mov eax, r15d
+    shl eax, 3                  ; arg_count * 8
+    mov dword [rdi], 0xC48348   ; ADD RSP, imm8 (48 83 C4 xx)
+    mov [rdi+3], al             ; Store imm8 (stack cleanup amount)
     add rdi, 4
-    
+
     mov [jit_cursor], rdi
     jmp .body_loop
     
@@ -1779,9 +1808,7 @@ compile_if:
 
 ; --- IF BLOCK IDENTIFIER HANDLER ---
 .if_handle_ident:
-    call next_token     ; Consume identifier
-    
-    ; Save name
+    ; COPY name from tok_buffer (valid from peek) BEFORE consuming
     lea rsi, [tok_buffer]
     lea rdi, [func_call_name]
     mov rcx, 60
@@ -1795,6 +1822,9 @@ compile_if:
     dec rcx
     jnz .copy_if_name
 .copy_if_done:
+    
+    ; NOW consume the identifier
+    call next_token     ; Consume identifier
     
     ; === PARANOID CHECK: Is identifier actually 'if'? ===
     ; Check for "if" - 'i' (0x69), 'f' (0x66), null (0x00)
@@ -1936,22 +1966,54 @@ compile_if:
     jmp .if_body
 
 .if_func_call:
-    ; name(args)
+    ; name(args) - with multi-arg support
     lea rcx, [func_call_name]
     call func_find
     mov r14, rax
     test r14, r14
     jz .if_skip_call
     
-    call compile_expr       ; Arg 1 (simplified for single arg)
+    ; === Parse ALL arguments (multi-arg support) ===
+    xor r15d, r15d              ; R15 = argument counter
+
+.if_parse_arg_loop:
+    ; Parse argument expression
+    push r14                    ; Save func address
+    push r15                    ; Save arg counter
+    call compile_expr
+    pop r15                     ; Restore arg counter
+    pop r14                     ; Restore func address
     
-    ; PUSH RAX
+    ; Generate: PUSH RAX (push argument onto stack)
     mov rdi, [jit_cursor]
-    mov byte [rdi], 0x50
+    mov byte [rdi], 0x50        ; PUSH RAX
     inc qword [jit_cursor]
     
-    call next_token         ; Skip )
+    inc r15d                    ; Count argument
     
+    ; Check for ',' (more arguments) or ')' (end)
+    cmp dword [cur_tok_type], TOK_OP
+    jne .if_args_done
+    cmp qword [cur_tok_value], OP_COMMA
+    jne .if_check_rparen
+    ; Found ',' - skip it then continue
+    call next_token             ; Skip ','
+    jmp .if_parse_arg_loop
+    
+.if_check_rparen:
+    cmp qword [cur_tok_value], OP_RPAREN
+    je .if_args_done
+    jmp .if_parse_arg_loop      ; Try parsing more
+
+.if_args_done:
+    ; Skip ')' if present
+    cmp dword [cur_tok_type], TOK_OP
+    jne .if_do_call
+    cmp qword [cur_tok_value], OP_RPAREN
+    jne .if_do_call
+    call next_token             ; Consume ')'
+
+.if_do_call:
     ; CALL
     mov rdi, [jit_cursor]
     mov word [rdi], 0xB848
@@ -1959,8 +2021,14 @@ compile_if:
     add rdi, 10
     mov word [rdi], 0xD0FF
     add rdi, 2
-    mov dword [rdi], 0x08C48348 ; ADD RSP, 8
+    
+    ; Cleanup ALL arguments: ADD RSP, arg_count * 8
+    mov eax, r15d
+    shl eax, 3                  ; arg_count * 8
+    mov dword [rdi], 0xC48348   ; ADD RSP, imm8 (48 83 C4 xx)
+    mov [rdi+3], al             ; Store imm8 (stack cleanup amount)
     add rdi, 4
+
     mov [jit_cursor], rdi
     jmp .if_body
 
@@ -2060,7 +2128,8 @@ compile_if:
 
 ; --- ELSE IDENTIFIER HANDLER ---
 .else_handle_ident:
-    call next_token
+    ; COPY name first (from next_token that jumped here? NO, from PEEK)
+    ; Wait, .else_body PEEKS. So tok_buffer is valid.
     lea rsi, [tok_buffer]
     lea rdi, [func_call_name]
     mov rcx, 60
@@ -2074,6 +2143,9 @@ compile_if:
     dec rcx
     jnz .copy_else_name
 .copy_else_done:
+    
+    ; NOW consume
+    call next_token
     
     call next_token
     cmp qword [cur_tok_value], OP_ASSIGN
@@ -2156,19 +2228,56 @@ compile_if:
     mov r14, rax
     test r14, r14
     jz .else_skip_call
+    
+    ; === Parse ALL arguments (multi-arg support) ===
+    xor r15d, r15d              ; R15 = argument counter
+
+.else_parse_arg_loop:
+    push r14
+    push r15
     call compile_expr
+    pop r15
+    pop r14
+    
     mov rdi, [jit_cursor]
-    mov byte [rdi], 0x50
+    mov byte [rdi], 0x50        ; PUSH RAX
     inc qword [jit_cursor]
-    call next_token
+    
+    inc r15d
+    
+    cmp dword [cur_tok_type], TOK_OP
+    jne .else_args_done
+    cmp qword [cur_tok_value], OP_COMMA
+    jne .else_check_rparen_call
+    call next_token             ; Skip ','
+    jmp .else_parse_arg_loop
+    
+.else_check_rparen_call:
+    cmp qword [cur_tok_value], OP_RPAREN
+    je .else_args_done
+    jmp .else_parse_arg_loop
+
+.else_args_done:
+    cmp dword [cur_tok_type], TOK_OP
+    jne .else_do_call
+    cmp qword [cur_tok_value], OP_RPAREN
+    jne .else_do_call
+    call next_token             ; Consume ')'
+
+.else_do_call:
     mov rdi, [jit_cursor]
     mov word [rdi], 0xB848
     mov [rdi+2], r14
     add rdi, 10
     mov word [rdi], 0xD0FF
     add rdi, 2
-    mov dword [rdi], 0x08C48348
+    
+    mov eax, r15d
+    shl eax, 3
+    mov dword [rdi], 0xC48348
+    mov [rdi+3], al
     add rdi, 4
+
     mov [jit_cursor], rdi
     jmp .else_body
 .else_skip_call:
@@ -2261,6 +2370,8 @@ compile_expr:
     je .do_lt
     cmp rax, OP_GT
     je .do_gt
+    cmp rax, OP_EQ
+    je .do_eq
     
     jmp .expr_done
 
@@ -2385,6 +2496,37 @@ compile_expr:
     ; SETG AL (set if greater - signed)
     mov rdi, [jit_cursor]
     mov dword [rdi], 0xC09F0F        ; SETG AL (0F 9F C0)
+    add qword [jit_cursor], 3
+    
+    ; MOVZX RAX, AL
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    
+    jmp .expr_loop
+
+.do_eq:
+    call next_token
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    call next_token
+    call compile_term
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    inc qword [jit_cursor]
+    
+    ; CMP RCX, RAX
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    
+    ; SETE AL (set if equal)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0940F        ; SETE AL (0F 94 C0)
     add qword [jit_cursor], 3
     
     ; MOVZX RAX, AL
@@ -2963,6 +3105,20 @@ next_token:
     mov qword [cur_tok_value], OP_GT
     jmp .done
 .op_eq:
+    cmp rsi, [lex_end]
+    jge .is_assign
+    
+    mov al, [rsi]
+    cmp al, '='
+    jne .is_assign
+    
+    ; It is ==
+    inc rsi
+    mov [lex_pos], rsi
+    mov qword [cur_tok_value], OP_EQ
+    jmp .done
+    
+.is_assign:
     mov qword [cur_tok_value], OP_ASSIGN
     jmp .done
 .op_lparen:
@@ -3597,9 +3753,9 @@ intrinsic_fopen:
     jnz .mode_write
     
 .mode_read:
-    ; CreateFileA(name, GENERIC_READ, 0, 0, OPEN_EXISTING, NORMAL, 0)
+    ; CreateFileA(name, GENERIC_READ, 1 (SHARE_READ), 0, OPEN_EXISTING, NORMAL, 0)
     mov edx, 0x80000000     ; GENERIC_READ
-    xor r8d, r8d            ; ShareMode = 0
+    mov r8d, 1              ; ShareMode = 1 (FILE_SHARE_READ)
     xor r9d, r9d            ; Security = NULL
     
     ; Stack args for WinAPI (relative to current RSP)
@@ -3955,6 +4111,10 @@ intrinsic_fread:
     test eax, eax
     jz .fread_err
     
+    test eax, eax
+    jz .fread_err
+    
+    ; Success - return bytes read
     mov eax, [fread_result]
     jmp .fread_done
 
@@ -4452,7 +4612,7 @@ print_string:
     mov rcx, [stdout]
     lea r9, [bytes_written]
     mov qword [rsp+32], 0
-    call [WriteConsoleA]
+    call [WriteFile]
     add rsp, 48
 .dn:
     pop r9

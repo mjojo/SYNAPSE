@@ -1,0 +1,33 @@
+// test_alloc_loop.syn - Test alloc + loop
+
+fn main() {
+    let src = 0
+    let i = 0
+    let c = 0
+    
+    puts("=== ALLOC LOOP TEST ===")
+    
+    src = alloc_bytes(64)
+    puts("alloc done")
+    print(src)
+    
+    // Manually set some bytes
+    set_byte(src, 0, 65)
+    set_byte(src, 1, 66)
+    set_byte(src, 2, 67)
+    set_byte(src, 3, 0)
+    
+    puts("set_byte done")
+    puts(src)
+    
+    puts("--- LOOP ---")
+    i = 0
+    while (i < 3) {
+        c = get_byte(src, i)
+        print(c)
+        i = i + 1
+    }
+    puts("--- END ---")
+    
+    return 0
+}

@@ -1,0 +1,17 @@
+fn main() {
+    print(1001)
+    let x = 0
+    let i = 0
+    while (i < 3) {
+        x = 0
+        if (i == 1) { x = 1 }
+        
+        puts("iter:")
+        print(i)
+        puts("x:")
+        print(x)
+        
+        i = i + 1
+    }
+    return 0
+}

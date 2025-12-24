@@ -13,8 +13,8 @@ fn main() {
     // ...
     // fclose(handle)
      
-    puts("Attempting to read test.txt...")
-    let handle_r = fopen("test.txt", 0) // Mode 0 = Read
+    puts("Attempting to read examples/test.txt...")
+    let handle_r = fopen("examples/test.txt", 0) // Mode 0 = Read
     print(handle_r)
     
     // Skip check to force read

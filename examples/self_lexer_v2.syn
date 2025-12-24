@@ -1,0 +1,127 @@
+// self_lexer_v2.syn - Token Grouping (Minimal)
+// Multi-arg calls in while and if now work!
+
+fn main() {
+    let fname = 0
+    let h = 0
+    let buf = 0
+    let n = 0
+    let i = 0
+    let c = 0
+    let tok = 0
+    let ti = 0
+    
+    puts("=== LEXER V2 ===")
+    
+    fname = "examples/simple_source.syn"
+    h = fopen(fname, 0)
+    
+    if (h == 0) {
+        puts("Error")
+        return 1
+    }
+    
+    buf = alloc_bytes(256)
+    tok = alloc_bytes(64)
+    n = fread(h, buf, 256)
+    set_byte(buf, n, 0)
+    fclose(h)
+    
+    puts(buf)
+    puts("---")
+    
+    i = 0
+    ti = 0
+    while (i < n) {
+        c = get_byte(buf, i)
+        
+        // Whitespace - flush token
+        if (c == 32) {
+            if (ti > 0) {
+                set_byte(tok, ti, 0)
+                puts(tok)
+                ti = 0
+            }
+            i = i + 1
+        }
+        if (c == 10) {
+            if (ti > 0) {
+                set_byte(tok, ti, 0)
+                puts(tok)
+                ti = 0
+            }
+            i = i + 1
+        }
+        if (c == 13) {
+            i = i + 1
+        }
+        
+        // a-z: accumulate
+        if (c > 96) {
+            if (c < 123) {
+                set_byte(tok, ti, c)
+                ti = ti + 1
+                i = i + 1
+            }
+        }
+        
+        // 0-9: accumulate  
+        if (c > 47) {
+            if (c < 58) {
+                set_byte(tok, ti, c)
+                ti = ti + 1
+                i = i + 1
+            }
+        }
+        
+        // (
+        if (c == 40) {
+            if (ti > 0) {
+                set_byte(tok, ti, 0)
+                puts(tok)
+                ti = 0
+            }
+            puts("(")
+            i = i + 1
+        }
+        // )
+        if (c == 41) {
+            if (ti > 0) {
+                set_byte(tok, ti, 0)
+                puts(tok)
+                ti = 0
+            }
+            puts(")")
+            i = i + 1
+        }
+        // {
+        if (c == 123) {
+            if (ti > 0) {
+                set_byte(tok, ti, 0)
+                puts(tok)
+                ti = 0
+            }
+            puts("{")
+            i = i + 1
+        }
+        // }
+        if (c == 125) {
+            if (ti > 0) {
+                set_byte(tok, ti, 0)
+                puts(tok)
+                ti = 0
+            }
+            puts("}")
+            i = i + 1
+        }
+    }
+    
+    // Flush final token
+    if (ti > 0) {
+        set_byte(tok, ti, 0)
+        puts(tok)
+    }
+    
+    puts("=== DONE ===")
+    return 0
+}

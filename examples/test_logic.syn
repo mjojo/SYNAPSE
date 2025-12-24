@@ -1,0 +1,31 @@
+fn main() {
+    puts("--- Test 1: Nested If ---")
+    let c = 108
+    let is_alpha = 0
+    if (c > 96) {
+        puts("ok > 96")
+        if (c < 123) {
+            puts("ok < 123")
+            is_alpha = 1
+        } else {
+             puts("fail < 123")
+        }
+    } else {
+        puts("fail > 96")
+    }
+    print(is_alpha)
+
+    puts("--- Test 2: If-Else Chain ---")
+    let x = 0
+    if (x > 0) {
+        puts("positive")
+    } else {
+        puts("not positive")
+        if (x < 0) {
+            puts("negative")
+        } else {
+            puts("zero case reached")
+        }
+    }
+    return 0
+}

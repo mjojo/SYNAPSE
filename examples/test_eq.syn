@@ -1,0 +1,10 @@
+fn main() {
+    let h = 224
+    print(h)
+    if (h == 0) {
+        puts("h == 0 is TRUE (BUG)")
+    } else {
+        puts("h == 0 is FALSE (OK)")
+    }
+    return 0
+}

@@ -1,0 +1,77 @@
+// self_lexer_final.syn - Working Self-Lexer
+// Based on test_fread_loop.syn structure (PROVEN TO WORK)
+
+fn main() {
+    let fname = 0
+    let h = 0
+    let buf = 0
+    let n = 0
+    let i = 0
+    let c = 0
+    
+    puts("=== SYNAPSE SELF-LEXER v1.0 ===")
+    
+    fname = "examples/hello.syn"
+    h = fopen(fname, 0)
+    
+    if (h == 0) {
+        puts("Error: cannot open file")
+        return 1
+    }
+    
+    buf = alloc_bytes(256)
+    n = fread(h, buf, 256)
+    set_byte(buf, n, 0)
+    fclose(h)
+    
+    puts("Source:")
+    puts(buf)
+    puts("---------")
+    
+    i = 0
+    while (i < n) {
+        c = get_byte(buf, i)
+        
+        // Whitespace
+        if (c == 32) {
+            i = i + 1
+        }
+        if (c == 10) {
+            i = i + 1
+        }
+        if (c == 13) {
+            i = i + 1
+        }
+        
+        // Letters a-z
+        if (c > 96) {
+            if (c < 123) {
+                puts("IDENT")
+                print(c)
+                i = i + 1
+            }
+        }
+        
+        // Digits 0-9
+        if (c > 47) {
+            if (c < 58) {
+                puts("DIGIT")
+                print(c)
+                i = i + 1
+            }
+        }
+        
+        // Punctuation
+        if (c == 40) {
+            puts("LPAREN")
+            i = i + 1
+        }
+        if (c == 41) {
+            puts("RPAREN")
+            i = i + 1
+        }
+    }
+    
+    puts("=== DONE ===")
+    return 0
+}

@@ -2,19 +2,19 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.6.0--vectors-gold)
+![Version](https://img.shields.io/badge/version-2.9.0--selfhost-gold)
 ![Size](https://img.shields.io/badge/binary-8kb-blue)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 
-# 🧠 SYNAPSE v2.6
+# 🧠 SYNAPSE v2.9
 
 **Unhackable AI on Bare Metal Assembly**
 
-*The World's First Self-Optimizing Blockchain AI Platform*
+*The World's First Self-Hosting Blockchain AI Platform*
 
-**🏆 Vector Operations • Memory Manager • Deep Network • JIT Compiler! 🏆**
+**🏆 Self-Hosted Lexer • File I/O • GUI • Deep Network • JIT Compiler! 🏆**
 
 </div>
 
@@ -72,6 +72,10 @@ Unlike C++ or Rust, SYNAPSE doesn't use a standard heap.
 | **Matrix Layer** | 2x2 Dense Layer: [50, 110] + Array Store |
 | **Memory (v2.5)** | `alloc(size)` + Pointer passing between functions |
 | **Vectors (v2.6)** | `C = A + B` with full array operations |
+| **File I/O (v2.7)** | `fopen/fread/fwrite/fclose` - Read source files! |
+| **GUI (v2.8)** | `msgbox(text, title)` - Windows MessageBox |
+| **Bytes (v2.9)** | `alloc_bytes/get_byte/set_byte` - Byte-level memory |
+| **Self-Hosting (v2.9)** | **First lexer written in SYNAPSE!** |
 
 ---
 
@@ -237,9 +241,12 @@ SYNAPSE/
 | **12** | ReLU Activation | relu(-50)=0, relu(50)=50 |
 | **13** | Matrix Layer | 2 neurons x 2 inputs = [50, 110] |
 | **19** | Memory Manager | alloc(size) + Pointers |
-| **20** | **Vector Operations** | **C = A + B array math!** |
+| **20** | Vector Operations | C = A + B array math! |
+| **27** | File I/O | fopen/fread/fwrite/fclose |
+| **28** | GUI Foundation | msgbox() Windows dialogs |
+| **29** | **Self-Hosting** | **Lexer written in SYNAPSE!** |
 
-**20 major phases. Full Vector Operations!**
+**29 major phases. Self-Hosting Bootstrap begun!**
 
 ---
 
@@ -257,7 +264,7 @@ SYNAPSE/
 
 | Specification | Value |
 |---------------|-------|
-| **Language** | SYNAPSE v2.6 |
+| **Language** | SYNAPSE v2.9 |
 | **Engine** | MOVA v1.0 |
 | **Architecture** | x64 JIT Compiler |
 | **Control Flow** | if/else/while (Backpatching) |
@@ -265,14 +272,18 @@ SYNAPSE/
 | **Functions** | fn/return + CALL/RET |
 | **Arrays** | ptr[index] read/write |
 | **Memory** | Dynamic Alloc + Pointers |
+| **Bytes** | alloc_bytes/get_byte/set_byte |
 | **Vectors** | C = A + B array operations |
+| **File I/O** | fopen/fread/fwrite/fclose |
+| **GUI** | msgbox() Windows dialogs |
 | **Math** | IMUL for neural calculations |
 | **Neural** | Dot Product = 200 |
 | **Activation** | ReLU (max(0,x)) |
 | **Matrix** | Dense Layer (2x2) |
 | **SIMD** | AVX2/FMA |
 | **Crypto** | SHA-256 (native) |
-| **Dependencies** | 0 (only kernel32.dll) |
+| **Self-Hosting** | Lexer in SYNAPSE! |
+| **Dependencies** | 0 (only kernel32.dll, user32.dll) |
 | **Binary Size** | ~8 KB |
 | **Memory Model** | Merkle Heap + Stack Frame |
 
@@ -293,14 +304,14 @@ MIT License
 
 <div align="center">
 
-# 🧠 SYNAPSE v2.6
+# 🧠 SYNAPSE v2.9
 
-**🏆 Vector Operations + Memory Manager + Deep Learning! 🏆**
+**🏆 Self-Hosting + File I/O + GUI + Deep Learning! 🏆**
 
 *~8 KB of Pure x86-64 Assembly*
 
 ---
 
-*"From Text to Blockchain. From Idea to Reality."*
+*"From Text to Blockchain. From Compiler to Self-Compiler."*
 
 </div>

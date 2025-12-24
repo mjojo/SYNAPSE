@@ -1,0 +1,7 @@
+fn main() {
+    let x = 42
+    print(x)
+    let z = 0
+    print(z)
+    return 0
+}

@@ -1,0 +1,20 @@
+// test_if_eq.syn - Test if with ==
+
+fn main() {
+    let x = 0
+    
+    puts("Test 1")
+    x = 40
+    if (x == 40) {
+        puts("x is 40!")
+    }
+    
+    puts("Test 2")
+    x = 0
+    if (x == 0) {
+        puts("x is 0!")
+    }
+    
+    puts("DONE")
+    return 0
+}

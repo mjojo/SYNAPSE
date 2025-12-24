@@ -1,0 +1,43 @@
+// test_fread.syn - Test file reading step by step
+
+fn main() {
+    let fname = 0
+    let h = 0
+    let buf = 0
+    let n = 0
+    
+    puts("=== FREAD TEST ===")
+    
+    fname = "examples/hello.syn"
+    puts("1. Opening...")
+    
+    h = fopen(fname, 0)
+    puts("2. Handle:")
+    print(h)
+    
+    if (h == 0) {
+        puts("FAIL: fopen returned 0")
+        return 1
+    }
+    
+    puts("3. Allocating buffer...")
+    buf = alloc_bytes(256)
+    print(buf)
+    
+    puts("4. Reading...")
+    n = fread(h, buf, 256)
+    puts("5. Bytes read:")
+    print(n)
+    
+    puts("6. Null-terminating...")
+    set_byte(buf, n, 0)
+    
+    puts("7. Closing...")
+    fclose(h)
+    
+    puts("8. Content:")
+    puts(buf)
+    
+    puts("=== DONE ===")
+    return 0
+}

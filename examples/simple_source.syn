@@ -1,4 +1,3 @@
-// hello.syn - The classic first program
 fn main() {
     print(123)
     return 0

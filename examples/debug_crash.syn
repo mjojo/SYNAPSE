@@ -1,0 +1,23 @@
+fn main() {
+    puts("Step 1: Start")
+    let ptr = alloc_bytes(100)
+    puts("Step 2: Alloc done")
+    print(ptr)
+    
+    // Manually fill buffer
+    set_byte(ptr, 0, 108) // l
+    set_byte(ptr, 1, 101) // e
+    set_byte(ptr, 2, 116) // t
+    set_byte(ptr, 3, 0)
+    
+    puts("Step 3: Setup done")
+    
+    let c = get_byte(ptr, 0)
+    print(c)
+    
+    if (c == 108) {
+        puts("Step 4: Check ok")
+    }
+    
+    return 0
+}

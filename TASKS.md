@@ -1,8 +1,8 @@
 # SYNAPSE Development Tasks
 
-## 🏆 Current Status: v2.6.0 (Phase 20 Complete)
+## 🏆 Current Status: v2.9.0 (Phase 29 Complete)
 
-**Achievement:** Vector Operations + Memory Manager + Deep Network!
+**Achievement:** Self-Hosting Foundation + File I/O + GUI + Byte Memory!
 
 ---
 
@@ -109,45 +109,72 @@
 - [x] Tests: `vectors_debug.syn`
 - [x] **[10,20,30] + [1,2,3] = [11,22,33]**
 
+### Phase 27: File I/O ✅
+- [x] `fopen(filename, mode)` - open files (read=0, write=1)
+- [x] `fclose(handle)` - close file handle
+- [x] `fread(handle, buffer, len)` - read bytes from file
+- [x] `fwrite(handle, buffer, len)` - write bytes to file
+- [x] Tests: `test_fread.syn`
+- [x] **Read source files from disk!**
+
+### Phase 28: GUI Foundation ✅
+- [x] Multi-DLL Import (KERNEL32 + USER32)
+- [x] `msgbox(text, title)` - Windows MessageBox
+- [x] Tests: `msgbox_test.ttn`
+- [x] **Windows GUI dialogs!**
+
+### Phase 29: Self-Hosting Lexer ✅
+- [x] `alloc_bytes(size)` - byte-addressable allocation
+- [x] `get_byte(ptr, idx)` - read single byte
+- [x] `set_byte(ptr, idx, val)` - write single byte
+- [x] `self_lexer_final.syn` - lexer written in SYNAPSE!
+- [x] Tokenizes: IDENT, DIGIT, LPAREN, RPAREN
+- [x] "Full Hoist Pattern" discovered
+- [x] **SELF-HOSTING FOUNDATION COMPLETE!**
+
 ---
 
 ## 🔮 FUTURE PHASES
 
-### Phase 21: Dot Product (v2.7)
+### Phase 30: Self-Hosting Parser (v3.0)
+- [ ] Parse tokens into AST
+- [ ] Handle expressions
+- [ ] Build syntax tree
+
+### Phase 31: Self-Hosting Codegen (v3.1)
+- [ ] Generate x64 from AST
+- [ ] JIT compilation in SYNAPSE
+- [ ] **Bootstrap: compile synapse.exe with itself!**
+
+### Phase 32: Dot Product (v3.2)
 - [ ] `dot_product(a, b, len)` returning scalar
 - [ ] Neural Network forward pass
 
-### Phase 22: Training (v3.0)
+### Phase 33: Training (v4.0)
 - [ ] Gradient calculation
 - [ ] Backpropagation
 - [ ] Weight updates
 
-### Phase 15: Expression Parser
+### Phase 34: Expression Parser
 - [ ] Arithmetic expressions (a + b * c)
 - [ ] Operator precedence (Pratt parsing)
 - [ ] Unary operators (-x, not x)
 - [ ] Parentheses
 
-### Phase 16: Type System
+### Phase 35: Type System
 - [ ] int, f32, f64, bool, string
 - [ ] Type checking in parser
 - [ ] Implicit conversions
 
-### Phase 17: Structures
+### Phase 36: Structures
 - [ ] struct definitions
 - [ ] Field access (obj.field)
 - [ ] Memory alignment
 
-### Phase 18: Platform Abstraction
+### Phase 37: Platform Abstraction
 - [ ] sys_interface.asm for Linux
 - [ ] Abstract VirtualAlloc/mmap
 - [ ] Cross-platform file I/O
-
-### Phase 19: Self-Hosting
-- [ ] Rewrite lexer in SYNAPSE
-- [ ] Rewrite parser in SYNAPSE
-- [ ] Rewrite codegen in SYNAPSE
-- [ ] Bootstrap: compile synapse.exe with itself
 
 ---
 
@@ -183,8 +210,11 @@
 | `relu_test.asm` | 12 | ✅ ReLU |
 | `layer_test.asm` | 13 | ✅ **[50, 110]** |
 | `arrays.syn` | 19 | ✅ **303** |
+| `test_fread.syn` | 27 | ✅ File I/O |
+| `msgbox_test.ttn` | 28 | ✅ GUI |
+| `self_lexer_final.syn` | 29 | ✅ **Self-Lexer!** |
 
-**Total: 28 tests PASSED**
+**Total: 31 tests PASSED**
 
 ---
 
@@ -194,7 +224,7 @@
 include/
 ├── synapse_tokens.inc   # Token constants
 ├── ast.inc              # AST node types (37 nodes)
-└── version.inc          # v2.1.0-activation
+└── version.inc          # v2.9.0-selfhost
 
 src/
 ├── lexer_v2.asm         # Indentation lexer
@@ -203,13 +233,18 @@ src/
 ├── symbols.asm          # Symbol table
 ├── functions.asm        # Function table
 ├── memory.asm           # MOVA allocator
-├── io.asm               # Console I/O
+├── io.asm               # Console I/O + File I/O
 ├── intrinsics.asm       # Intrinsics table
 ├── cpu.asm              # CPU detection
 ├── crypto.asm           # SHA-256
 └── merkle.asm           # Blockchain memory
+
+examples/
+├── self_lexer_final.syn # Self-hosted lexer (Phase 29)
+├── test_fread.syn       # File I/O test
+└── ...                  # Various test files
 ```
 
 ---
 
-*Last updated: 2025-12-21 v2.5.0*
+*Last updated: 2025-12-24 v2.9.0*

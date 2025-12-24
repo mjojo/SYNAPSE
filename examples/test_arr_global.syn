@@ -1,0 +1,33 @@
+// Test array write via global inside if
+
+let g_arr = 0
+
+fn test() {
+    let cond = 0
+    cond = 1
+    
+    puts("g_arr address:")
+    print(g_arr)
+    
+    if (cond == 1) {
+        puts("Inside if, writing 42")
+        g_arr[0] = 42
+        puts("Reading back inside if:")
+        print(g_arr[0])
+    }
+    
+    puts("After if, reading:")
+    print(g_arr[0])
+    
+    return 0
+}
+
+fn main() {
+    g_arr = alloc(256)
+    puts("Allocated g_arr:")
+    print(g_arr)
+    
+    test()
+    
+    return 0
+}

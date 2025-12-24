@@ -1,0 +1,34 @@
+// Debug: does alloc() break global assignment?
+
+let g_val = 0
+let g_ptr = 0
+
+fn main() {
+    let local_ptr = 0
+    
+    puts("Test 1: g_val = 55 (before any alloc)")
+    g_val = 55
+    puts("g_val =")
+    print(g_val)
+    
+    puts("Test 2: calling alloc(256) into local")
+    local_ptr = alloc(256)
+    puts("local_ptr =")
+    print(local_ptr)
+    
+    puts("Test 3: g_val after alloc (should still be 55)")
+    print(g_val)
+    
+    puts("Test 4: g_ptr = 123 (after alloc)")
+    g_ptr = 123
+    puts("g_ptr =")
+    print(g_ptr)
+    
+    puts("Test 5: g_val = 77 (after alloc)")
+    g_val = 77
+    puts("g_val =")
+    print(g_val)
+    
+    puts("DONE")
+    return 0
+}

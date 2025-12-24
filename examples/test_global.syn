@@ -1,0 +1,24 @@
+// Test global variables
+
+let g_val = 0
+
+fn helper() {
+    puts("HELPER")
+    puts("g_val before:")
+    print(g_val)
+    g_val = 42
+    puts("g_val after:")
+    print(g_val)
+    return 1
+}
+
+fn main() {
+    puts("MAIN")
+    g_val = 10
+    puts("g_val in main:")
+    print(g_val)
+    helper()
+    puts("g_val after helper:")
+    print(g_val)
+    return 0
+}

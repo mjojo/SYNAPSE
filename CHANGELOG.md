@@ -2,6 +2,45 @@
 
 ---
 
+## [2.9.3] - 2025-01-13
+
+### Phase 30.5: Self-Hosted Parser 🎯
+
+**Major Bug Fix**: Top-level `let` declarations now work correctly!
+
+### Fixed
+- **Top-level global variables**: `let gvar = 0` before any `fn` declaration
+  - Previously: Top-level `let` was completely skipped by the parser!
+  - Variables added inside functions got lower global addresses than actual globals
+  - Caused global array pointers to read as 0
+- **Global variable initialization**: Top-level literals are now properly stored
+
+### Added - Self-Hosted Recursive Descent Parser
+- **`self_parser_v3.syn`**: Full lexer + parser in SYNAPSE
+  - Tokenizes source code into type/value arrays
+  - Uses global arrays `g_types[]` and `g_vals[]`
+  - Parses `fn` declarations with statements
+  - Recognizes `let`, identifiers, numbers, operators
+  - Working `peek()`, `eat()`, `parse_fn()`, `parse_stmt()`
+
+### Parser Output Example
+```
+=== SYNAPSE PARSER V3 ===
+Source: fn main() { let x = 55 }
+--- LEXING ---
+lex: len = 24
+FN at index: 0
+Tokens returned: 10
+--- PARSING ---
+FUNCTION found, name value: 109
+  STMT: let
+END FUNCTION
+--- PARSE DONE ---
+=== SUCCESS ===
+```
+
+---
+
 ## [2.9.1] - 2025-12-24
 
 ### Phase 29.5: Token Grouping 🎯

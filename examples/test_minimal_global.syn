@@ -1,0 +1,25 @@
+// Minimal test: one global, one local
+
+let gvar = 0
+
+fn main() {
+    let lvar = 0
+    
+    puts("gvar before assign:")
+    print(gvar)
+    
+    gvar = 55
+    
+    puts("gvar after assign:")
+    print(gvar)
+    
+    lvar = 77
+    
+    puts("gvar after lvar assign:")
+    print(gvar)
+    
+    puts("lvar:")
+    print(lvar)
+    
+    return 0
+}

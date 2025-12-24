@@ -1,0 +1,13 @@
+// Test function call without params
+
+fn helper() {
+    puts("HELPER CALLED")
+    return 1
+}
+
+fn main() {
+    puts("BEFORE")
+    helper()
+    puts("AFTER")
+    return 0
+}

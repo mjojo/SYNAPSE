@@ -1,0 +1,41 @@
+// Test array write inside while - GLOBAL array
+
+let g_arr = 0
+
+fn test() {
+    let i = 0
+    let val = 0
+    
+    puts("Testing while loop write with GLOBAL array")
+    puts("g_arr address:")
+    print(g_arr)
+    
+    i = 0
+    while (i < 3) {
+        puts("i =")
+        print(i)
+        val = i + 10
+        puts("val =")
+        print(val)
+        puts("Writing...")
+        g_arr[i] = val
+        puts("Wrote! Reading back...")
+        print(g_arr[i])
+        i = i + 1
+    }
+    
+    puts("Final check:")
+    print(g_arr[0])
+    print(g_arr[1])
+    print(g_arr[2])
+    
+    return 0
+}
+
+fn main() {
+    g_arr = alloc(256)
+    puts("Allocated g_arr:")
+    print(g_arr)
+    test()
+    return 0
+}

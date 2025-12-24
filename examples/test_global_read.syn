@@ -1,0 +1,23 @@
+// Test global variable read after assign
+
+let g_val = 0
+
+fn main() {
+    puts("Test: g_val = 55")
+    g_val = 55
+    puts("After assign, reading g_val:")
+    print(g_val)
+    
+    puts("Test2: assigning again g_val = 77")
+    g_val = 77
+    puts("After assign, reading g_val:")
+    print(g_val)
+    
+    puts("Test3: compare g_val == 77")
+    if (g_val == 77) {
+        puts("YES g_val is 77")
+    }
+    
+    puts("DONE")
+    return 0
+}

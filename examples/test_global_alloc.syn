@@ -1,0 +1,30 @@
+// Test global variable assignment with alloc
+
+let g_ptr = 0
+
+fn main() {
+    let local_ptr = 0
+    
+    puts("Test 1: local = alloc(256)")
+    local_ptr = alloc(256)
+    puts("local_ptr =")
+    print(local_ptr)
+    
+    puts("Test 2: g_ptr = 123 (literal)")
+    g_ptr = 123
+    puts("g_ptr =")
+    print(g_ptr)
+    
+    puts("Test 3: g_ptr = alloc(256)")
+    g_ptr = alloc(256)
+    puts("g_ptr =")
+    print(g_ptr)
+    
+    puts("Test 4: g_ptr = local_ptr")
+    g_ptr = local_ptr
+    puts("g_ptr =")
+    print(g_ptr)
+    
+    puts("DONE")
+    return 0
+}

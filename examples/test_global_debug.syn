@@ -1,0 +1,28 @@
+// Debug global variable issue
+
+let g_val = 0
+
+fn main() {
+    puts("Before any assign:")
+    print(g_val)
+    
+    puts("Assigning g_val = 55")
+    g_val = 55
+    
+    puts("Immediately after assign:")
+    print(g_val)
+    
+    puts("Calling helper function")
+    test_read()
+    
+    puts("After helper, read again:")
+    print(g_val)
+    
+    return 0
+}
+
+fn test_read() {
+    puts("In test_read, g_val =")
+    print(g_val)
+    return 0
+}

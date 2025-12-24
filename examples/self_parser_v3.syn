@@ -1,0 +1,290 @@
+// self_parser_v3.syn - Phase 30.5: Self-hosted parser
+// Fresh start with working global variable pattern
+
+let g_types = 0
+let g_vals = 0
+let g_count = 0
+let g_pos = 0
+
+fn peek(offset) {
+    let idx = 0
+    let result = 0
+    idx = g_pos + offset
+    if (idx < g_count) {
+        result = g_types[idx]
+        return result
+    }
+    return 0
+}
+
+fn peek_val(offset) {
+    let idx = 0
+    let result = 0
+    idx = g_pos + offset
+    if (idx < g_count) {
+        result = g_vals[idx]
+        return result
+    }
+    return 0
+}
+
+fn eat(expected) {
+    let t = 0
+    t = peek(0)
+    if (t == expected) {
+        g_pos = g_pos + 1
+        return 1
+    }
+    puts("Parse error: unexpected token")
+    return 0
+}
+
+fn parse_stmt() {
+    let t = 0
+    t = peek(0)
+    
+    // LET statement: type 11
+    if (t == 11) {
+        puts("  STMT: let")
+        g_pos = g_pos + 1
+        g_pos = g_pos + 1
+        g_pos = g_pos + 1
+        g_pos = g_pos + 1
+        return 1
+    }
+    
+    return 0
+}
+
+fn parse_fn() {
+    let v = 0
+    let done = 0
+    
+    // fn (type 10)
+    g_pos = g_pos + 1
+    
+    // name
+    v = peek_val(0)
+    puts("FUNCTION found, name value:")
+    print(v)
+    g_pos = g_pos + 1
+    
+    // ( )
+    g_pos = g_pos + 1
+    g_pos = g_pos + 1
+    
+    // {
+    g_pos = g_pos + 1
+    
+    // Parse statements until }
+    done = 0
+    while (done == 0) {
+        v = peek_val(0)
+        if (v == 125) {
+            done = 1
+        }
+        if (done == 0) {
+            parse_stmt()
+        }
+    }
+    
+    // }
+    g_pos = g_pos + 1
+    
+    puts("END FUNCTION")
+    return 1
+}
+
+fn do_parse() {
+    let t = 0
+    
+    puts("--- PARSING ---")
+    puts("g_count =")
+    print(g_count)
+    
+    // Parse all fn definitions
+    t = peek(0)
+    puts("First token type:")
+    print(t)
+    
+    while (t == 10) {
+        parse_fn()
+        t = peek(0)
+    }
+    
+    puts("--- PARSE DONE ---")
+    return 1
+}
+
+fn lex(src) {
+    let len = 0
+    let i = 0
+    let c = 0
+    let t = 0
+    
+    len = strlen(src)
+    puts("lex: len =")
+    print(len)
+    
+    i = 0
+    while (i < len) {
+        c = get_byte(src, i)
+        t = 0
+        
+        // Skip space (32)
+        if (c == 32) {
+            t = 1
+            i = i + 1
+            c = 0
+        }
+        
+        // ( = 40
+        if (c == 40) {
+            puts(".")
+            t = 2
+            g_types[g_count] = 40
+            g_vals[g_count] = 40
+            g_count = g_count + 1
+            i = i + 1
+            c = 0
+        }
+        
+        // ) = 41
+        if (c == 41) {
+            puts(".")
+            t = 3
+            g_types[g_count] = 40
+            g_vals[g_count] = 41
+            g_count = g_count + 1
+            i = i + 1
+            c = 0
+        }
+        
+        // { = 123
+        if (c == 123) {
+            puts(".")
+            t = 4
+            g_types[g_count] = 40
+            g_vals[g_count] = 123
+            g_count = g_count + 1
+            i = i + 1
+            c = 0
+        }
+        
+        // } = 125
+        if (c == 125) {
+            puts(".")
+            t = 5
+            g_types[g_count] = 40
+            g_vals[g_count] = 125
+            g_count = g_count + 1
+            i = i + 1
+            c = 0
+        }
+        
+        // = = 61
+        if (c == 61) {
+            puts(".")
+            t = 6
+            g_types[g_count] = 40
+            g_vals[g_count] = 61
+            g_count = g_count + 1
+            i = i + 1
+            c = 0
+        }
+        
+        // fn: f=102
+        if (c == 102) {
+            puts("FN at index:")
+            print(g_count)
+            t = 10
+            g_types[g_count] = 10
+            puts("Stored, reading back:")
+            print(g_types[g_count])
+            g_vals[g_count] = 102
+            g_count = g_count + 1
+            i = i + 2
+            c = 0
+        }
+        
+        // let: l=108
+        if (c == 108) {
+            puts("LET")
+            t = 11
+            g_types[g_count] = 11
+            g_vals[g_count] = 108
+            g_count = g_count + 1
+            i = i + 3
+            c = 0
+        }
+        
+        // main: m=109
+        if (c == 109) {
+            puts("ID")
+            t = 20
+            g_types[g_count] = 20
+            g_vals[g_count] = 109
+            g_count = g_count + 1
+            i = i + 4
+            c = 0
+        }
+        
+        // x: x=120
+        if (c == 120) {
+            puts("ID")
+            t = 21
+            g_types[g_count] = 20
+            g_vals[g_count] = 120
+            g_count = g_count + 1
+            i = i + 1
+            c = 0
+        }
+        
+        // 5: digit=53
+        if (c == 53) {
+            puts("NUM")
+            t = 30
+            g_types[g_count] = 30
+            g_vals[g_count] = 55
+            g_count = g_count + 1
+            i = i + 2
+            c = 0
+        }
+        
+        // Skip unknown
+        if (c > 0) {
+            i = i + 1
+        }
+    }
+    
+    puts("lex: g_count =")
+    print(g_count)
+    return g_count
+}
+
+fn main() {
+    let src = 0
+    let cnt = 0
+    
+    puts("=== SYNAPSE PARSER V3 ===")
+    
+    // Init globals
+    g_types = alloc(256)
+    g_vals = alloc(256)
+    
+    src = "fn main() { let x = 55 }"
+    puts("Source:")
+    puts(src)
+    
+    // Lex
+    puts("--- LEXING ---")
+    cnt = lex(src)
+    puts("Tokens returned:")
+    print(cnt)
+    
+    // Parse
+    do_parse()
+    
+    puts("=== SUCCESS ===")
+    return 0
+}

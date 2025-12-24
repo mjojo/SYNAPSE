@@ -1,0 +1,55 @@
+// Minimal test matching parser v3 structure
+
+let g_arr = 0
+let g_cnt = 0
+
+fn lex() {
+    let i = 0
+    let c = 0
+    let t = 0
+    
+    i = 0
+    c = 102  // 'f'
+    
+    puts("Before if:")
+    puts("g_cnt =")
+    print(g_cnt)
+    
+    if (c == 102) {
+        puts("Inside if c==102")
+        puts("g_cnt =")
+        print(g_cnt)
+        t = 10
+        g_arr[g_cnt] = 10
+        puts("Wrote g_arr[g_cnt]=10")
+        puts("Reading back:")
+        print(g_arr[g_cnt])
+        g_cnt = g_cnt + 1
+        c = 0
+    }
+    
+    puts("After if:")
+    puts("g_cnt =")
+    print(g_cnt)
+    puts("g_arr[0] =")
+    print(g_arr[0])
+    
+    return g_cnt
+}
+
+fn main() {
+    puts("=== TEST ===")
+    
+    g_arr = alloc(256)
+    puts("g_arr =")
+    print(g_arr)
+    
+    g_cnt = 0
+    puts("g_cnt =")
+    print(g_cnt)
+    
+    lex()
+    
+    puts("=== DONE ===")
+    return 0
+}

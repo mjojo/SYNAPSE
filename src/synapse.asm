@@ -148,7 +148,7 @@ section '.idata' import data readable
 section '.data' data readable writeable
 
     banner      db '============================================',13,10
-                db '  SYNAPSE v2.9.2 Compiler - Self-Hosting',13,10
+                db '  SYNAPSE v2.9.3 Compiler - Self-Hosting',13,10
                 db '  Full Pipeline: Lex -> Parse -> JIT -> Run',13,10
                 db '============================================',13,10,13,10,0
     
@@ -596,6 +596,44 @@ compile_program:
     cmp qword [cur_tok_value], KW_FN
     je .parse_fn
     
+    cmp qword [cur_tok_value], KW_LET
+    je .parse_global_let
+    
+    jmp .main_loop
+
+; =============================================================================
+; Handle top-level let: let varname = value
+; Only adds to global symbol table and initializes with literal value
+; =============================================================================
+.parse_global_let:
+    ; Skip 'let' - get variable name
+    call next_token
+    
+    cmp dword [cur_tok_type], TOK_IDENT
+    jne .main_loop              ; Skip if not identifier
+    
+    ; Add to global symbol table
+    lea rcx, [tok_buffer]
+    call global_sym_add
+    mov r12, rax                ; R12 = address in global_vars
+    
+    ; Skip '='
+    call next_token
+    cmp dword [cur_tok_type], TOK_OP
+    jne .global_let_done
+    cmp qword [cur_tok_value], OP_ASSIGN
+    jne .global_let_done
+    
+    ; Get value (expect literal number)
+    call next_token
+    cmp dword [cur_tok_type], TOK_NUMBER
+    jne .global_let_done
+    
+    ; Store literal value directly in global_vars
+    mov rax, [cur_tok_value]
+    mov [r12], rax
+    
+.global_let_done:
     jmp .main_loop
 
 .parse_fn:
@@ -1306,36 +1344,37 @@ compile_while:
     jne .find_brace
     cmp qword [cur_tok_value], OP_LBRACE
     jne .find_brace
+    ; '{' is current token. DON'T skip it, let peek see first statement
     
     ; Now inside body - compile all statements until '}'
 .body_loop:
     call peek_token
     
-    ; Check for end of body
-    cmp dword [cur_tok_type], TOK_EOF
+    ; Check for end of body using peek_tok (not cur_tok!)
+    cmp dword [peek_tok_type], TOK_EOF
     je .body_done
     
-    cmp dword [cur_tok_type], TOK_OP
+    cmp dword [peek_tok_type], TOK_OP
     jne .not_rbrace
-    cmp qword [cur_tok_value], OP_RBRACE
+    cmp qword [peek_tok_value], OP_RBRACE
     je .consume_rbrace
 .not_rbrace:
     
     ; Skip newlines
-    cmp dword [cur_tok_type], TOK_NEWLINE
+    cmp dword [peek_tok_type], TOK_NEWLINE
     jne .check_keyword
     call next_token
     jmp .body_loop
     
 .check_keyword:
     ; Check for function call (identifier followed by '(')
-    cmp dword [cur_tok_type], TOK_IDENT
+    cmp dword [peek_tok_type], TOK_IDENT
     je .while_func_call
     
-    cmp dword [cur_tok_type], TOK_KEYWORD
+    cmp dword [peek_tok_type], TOK_KEYWORD
     jne .skip_unknown
     
-    mov rax, [cur_tok_value]
+    mov rax, [peek_tok_value]
     
     ; Handle LET
     cmp rax, KW_LET
@@ -1499,17 +1538,30 @@ compile_while:
     ; Handle: ptr[index] = value inside while loop
     ; func_call_name contains the variable name (ptr)
     ; Current token is '['
+    ; Supports both local and global arrays!
     
-    ; Get base pointer from local variable
+    ; First try local variable
     lea rcx, [func_call_name]
     call sym_find
     test rax, rax
-    jz .body_loop           ; Variable not found
+    jz .while_arr_try_global
     mov r15b, al            ; R15b = local offset
+    mov r14d, 1             ; R14 = 1 means local
+    jmp .while_arr_parse
     
-    ; Save R12/R13/R15 across compile_expr (R12/R13 hold while loop addresses!)
+.while_arr_try_global:
+    lea rcx, [func_call_name]
+    call global_sym_find
+    test rax, rax
+    jz .body_loop           ; Not found - skip
+    mov r15, rax            ; R15 = global address
+    xor r14d, r14d          ; R14 = 0 means global
+    
+.while_arr_parse:
+    ; Save R12/R13/R14/R15 across compile_expr (R12/R13 hold while loop addresses!)
     push r12
     push r13
+    push r14
     push r15
     
     ; Compile index expression
@@ -1524,8 +1576,9 @@ compile_while:
     pop rax
     ; ------------------------------
     
-    ; Restore R15 for use (keep R12/R13 on stack)
+    ; Restore R14/R15 for use (keep R12/R13 on stack)
     pop r15
+    pop r14
     
     ; Generate: MOV RCX, RAX (Move index to RCX)
     mov rdi, [jit_cursor]
@@ -1539,11 +1592,26 @@ compile_while:
     inc rdi
     mov [jit_cursor], rdi
     
-    ; Generate: MOV R8, [RBP + offset] (Load BASE POINTER to R8)
+    ; Generate code to load BASE pointer to R8 (different for local vs global)
     mov rdi, [jit_cursor]
+    test r14d, r14d
+    jz .while_arr_gen_global
+    
+    ; Local: MOV R8, [RBP + disp8]
     mov dword [rdi], 0x458B4C       ; MOV R8, [RBP + disp8]
     mov [rdi + 3], r15b             ; Write offset byte
     add rdi, 4
+    jmp .while_arr_push_base
+    
+.while_arr_gen_global:
+    ; Global: first load address, then dereference
+    mov word [rdi], 0xB849          ; MOV R8, imm64
+    mov [rdi+2], r15
+    add rdi, 10
+    mov dword [rdi], 0x008B4D       ; MOV R8, [R8]
+    add rdi, 3
+    
+.while_arr_push_base:
     mov [jit_cursor], rdi
     
     ; Generate: PUSH R8 (Save BASE on stack)
@@ -1556,7 +1624,11 @@ compile_while:
     ; Compile value expression (RHS)
     ; This will result in RAX = Value
     ; Note: R12/R13 still on stack protecting while loop addresses
+    push r14
+    push r15
     call compile_expr
+    pop r15
+    pop r14
     
     ; Restore R12/R13 (while loop addresses)
     pop r13
@@ -1779,30 +1851,32 @@ compile_if:
     call next_token
     jmp .find_lbrace
 .found_lbrace:
-    call next_token                 ; Skip '{'
+    ; '{' is current token. DON'T call next_token here!
+    ; Let .if_body use peek to see first statement
     
     ; === IF BODY LOOP ===
 .if_body:
     call peek_token
     
-    cmp dword [cur_tok_type], TOK_OP
+    ; Check for '}' using peek_tok (not cur_tok!)
+    cmp dword [peek_tok_type], TOK_OP
     jne .check_if_content
-    cmp qword [cur_tok_value], OP_RBRACE
+    cmp qword [peek_tok_value], OP_RBRACE
     je .if_body_done
     
 .check_if_content:
-    cmp dword [cur_tok_type], TOK_EOF
+    cmp dword [peek_tok_type], TOK_EOF
     je .if_body_done
     
     ; Explicitly handle Newlines to avoid peek confusion
-    cmp dword [cur_tok_type], TOK_NEWLINE
+    cmp dword [peek_tok_type], TOK_NEWLINE
     je .if_skip_unknown
     
     ; Check Keyword FIRST (before ident)
-    cmp dword [cur_tok_type], TOK_KEYWORD
+    cmp dword [peek_tok_type], TOK_KEYWORD
     jne .check_ident
     
-    mov rax, [cur_tok_value]
+    mov rax, [peek_tok_value]
     cmp rax, KW_LET
     je .if_let
     cmp rax, KW_RETURN
@@ -1814,7 +1888,7 @@ compile_if:
     jmp .if_skip_unknown
 
 .check_ident:
-    cmp dword [cur_tok_type], TOK_IDENT
+    cmp dword [peek_tok_type], TOK_IDENT
     je .if_handle_ident
     jmp .if_skip_unknown
     
@@ -1959,16 +2033,32 @@ compile_if:
     jmp .if_body
 
 .if_array_assign:
-    ; arr[i] = val
+    ; arr[i] = val - supports both local and global arrays
     lea rcx, [func_call_name]
     call sym_find
-    mov r15b, al
+    test rax, rax
+    jz .if_arr_try_global
+    mov r15b, al            ; R15 = local offset
+    mov r14d, 1             ; R14 = 1 means local
+    jmp .if_arr_parse
     
+.if_arr_try_global:
+    lea rcx, [func_call_name]
+    call global_sym_find
+    test rax, rax
+    jz .if_body             ; Not found - skip
+    mov r15, rax            ; R15 = global address
+    xor r14d, r14d          ; R14 = 0 means global
+    
+.if_arr_parse:
     ; IMPORTANT: Save R12 which holds if-block JZ patch location!
+    ; Also save R14, R15 (local/global info)
     push r12
+    push r14
     push r15
     call compile_expr       ; Index
     pop r15
+    pop r14
     ; Keep R12 on stack for second compile_expr
     
     ; Consume ] and =
@@ -1983,16 +2073,36 @@ compile_if:
     add rdi, 1
     mov [jit_cursor], rdi
     
-    ; Load Base -> R8 -> Stack
+    ; Load Base -> R8 -> Stack (different for local vs global)
     mov rdi, [jit_cursor]
+    test r14d, r14d
+    jz .if_arr_gen_global
+    
+    ; Local: MOV R8, [RBP + disp]
     mov dword [rdi], 0x458B4C   ; MOV R8, [RBP+disp]
     mov [rdi+3], r15b
     add rdi, 4
+    jmp .if_arr_push_base
+    
+.if_arr_gen_global:
+    ; Global: first load address, then dereference
+    mov word [rdi], 0xB849      ; MOV R8, imm64
+    mov [rdi+2], r15
+    add rdi, 10
+    mov dword [rdi], 0x008B4D   ; MOV R8, [R8] (45 8B 00 with REX.W = 4D 8B 00)
+    add rdi, 3
+    
+.if_arr_push_base:
     mov word [rdi], 0x5041      ; PUSH R8
     add rdi, 2
     mov [jit_cursor], rdi
     
+    ; Save R14 again for after compile_expr
+    push r14
+    push r15
     call compile_expr       ; Value -> RAX
+    pop r15
+    pop r14
     
     ; Restore R12
     pop r12
@@ -2118,28 +2228,31 @@ compile_if:
     je .found_else_brace
     jmp .find_else_brace
 .found_else_brace:
+    ; '{' is current token. DON'T skip it, let peek see first statement
     
     ; === ELSE BODY LOOP ===
 .else_body:
     call peek_token
-    cmp dword [cur_tok_type], TOK_OP
+    
+    ; Check for '}' using peek_tok (not cur_tok!)
+    cmp dword [peek_tok_type], TOK_OP
     jne .check_else_content
-    cmp qword [cur_tok_value], OP_RBRACE
+    cmp qword [peek_tok_value], OP_RBRACE
     je .else_body_done
     
 .check_else_content:
-    cmp dword [cur_tok_type], TOK_EOF
+    cmp dword [peek_tok_type], TOK_EOF
     je .else_body_done
     
     ; Explicitly handle Newlines
-    cmp dword [cur_tok_type], TOK_NEWLINE
+    cmp dword [peek_tok_type], TOK_NEWLINE
     je .else_skip_unknown
     
     ; Check Keyword FIRST
-    cmp dword [cur_tok_type], TOK_KEYWORD
+    cmp dword [peek_tok_type], TOK_KEYWORD
     jne .check_else_ident
     
-    mov rax, [cur_tok_value]
+    mov rax, [peek_tok_value]
     cmp rax, KW_LET
     je .else_let
     cmp rax, KW_RETURN
@@ -2151,7 +2264,7 @@ compile_if:
     jmp .else_skip_unknown
 
 .check_else_ident:
-    cmp dword [cur_tok_type], TOK_IDENT
+    cmp dword [peek_tok_type], TOK_IDENT
     je .else_handle_ident
     jmp .else_skip_unknown
 
@@ -2247,15 +2360,32 @@ compile_if:
     jmp .else_body
 
 .else_array_assign:
+    ; Supports both local and global arrays!
     lea rcx, [func_call_name]
     call sym_find
-    mov r15b, al
+    test rax, rax
+    jz .else_arr_try_global
+    mov r15b, al            ; R15 = local offset
+    mov r14d, 1             ; R14 = 1 means local
+    jmp .else_arr_parse
+    
+.else_arr_try_global:
+    lea rcx, [func_call_name]
+    call global_sym_find
+    test rax, rax
+    jz .else_body           ; Not found - skip
+    mov r15, rax            ; R15 = global address
+    xor r14d, r14d          ; R14 = 0 means global
+    
+.else_arr_parse:
     ; IMPORTANT: Save R12/R13 which hold if-block patch locations!
     push r12
     push r13
+    push r14
     push r15
     call compile_expr
     pop r15
+    pop r14
     ; Keep R12/R13 on stack for second compile_expr
     call next_token ; ]
     call next_token ; =
@@ -2265,14 +2395,37 @@ compile_if:
     mov byte [rdi], 0x51
     add rdi, 1
     mov [jit_cursor], rdi
+    
+    ; Load Base -> R8 (different for local vs global)
     mov rdi, [jit_cursor]
+    test r14d, r14d
+    jz .else_arr_gen_global
+    
+    ; Local: MOV R8, [RBP + disp]
     mov dword [rdi], 0x458B4C
     mov [rdi+3], r15b
     add rdi, 4
-    mov word [rdi], 0x5041
+    jmp .else_arr_push_base
+    
+.else_arr_gen_global:
+    ; Global: first load address, then dereference
+    mov word [rdi], 0xB849      ; MOV R8, imm64
+    mov [rdi+2], r15
+    add rdi, 10
+    mov dword [rdi], 0x008B4D   ; MOV R8, [R8]
+    add rdi, 3
+    
+.else_arr_push_base:
+    mov word [rdi], 0x5041      ; PUSH R8
     add rdi, 2
     mov [jit_cursor], rdi
+    
+    push r14
+    push r15
     call compile_expr
+    pop r15
+    pop r14
+    
     ; Restore R12/R13
     pop r13
     pop r12

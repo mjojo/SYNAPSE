@@ -1,0 +1,38 @@
+// Minimal test - call function after while loop
+
+let g_count = 0
+
+fn work() {
+    let i = 0
+    puts("INSIDE WORK")
+    puts("g_count before loop:")
+    print(g_count)
+    while (i < 5) {
+        puts("IN LOOP")
+        g_count = g_count + 1
+        i = i + 1
+    }
+    puts("WORK g_count:")
+    print(g_count)
+    return g_count
+}
+
+fn helper() {
+    puts("HELPER WORKS!")
+    return 1
+}
+
+fn main() {
+    let r = 0
+    
+    puts("BEFORE WORK")
+    r = work()
+    puts("AFTER WORK, count:")
+    print(r)
+    
+    puts("CALLING HELPER")
+    helper()
+    puts("AFTER HELPER")
+    
+    return 0
+}

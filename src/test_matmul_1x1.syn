@@ -1,0 +1,24 @@
+// Super simple matmul test - just 1x1 matrices
+fn main() {
+    print(100)
+    
+    let a = alloc(1)
+    let b = alloc(1)
+    let c = alloc(1)
+    
+    a[0] = 5
+    b[0] = 10
+    c[0] = 0
+    
+    print(200)
+    
+    // 1x1 * 1x1 = scalar multiply: 5 * 10 = 50
+    matmul(a, b, c, 1, 1, 1)
+    
+    print(300)
+    
+    let result = c[0]
+    print(result)
+    
+    print(999)
+}

@@ -219,6 +219,11 @@ section '.data' data readable writeable
     str_strlen     db 'strlen',0
     str_alloc_bytes db 'alloc_bytes',0
     
+    ; AI & Crypto Intrinsics
+    str_matmul     db 'matmul',0
+    str_relu       db 'relu',0
+    str_sha256     db 'sha256',0
+    
     class_name     db 'SYNAPSE_WND',0
     window_title   db 'SYNAPSE Graphics',0
     
@@ -263,6 +268,7 @@ section '.data' data readable writeable
     OP_COMMA    = 13
     OP_LBRACKET = 14
     OP_RBRACKET = 15
+    OP_NE       = 16     ; != operator
     
     ; Keyword table
     kw_fn       db 'fn',0
@@ -2602,6 +2608,8 @@ compile_expr:
     je .do_gt
     cmp rax, OP_EQ
     je .do_eq
+    cmp rax, OP_NE
+    je .do_ne
     
     jmp .expr_done
 
@@ -2792,6 +2800,37 @@ compile_expr:
     ; SETE AL (set if equal)
     mov rdi, [jit_cursor]
     mov dword [rdi], 0xC0940F        ; SETE AL (0F 94 C0)
+    add qword [jit_cursor], 3
+    
+    ; MOVZX RAX, AL
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    
+    jmp .expr_loop
+
+.do_ne:
+    call next_token
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    call next_token
+    call compile_term
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    inc qword [jit_cursor]
+    
+    ; CMP RCX, RAX
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    
+    ; SETNE AL (set if not equal) - 0F 95 C0
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0950F        ; SETNE AL (0F 95 C0)
     add qword [jit_cursor], 3
     
     ; MOVZX RAX, AL
@@ -3350,9 +3389,24 @@ next_token:
     je .op_lbracket
     cmp al, ']'
     je .op_rbracket
+    cmp al, '!'
+    je .op_exclaim
     
     ; Unknown - skip
     jmp next_token
+
+.op_exclaim:
+    ; Check for !=
+    cmp rsi, [lex_end]
+    jge next_token
+    mov al, [rsi]
+    cmp al, '='
+    jne next_token      ; Just '!' is not a valid token (yet)
+    
+    inc rsi
+    mov [lex_pos], rsi
+    mov qword [cur_tok_value], OP_NE
+    jmp .done
 
 .op_plus:
     mov qword [cur_tok_value], OP_PLUS
@@ -3783,6 +3837,21 @@ init_intrinsics:
     ; Register 'alloc_bytes' intrinsic (allocate bytes, not qwords)
     lea rcx, [str_alloc_bytes]
     lea rdx, [intrinsic_alloc_bytes]
+    call func_add
+    
+    ; Register 'matmul' intrinsic (matrix multiplication)
+    lea rcx, [str_matmul]
+    lea rdx, [intrinsic_matmul]
+    call func_add
+    
+    ; Register 'relu' intrinsic (ReLU activation)
+    lea rcx, [str_relu]
+    lea rdx, [intrinsic_relu]
+    call func_add
+    
+    ; Register 'sha256' intrinsic (crypto hash)
+    lea rcx, [str_sha256]
+    lea rdx, [intrinsic_sha256]
     call func_add
     
     pop rbx
@@ -5080,6 +5149,133 @@ dump_hex:
     pop rdi
     pop rsi
     pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; -----------------------------------------------------------------------------
+; intrinsic_matmul(a, b, out, m, n, k)
+; JIT Permutation (due to Reverse Pop order):
+; Arg3 (out) -> RCX
+; Arg4 (m)   -> RDX
+; Arg5 (n)   -> R8
+; Arg6 (k)   -> R9
+; Arg2 (b)   -> Stack [RSP+Shadow+Ret+Pushes]
+; Arg1 (a)   -> Stack [RSP+Shadow+Ret+Pushes+8]
+; -----------------------------------------------------------------------------
+intrinsic_matmul:
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    push r14
+    push r15
+    
+    ; Stack math: 
+    ; 7 pushes = 56 bytes. [RSP+56]=Ret. [RSP+64..95]=Shadow(32).
+    ; [RSP+96] = Arg2 (b)
+    ; [RSP+104] = Arg1 (a)
+    
+    mov r15, [rsp + 104]       ; a (Arg1)
+    mov r14, [rsp + 96]        ; b (Arg2)
+    mov r13, rcx               ; out (Arg3)
+    mov r12, rdx               ; m (Arg4)
+    mov rbx, r8                ; n (Arg5)
+    mov r11, r9                ; k (Arg6)
+    
+    ; Simple Scalar MatMul O(m*n*k)
+    xor r8, r8                  ; i = 0
+.L_i:
+    cmp r8, r12
+    jge .done_matmul
+    
+    xor r9, r9                  ; j = 0
+.L_j:
+    cmp r9, r11
+    jge .next_i
+    
+    xor rax, rax                ; sum = 0
+    xor r10, r10                ; p = 0
+.L_p:
+    cmp r10, rbx
+    jge .write_sum
+    
+    ; A[i*n + p]
+    mov rcx, r8
+    imul rcx, rbx
+    add rcx, r10
+    mov rdx, [r15 + rcx*8]
+    
+    ; B[p*k + j]
+    mov rcx, r10
+    imul rcx, r11
+    add rcx, r9
+    mov rsi, [r14 + rcx*8]
+    
+    imul rdx, rsi
+    add rax, rdx
+    
+    inc r10
+    jmp .L_p
+    
+.write_sum:
+    ; Out[i*k + j] = sum
+    mov rcx, r8
+    imul rcx, r11
+    add rcx, r9
+    mov [r13 + rcx*8], rax
+    
+    inc r9
+    jmp .L_j
+    
+.next_i:
+    inc r8
+    jmp .L_i
+
+.done_matmul:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+; intrinsic_relu(ptr, size)
+; Applies ReLU: x = max(0, x)
+; Windows x64 ABI: RCX=ptr, RDX=size
+; -----------------------------------------------------------------------------
+intrinsic_relu:
+    push rbx
+    push rsi
+    
+    mov rsi, rcx                ; ptr from RCX
+    mov rcx, rdx                ; size from RDX
+    
+.relu_loop:
+    test rcx, rcx
+    jz .relu_done
+    
+    mov rax, [rsi]
+    test rax, rax
+    jge .skip_zero
+    mov qword [rsi], 0
+.skip_zero:
+    add rsi, 8
+    dec rcx
+    jmp .relu_loop
+    
+.relu_done:
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_sha256(ptr, len)
+; Returns magic value (placeholder for real SHA-256)
+; -----------------------------------------------------------------------------
+intrinsic_sha256:
+    mov rax, 0xCAFEBABE
     ret
 
 print_number:

@@ -1,0 +1,56 @@
+// Phase 43: Power Test - AI/Crypto Intrinsics
+
+fn main() {
+    print(111111)
+    
+    // 1. Allocate 3 matrices (2x2 = 4 elements each)
+    let a = alloc(4)
+    let b = alloc(4)
+    let c = alloc(4)
+    
+    // 2. Fill A (Identity)
+    // [1, 0]
+    // [0, 1]
+    a[0] = 1
+    a[1] = 0
+    a[2] = 0
+    a[3] = 1
+    
+    // 3. Fill B (Values)
+    // [10, 20]
+    // [30, 40]
+    b[0] = 10
+    b[1] = 20
+    b[2] = 30
+    b[3] = 40
+    
+    // 4. POWER UNLOCK: Matrix Multiplication!
+    // C = A * B
+    // Expected:
+    // [1*10+0*30, 1*20+0*40] = [10, 20]
+    // [0*10+1*30, 0*20+1*40] = [30, 40]
+    
+    matmul(a, b, c, 2, 2, 2)
+    
+    print(222222)
+    
+    // 5. Check result
+    let v0 = c[0]
+    let v1 = c[1]
+    let v2 = c[2]
+    let v3 = c[3]
+    
+    print(v0)
+    print(v1)
+    print(v2)
+    print(v3)
+    
+    // 6. ReLU Test
+    c[0] = 0 - 55
+    relu(c, 4)
+    let v_relu = c[0]
+    print(333333)
+    print(v_relu)
+    
+    print(999999)
+}

@@ -1,0 +1,25 @@
+// Simple matmul test without complexity
+
+fn main() {
+    print(111)
+    
+    let a = alloc(4)
+    print(222)
+    
+    a[0] = 1
+    a[1] = 0
+    a[2] = 0
+    a[3] = 1
+    print(333)
+    
+    // Just test relu first (simpler)
+    a[0] = 0 - 10
+    print(444)
+    
+    relu(a, 4)
+    print(555)
+    
+    let v = a[0]
+    print(v)
+    print(999)
+}

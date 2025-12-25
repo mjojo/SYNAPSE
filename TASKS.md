@@ -211,7 +211,21 @@
 ## 🔮 FUTURE PHASES
 
 ### Pending Features
-- [ ] **Implement OP_NE (!=) in compile_expr**
+- [x] **Implement OP_NE (!=) in compile_expr** ✅ (Phase 42.5)
+- [x] **Implement matmul with correct 6-arg stack handling** ✅
+
+### Phase 43: The Power Unlock (AI/Crypto Intrinsics) ✅
+- [x] Added `str_matmul`, `str_relu`, `str_sha256` string names
+- [x] Registered intrinsics in `init_intrinsics`
+- [x] **intrinsic_relu WORKS!** (RCX=ptr, RDX=size)
+- [x] **intrinsic_matmul WORKS!** (Corrected 6-arg calling convention)
+- [x] **intrinsic_sha256** (placeholder ready)
+- [x] Verified with `power_test.syn`:
+  - MatMul: `[10, 20, 30, 40]` (Identity * Values)
+  - ReLU: `-55` -> `0`
+
+---
+
 
 ---
 

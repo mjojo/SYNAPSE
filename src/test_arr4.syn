@@ -1,0 +1,15 @@
+// Test local array access passed as parameter
+
+fn set_arr(arr, idx, val) {
+    print(77)
+    arr[idx] = val
+    print(78)
+}
+
+fn main() {
+    print(111)
+    let arr = alloc(10)
+    set_arr(arr, 0, 42)
+    print(arr[0])
+    print(222)
+}

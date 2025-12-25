@@ -1,0 +1,10 @@
+fn main() {
+    let msg = "Hello, Synapse!"
+    let status = "Phase 37 Active"
+    
+    puts(msg)
+    puts(status)
+    
+    let ptr = msg
+    print(ptr)
+}

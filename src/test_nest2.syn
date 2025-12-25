@@ -1,0 +1,25 @@
+// Simplest nested call test - NO array access
+
+fn do_print(x) {
+    print(77)
+    print(x)
+    print(78)
+}
+
+fn main() {
+    print(111)
+    
+    let c = 102
+    let h = 0
+    
+    if (h == 0) { 
+        if (c == 102) { 
+            print(1)
+            do_print(99) 
+            print(2)
+            h = 1 
+        } 
+    }
+    
+    print(222)
+}

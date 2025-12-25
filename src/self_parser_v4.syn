@@ -1,0 +1,127 @@
+// ============================================================
+// SYNAPSE SELF-HOSTED PARSER V4 (Phase 40 - Fixed)
+// No != operator, using == with inverted logic
+// ============================================================
+
+let TOK_NUM = 1
+let TOK_PLUS = 2
+let NODE_NUM = 1
+let NODE_ADD = 2
+
+fn ctx_new() {
+    let ctx = alloc(10)
+    ctx[0] = alloc(100)
+    ctx[1] = alloc(100)
+    ctx[2] = 0
+    ctx[3] = 0
+    ctx[4] = alloc(500)
+    let ar = ctx[4]
+    ar[0] = 4
+    return ctx
+}
+
+fn emit(ctx, t, v) {
+    let n = ctx[2]
+    let ta = ctx[0]
+    ta[n] = t
+    let va = ctx[1]
+    va[n] = v
+    ctx[2] = n + 1
+}
+
+fn peek(ctx) {
+    let c = ctx[3]
+    let ta = ctx[0]
+    return ta[c]
+}
+
+fn val(ctx) {
+    let c = ctx[3]
+    let va = ctx[1]
+    return va[c]
+}
+
+fn next(ctx) {
+    let c = ctx[3]
+    ctx[3] = c + 1
+}
+
+fn node(ctx, t, v) {
+    let ar = ctx[4]
+    let i = ar[0]
+    ar[i] = t
+    let p1 = i + 1
+    ar[p1] = v
+    let p2 = i + 2
+    ar[p2] = 0
+    let p3 = i + 3
+    ar[p3] = 0
+    ar[0] = i + 4
+    return i
+}
+
+fn link(ctx, p, l, r) {
+    let ar = ctx[4]
+    let pl = p + 2
+    ar[pl] = l
+    let pr = p + 3
+    ar[pr] = r
+}
+
+fn parse(ctx) {
+    let t = peek(ctx)
+    
+    // Inverted logic: use == instead of !=
+    if (t == TOK_NUM) {
+        let v = val(ctx)
+        next(ctx)
+        let n1 = node(ctx, NODE_NUM, v)
+        
+        let t2 = peek(ctx)
+        if (t2 == TOK_PLUS) {
+            next(ctx)
+            let v2 = val(ctx)
+            next(ctx)
+            let n2 = node(ctx, NODE_NUM, v2)
+            
+            let op = node(ctx, NODE_ADD, 0)
+            link(ctx, op, n1, n2)
+            return op
+        }
+        return n1
+    }
+    return 0
+}
+
+fn walk(ctx, n) {
+    if (n == 0) { return 0 }
+    let ar = ctx[4]
+    let t = ar[n]
+    print(t)
+    if (t == NODE_NUM) {
+        let vi = n + 1
+        print(ar[vi])
+    }
+    let li = n + 2
+    let l = ar[li]
+    let ri = n + 3
+    let r = ar[ri]
+    if (l == 0) { } else { walk(ctx, l) }
+    if (r == 0) { } else { walk(ctx, r) }
+}
+
+fn main() {
+    print(100)
+    let ctx = ctx_new()
+    
+    emit(ctx, TOK_NUM, 10)
+    emit(ctx, TOK_PLUS, 0)
+    emit(ctx, TOK_NUM, 5)
+    print(200)
+    
+    let root = parse(ctx)
+    print(300)
+    
+    walk(ctx, root)
+    print(999)
+}

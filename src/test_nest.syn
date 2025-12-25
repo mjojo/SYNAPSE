@@ -1,0 +1,29 @@
+// Debug: simplest emit_tok call
+
+let data_mem = alloc(4096) 
+let tok_count = 0
+
+fn emit_tok(type, val) {
+    print(88)
+    data_mem[tok_count] = type
+    tok_count = tok_count + 1
+    print(89)
+}
+
+fn main() {
+    print(111)
+    
+    let c = 102
+    let h = 0
+    
+    if (h == 0) { 
+        if (c == 102) { 
+            print(1)
+            emit_tok(1, 0) 
+            print(2)
+            h = 1 
+        } 
+    }
+    
+    print(222)
+}

@@ -1,0 +1,22 @@
+fn fib(n) {
+    print(n)
+    let c = n < 2
+    if (c) {
+        return n
+    }
+    
+    let n1 = n - 1
+    let a = fib(n1)
+    
+    let n2 = n - 2
+    let b = fib(n2)
+    
+    return a + b
+}
+
+fn main() {
+    print(111111)
+    let res = fib(3) 
+    print(222222)
+    print(res) 
+}

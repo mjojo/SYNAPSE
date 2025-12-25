@@ -1,0 +1,35 @@
+// Global array crash diagnostic
+let global_data = alloc(100)
+
+fn main() {
+    print(111)
+    
+    // Fill global array from main
+    global_data[0] = 100
+    print(112)
+    global_data[1] = 200
+    print(113)
+    
+    // Call function with locals that accesses global
+    test_access(1)
+    
+    print(999)
+}
+
+fn test_access(idx) {
+    print(221)
+    
+    // Local variable (occupies stack)
+    let local_val = 50
+    print(222)
+    
+    // Read global array by local index
+    let val = global_data[idx]
+    print(223)
+    
+    // Check values
+    print(val)       // Should be 200
+    print(local_val) // Should be 50
+    
+    print(224)
+}

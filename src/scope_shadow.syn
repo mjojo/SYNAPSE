@@ -1,0 +1,16 @@
+fn main() {
+    let x = 10
+    print(x)  // Expect 10
+
+    if (1) {
+        let x = 20  // Shadowing
+        let y = 5
+        print(x)    // Expect 20
+        print(y)    // Expect 5
+    }
+
+    print(x)    // Expect 10 (Outer x)
+    
+    // Uncommenting the next line should cause a compilation error (y not found)
+    // print(y)
+}

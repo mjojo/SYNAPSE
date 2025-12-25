@@ -1,0 +1,304 @@
+// ============================================================
+// SYNAPSE OUROBOROS V1 (Phase 34)
+// Full Pipeline: Source -> Lexer -> Parser -> AST -> CodeGen -> x64
+// ============================================================
+
+// --- 1. CONSTANTS ---
+// AST Types
+let NODE_PROG  = 1
+let NODE_FN    = 2
+let NODE_BLOCK = 3
+let NODE_LET   = 4
+let NODE_NUM   = 5
+let NODE_RET   = 7
+
+// Token Types
+let TOK_EOF    = 0
+let TOK_FN     = 1
+let TOK_ID     = 2
+let TOK_NUM    = 3
+let TOK_LBRACE = 4
+let TOK_RBRACE = 5
+let TOK_LET    = 6
+let TOK_EQ     = 7
+let TOK_RET    = 8 // new for return
+
+// ASCII
+let CHAR_f = 102
+let CHAR_n = 110
+let CHAR_r = 114
+let CHAR_e = 101
+let CHAR_t = 116
+let CHAR_u = 117
+let CHAR_LBR = 123
+let CHAR_RBR = 125
+
+// --- 2. MEMORY MAP (Manual Layout) ---
+// Heap base: 0
+// Source:    0..99
+// Tokens:    100..299 (Types), 300..499 (Vals)
+// AST:       500..3999
+// Code:      4000..5000
+
+let heap_base = alloc(5000)
+let src_ptr   = heap_base
+let g_types   = heap_base + 800  // 100 * 8 bytes offset
+let g_vals    = heap_base + 1600 // 200 * 8 bytes offset
+let ast_arena = heap_base + 2400 // Starting AST
+let ast_ptr   = ast_arena
+let code_buf  = heap_base + 32000 // Far away (alloc returns qword ptr, manual offset needed carefully)
+
+// Упростим: используем alloc_bytes для буфера кода, чтобы не путаться с qword-арифметикой
+let real_code_buf = alloc_bytes(1024)
+
+// Globals
+let g_tok_count = 0
+let g_cursor = 0
+let src_len = 0
+let code_cursor = 0
+
+// --- 3. HELPER FUNCTIONS ---
+fn set_source() {
+    // Code: "fn main { return 123 }"
+    let p = src_ptr
+    set_byte(p, 0, 102) // f
+    set_byte(p, 1, 110) // n
+    set_byte(p, 2, 32)  // space
+    set_byte(p, 3, 109) // m (main)
+    set_byte(p, 4, 32)  // space
+    set_byte(p, 5, 123) // {
+    set_byte(p, 6, 32)  // space
+    set_byte(p, 7, 114) // r
+    set_byte(p, 8, 101) // e
+    set_byte(p, 9, 116) // t
+    set_byte(p, 10, 117) // u
+    set_byte(p, 11, 114) // r
+    set_byte(p, 12, 110) // n
+    set_byte(p, 13, 32)  // space
+    set_byte(p, 14, 49)  // 1
+    set_byte(p, 15, 50)  // 2
+    set_byte(p, 16, 51)  // 3
+    set_byte(p, 17, 32)  // space
+    set_byte(p, 18, 125) // }
+    src_len = 19
+}
+
+fn is_digit(c) {
+    if c < 48 { return 0 }
+    if c > 57 { return 0 }
+    return 1
+}
+
+fn emit_token(type, val) {
+    let idx = g_tok_count
+    g_types[idx] = type
+    g_vals[idx]  = val
+    g_tok_count = g_tok_count + 1
+}
+
+// --- 4. LEXER ---
+fn lex() {
+    let i = 0
+    let c = 0
+    while i < src_len {
+        c = get_byte(src_ptr, i)
+        
+        if c == 32 { 
+            i = i + 1 
+        } else {
+            // fn
+            if c == CHAR_f {
+                emit_token(TOK_FN, 0)
+                i = i + 2
+                c = 0
+            }
+            
+            // return (check 'r')
+            if c == CHAR_r {
+                // assume return for now
+                emit_token(TOK_RET, 0)
+                i = i + 6
+                c = 0
+            }
+            
+            // {
+            if c == CHAR_LBR {
+                emit_token(TOK_LBRACE, 0)
+                i = i + 1
+                c = 0
+            }
+            
+            // }
+            if c == CHAR_RBR {
+                emit_token(TOK_RBRACE, 0)
+                i = i + 1
+                c = 0
+            }
+            
+            // ID (m for main)
+            if c == 109 {
+                emit_token(TOK_ID, 1000)
+                i = i + 4 // main
+                c = 0
+            }
+            
+            // Number
+            if is_digit(c) == 1 {
+                let num = c - 48
+                
+                // Parse 3 digits "123"
+                let c2 = get_byte(src_ptr, i+1)
+                let c3 = get_byte(src_ptr, i+2)
+                
+                if is_digit(c2) == 1 {
+                    num = num * 10
+                    num = num + (c2 - 48)
+                    i = i + 1
+                    
+                    if is_digit(c3) == 1 {
+                        num = num * 10
+                        num = num + (c3 - 48)
+                        i = i + 1
+                    }
+                }
+                
+                emit_token(TOK_NUM, num)
+                i = i + 1
+                c = 0
+            }
+        }
+    }
+}
+
+// --- 5. AST ENGINE ---
+fn ast_new(type, val) {
+    let node = ast_ptr
+    node[0] = type
+    node[1] = val
+    node[2] = 0
+    node[3] = 0
+    ast_ptr = alloc(4)
+    return node
+}
+
+fn ast_child(p, c) { p[2] = c }
+
+// --- 6. PARSER ---
+fn peek() { return g_types[g_cursor] }
+
+fn eat(t) {
+    if peek() == t {
+        g_cursor = g_cursor + 1
+        return 1
+    }
+    print(999999) // PARSE ERROR
+    return 0
+}
+
+fn parse_expr() {
+    let val = g_vals[g_cursor]
+    eat(TOK_NUM)
+    return ast_new(NODE_NUM, val)
+}
+
+fn parse_stmt() {
+    let t = peek()
+    if t == TOK_RET {
+        eat(TOK_RET)
+        let expr = parse_expr()
+        let node = ast_new(NODE_RET, 0)
+        ast_child(node, expr)
+        return node
+    }
+    return 0
+}
+
+fn parse_block() {
+    eat(TOK_LBRACE)
+    let blk = ast_new(NODE_BLOCK, 0)
+    
+    let stmt = parse_stmt()
+    ast_child(blk, stmt)
+    
+    eat(TOK_RBRACE)
+    return blk
+}
+
+fn parse_fn() {
+    eat(TOK_FN)
+    eat(TOK_ID) // main
+    
+    let body = parse_block()
+    
+    let fn_node = ast_new(NODE_FN, 1000)
+    ast_child(fn_node, body)
+    
+    return fn_node
+}
+
+// --- 7. CODEGEN ---
+fn emit(b) {
+    set_byte(real_code_buf, code_cursor, b)
+    code_cursor = code_cursor + 1
+}
+
+fn emit64(val) {
+    // Only low byte for now for simplicity, assuming small number
+    emit(val % 256)
+    emit(0) emit(0) emit(0)
+    emit(0) emit(0) emit(0) emit(0)
+}
+
+fn gen_num(n) {
+    emit(72) emit(184) // MOV RAX, imm64
+    emit64(n[1])       // Value
+}
+
+fn gen_ret(n) {
+    let expr = n[2]
+    if expr[0] == NODE_NUM { gen_num(expr) }
+    
+    emit(93)  // POP RBP
+    emit(195) // RET
+}
+
+fn gen_block(n) {
+    let s = n[2]
+    if s[0] == NODE_RET { gen_ret(s) }
+}
+
+fn gen_fn(n) {
+    // Prologue
+    emit(85) // PUSH RBP
+    emit(72) emit(137) emit(229) // MOV RBP, RSP
+    
+    // Body
+    let b = n[2]
+    if b != 0 { gen_block(b) }
+}
+
+fn print_hex() {
+    let i = 0
+    while i < code_cursor {
+        print(get_byte(real_code_buf, i))
+        i = i + 1
+    }
+}
+
+// --- 8. MAIN ---
+fn main() {
+    print(111111) // 1. INIT SOURCE
+    set_source()
+    
+    print(222222) // 2. LEXING
+    lex()
+    
+    print(333333) // 3. PARSING
+    let root = parse_fn()
+    
+    print(444444) // 4. COMPILING
+    gen_fn(root)
+    
+    print(555555) // 5. BINARY OUTPUT:
+    print_hex()
+}

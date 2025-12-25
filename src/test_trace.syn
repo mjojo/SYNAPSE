@@ -1,0 +1,16 @@
+// Trace each step of global array assignment
+let arr = alloc(10)
+
+fn main() {
+    print(1)
+    let x = arr
+    print(2)
+    print(x)
+    print(3)
+    
+    // Try writing via local reference
+    x[0] = 42
+    print(4)
+    print(x[0])
+    print(5)
+}

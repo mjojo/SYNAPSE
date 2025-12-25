@@ -1,0 +1,14 @@
+// Minimal context test
+fn main() {
+    print(100)
+    let ctx = alloc(10)
+    print(101)
+    
+    ctx[0] = 42
+    print(102)
+    
+    let v = ctx[0]
+    print(v)
+    
+    print(200)
+}

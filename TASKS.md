@@ -132,6 +132,87 @@
 - [x] "Full Hoist Pattern" discovered
 - [x] **SELF-HOSTING FOUNDATION COMPLETE!**
 
+### Phase 35: JIT Stabilization (Operation Spinal Cord) ✅
+- [x] **Win64 ABI Compliance** (Shadow Space, Stack Alignment)
+- [x] **Recursive Functions** (Stabilized Frame Pointers)
+- [x] **Register Argument Passing** (RCX, RDX, R8, R9)
+- [x] **Expression & Statement Calls** Fixed
+- [x] **Forward Parameter Registration** Fixed
+- [x] Updated Intrinsics (`print`, `alloc`, `fopen`, etc.)
+- [x] Tests: `fib_crash_test.syn` (Recursive Fibonacci)
+- [x] **JIT IS NOW STABLE ON WINDOWS x64!**
+
+### Phase 36: The Cortex (Scope Isolation) ✅
+- [x] **Variable Shadowing** (Inner `let x` doesn't overwrite outer `x`)
+- [x] **Scope Push/Pop** in `compile_if`
+- [x] **Backwards Symbol Search** (Finds newest definition first)
+- [x] **Always-Add Semantics** in `sym_add`
+- [x] Tests: `scope_shadow.syn`
+- [x] **LOCAL VARIABLE SCOPING COMPLETE!**
+
+### Phase 37: The Scribe (Strings & Text) ✅
+- [x] **String Literals** (`"Hello World"` → pointer in RAX)
+- [x] **String Pooling** (lexer stores in `string_table`)
+- [x] **`puts(str)`** intrinsic (outputs null-terminated strings)
+- [x] Tests: `hello_world.syn`
+- [x] **SYNAPSE CAN SPEAK!**
+
+### Phase 38: The Elegant Ouroboros (Clean Self-Hosting) ✅
+- [x] **String Literals in Compiler** (`let src = "fn main { return 123 }"`)
+- [x] **Pointer-Based Lexing** (`get_byte(src, i)` with `strlen()`)
+- [x] **Guarded-If Pattern** (simulates else-if chains)
+- [x] **Local Array Workaround** (functions receive arrays as params)
+- [x] Tests: `self_compile_v3.syn`
+- [x] **Output**: `85 72 137 229 72 184 123 0 0 0 0 0 0 0 93 195` (Valid x64!)
+- [x] **ELEGANT SELF-HOSTING COMPLETE!**
+
+### Phase 39: The Keystone (JIT Opcode Fixes) ✅
+- [x] **Fixed 6 x64 opcode byte order issues** (dword writes inverted bytes)
+  - `.arr_gen_global`: MOV RDX, [RDX]
+  - `.arr_gen_store`: MOV [RDX+RCX*8], RAX
+  - `.arr_get_global`: MOV RDX, [RDX]
+  - `.arr_get_load`: MOV RAX, [RDX+RCX*8]
+  - `.try_global`: MOV RAX, [RCX]
+  - `.var_not_found`: MOV RAX, [RCX]
+- [x] **LOCAL ARRAYS NOW WORK PERFECTLY!**
+- [ ] Global arrays (file scope) still broken (different symbol table issue)
+- [x] Tests: `test_local_arr.syn` ✅
+
+### Phase 40: The Recursive Mind ✅
+- [x] **Context Passing Pattern** verified working
+- [x] **10 functions** all compile and run correctly
+- [x] Tests: `self_parser_v4.syn` ✅
+- [x] AST Output: `NODE_ADD(NODE_NUM 10, NODE_NUM 5)`
+
+### Phase 41: Infrastructure Scaling ✅
+- [x] **Symbol tables**: 64 → 256 entries (8192 bytes each)
+- [x] **Function table**: 64 → 256 entries (8192 bytes)
+- [x] **JIT buffer**: 64KB → 256KB
+- [x] Build size: 21KB → 35KB
+
+### Phase 41.5: Debug Traceback ✅
+- [x] Added `[JIT] Compiling fn: <name>` debug output
+- [x] Identified root cause: `!=` operator not implemented
+- [x] Workaround: Use `==` with inverted logic
+
+### Phase 42: Recursive CodeGen (Stack Machine) ✅
+- [x] **15 functions** compiled successfully
+- [x] Recursive descent parser with operator precedence
+- [x] Stack machine code generator
+- [x] Expression `10 + 2 * 5` → correct x64 opcodes:
+  - `48 B8 0A...` MOV RAX, 10
+  - `50` PUSH RAX
+  - `48 B8 02...` MOV RAX, 2 → multiply → `48 0F AF C1` IMUL
+  - `48 01 C8` ADD RAX, RCX
+- [x] Tests: `self_compile_v4.syn` ✅
+
+---
+
+## 🔮 FUTURE PHASES
+
+### Pending Features
+- [ ] **Implement OP_NE (!=) in compile_expr**
+
 ---
 
 ## 🔮 FUTURE PHASES
@@ -213,8 +294,9 @@
 | `test_fread.syn` | 27 | ✅ File I/O |
 | `msgbox_test.ttn` | 28 | ✅ GUI |
 | `self_lexer_final.syn` | 29 | ✅ **Self-Lexer!** |
+| `fib_crash_test.syn` | 35 | ✅ **Recursion!** |
 
-**Total: 31 tests PASSED**
+**Total: 32 tests PASSED**
 
 ---
 

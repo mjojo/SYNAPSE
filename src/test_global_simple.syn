@@ -1,0 +1,15 @@
+// Simplest global array test - no function call
+let arr = alloc(10)
+
+fn main() {
+    print(111)
+    
+    // Direct access without function
+    arr[0] = 42
+    print(112)
+    
+    let v = arr[0]
+    print(v)
+    
+    print(222)
+}

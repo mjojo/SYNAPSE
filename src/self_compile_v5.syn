@@ -1,0 +1,288 @@
+// ============================================================
+// SYNAPSE SELF-COMPILER V5 (Phase 34 - Unrolled Lexer)
+// Fix: Unroll lexer loop manually to bypass ANY loop bugs
+// ============================================================
+
+// --- 1. GLOBAL MEMORY ---
+let g_data_mem = 0
+let g_byte_mem = 0
+
+// Counters
+let g_tok_count = 0
+let g_ast_idx = 2000
+let g_code_idx = 1024
+let g_cursor = 0
+let g_lex_i = 0
+
+// --- 2. CONSTANTS ---
+let TOK_FN = 1
+let TOK_ID = 2
+let TOK_LBRACE = 3
+let TOK_RBRACE = 4
+let TOK_RET = 5
+let TOK_NUM = 6
+
+let NODE_FN = 1
+let NODE_BLOCK = 2
+let NODE_RET = 3
+let NODE_NUM = 4
+
+// --- 3. HELPER: DATA ACCESS (Uses GLOBALS) ---
+fn emit_tok(type, val) {
+    let idx = g_tok_count
+    g_data_mem[idx] = type
+    
+    idx = idx + 1000
+    g_data_mem[idx] = val
+    g_tok_count = g_tok_count + 1
+}
+
+fn peek_type() {
+    let idx = g_cursor
+    return g_data_mem[idx]
+}
+
+fn peek_val() {
+    let idx = g_cursor + 1000
+    return g_data_mem[idx]
+}
+
+fn parse_block() {
+    print(900010) // Block Start
+    eat(TOK_LBRACE)
+    eat(TOK_RET)
+    let val = peek_val()
+    eat(TOK_NUM)
+    print(900011) // Before Node New
+    let num_node = node_new(NODE_NUM, val)
+    let ret_node = node_new(NODE_RET, 0)
+    print(900012) // After Node New
+    node_child(ret_node, num_node)
+    eat(TOK_RBRACE)
+    let blk = node_new(NODE_BLOCK, 0)
+    node_child(blk, ret_node)
+    return blk
+}
+
+fn parse_fn() {
+    print(900000) // Parse FN Start
+    eat(TOK_FN)
+    eat(TOK_ID)
+    let body = parse_block()
+    print(900001) // Got Body
+    let fn_node = node_new(NODE_FN, 1000)
+    node_child(fn_node, body)
+    print(888888) print(fn_node)
+    return fn_node
+}
+
+fn node_new(type, val) {
+    let ptr = g_ast_idx
+    g_data_mem[ptr] = type
+    
+    let p1 = ptr + 1
+    g_data_mem[p1] = val
+    
+    let p2 = ptr + 2
+    g_data_mem[p2] = 0
+    
+    let p3 = ptr + 3
+    g_data_mem[p3] = 0
+    
+    g_ast_idx = g_ast_idx + 4
+    return ptr
+}
+
+fn node_child(parent, child) {
+    let p = parent + 2
+    g_data_mem[p] = child
+}
+
+// --- 4. STEP 1: INIT SOURCE ---
+fn init_src() {
+    let p = g_byte_mem
+    set_byte(p, 0, 102) set_byte(p, 1, 110) set_byte(p, 2, 32)
+    set_byte(p, 3, 109) set_byte(p, 4, 97) set_byte(p, 5, 105) set_byte(p, 6, 110) set_byte(p, 7, 32)
+    set_byte(p, 8, 123) set_byte(p, 9, 32)
+    set_byte(p, 10, 114) set_byte(p, 11, 101) set_byte(p, 12, 116) set_byte(p, 13, 117) set_byte(p, 14, 114) set_byte(p, 15, 110) set_byte(p, 16, 32)
+    set_byte(p, 17, 49) set_byte(p, 18, 50) set_byte(p, 19, 51) set_byte(p, 20, 32)
+    set_byte(p, 21, 125)
+}
+
+// --- 5. STEP 2: LEXER (Unrolled) ---
+// --- 5. STEP 2: LEXER (Unrolled) ---
+fn lex_process() {
+    print(800000 + g_lex_i) // Debug entry
+    
+    if g_lex_i > 21 { return 0 }
+    
+    let i = g_lex_i
+    let c = get_byte(g_byte_mem, i)
+    let next_i = i + 1
+    
+    // print(c) 
+    
+    if c == 32 { 
+        g_lex_i = next_i 
+    } else {
+        if c == 102 { // f
+            emit_tok(TOK_FN, 0)
+            g_lex_i = i + 2
+            print(777001)
+        } else {
+            if c == 114 { // r
+                emit_tok(TOK_RET, 0)
+                g_lex_i = i + 6
+                print(777002)
+            } else {
+                if c == 123 { // {
+                    emit_tok(TOK_LBRACE, 0)
+                    g_lex_i = next_i
+                    print(777003)
+                } else {
+                    if c == 125 { // }
+                        emit_tok(TOK_RBRACE, 0)
+                        g_lex_i = next_i
+                        print(777004)
+                    } else {
+                        if c == 109 { // m
+                            emit_tok(TOK_ID, 1000)
+                            g_lex_i = i + 4
+                            print(777005)
+                        } else {
+                            if c > 47 {
+                                if c < 58 { // Num
+                                    let num = 123
+                                    emit_tok(TOK_NUM, num)
+                                    g_lex_i = i + 3
+                                    print(777006)
+                                } else { g_lex_i = next_i }
+                            } else { g_lex_i = next_i }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn lex() {
+    g_lex_i = 0
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process()
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process() 
+    lex_process()
+}
+
+// --- 7. STEP 4: CODEGEN ---
+fn emit(b) {
+    // print(900000) // Debug emit
+    set_byte(g_byte_mem, g_code_idx, b)
+    g_code_idx = g_code_idx + 1
+}
+
+fn gen_num(n) {   
+    print(555003) // GEN NUM START
+    let val_idx = n + 1
+    let val = g_data_mem[val_idx]
+    
+    emit(72) emit(184)
+    emit(val) 
+    emit(0) emit(0) emit(0)
+    emit(0) emit(0) emit(0) emit(0)
+}
+
+fn gen_stmt(n) {
+    print(555002) // GEN STMT START
+    let type = g_data_mem[n]
+    if type == NODE_RET {
+        let child_idx = n + 2
+        let child = g_data_mem[child_idx]
+        gen_num(child)
+        emit(93) emit(195)
+    }
+}
+
+fn gen_fn(n) {
+    print(555001) // GEN FN START
+    print(n) // Debug Root Node
+    
+    emit(85) emit(72) emit(137) emit(229)
+    print(555010) // Prologue Done
+    
+    let child_idx = n + 2
+    let blk = g_data_mem[child_idx]
+    print(blk) // Debug Block Node
+    
+    child_idx = blk + 2
+    let stmt = g_data_mem[child_idx]
+    print(stmt) // Debug Stmt Node (should be 20xx)
+    
+    gen_stmt(stmt)
+}
+
+fn print_at(i) {
+    if i < g_code_idx {
+        print(get_byte(g_byte_mem, i))
+    }
+}
+
+fn dump_code() {
+    let base = 1024
+    print_at(base) print_at(base+1) print_at(base+2) print_at(base+3) print_at(base+4)
+    print_at(base+5) print_at(base+6) print_at(base+7) print_at(base+8) print_at(base+9)
+    print_at(base+10) print_at(base+11) print_at(base+12) print_at(base+13) print_at(base+14)
+    print_at(base+15) print_at(base+16) print_at(base+17) print_at(base+18) print_at(base+19)
+    print_at(base+20) print_at(base+21) print_at(base+22) print_at(base+23) print_at(base+24)
+    print_at(base+25) print_at(base+26) print_at(base+27) print_at(base+28) print_at(base+29)
+    print_at(base+30) print_at(base+31) print_at(base+32) print_at(base+33) print_at(base+34)
+    print_at(base+35) print_at(base+36) print_at(base+37) print_at(base+38) print_at(base+39)
+    print_at(base+40) print_at(base+41) print_at(base+42) print_at(base+43) print_at(base+44)
+}
+
+// --- 8. MAIN ---
+fn main() {
+    print(111111) // INIT
+    g_data_mem = alloc(4096)
+    g_byte_mem = alloc_bytes(2048)
+    
+    // Explicit Init
+    g_ast_idx = 2000
+    g_code_idx = 1024
+    g_tok_count = 0
+    g_cursor = 0
+    
+    init_src()
+    
+    print(222222) // LEX
+    lex()
+    
+    print(333333) // PARSE
+    let root = parse_fn()
+    
+    print(444444) // CODEGEN
+    gen_fn(root)
+    
+    print(555555) // BINARY:
+    dump_code()
+    print(666666)
+}

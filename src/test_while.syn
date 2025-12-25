@@ -1,0 +1,16 @@
+// Minimal while loop test
+
+fn test_while() {
+    let i = 0
+    while (i < 5) {
+        print(i)
+        i = i + 1
+    }
+    print(999)
+}
+
+fn main() {
+    print(111)
+    test_while()
+    print(222)
+}

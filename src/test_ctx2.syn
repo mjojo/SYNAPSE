@@ -1,0 +1,38 @@
+// Context with nested function calls
+
+fn ctx_new() {
+    let ctx = alloc(10)
+    ctx[0] = 0
+    ctx[1] = alloc(100)
+    ctx[2] = 0
+    return ctx
+}
+
+fn ctx_emit(ctx, val) {
+    let count = ctx[2]
+    let arr = ctx[1]
+    arr[count] = val
+    ctx[2] = count + 1
+}
+
+fn ctx_get(ctx, idx) {
+    let arr = ctx[1]
+    return arr[idx]
+}
+
+fn main() {
+    print(100)
+    let ctx = ctx_new()
+    print(101)
+    
+    ctx_emit(ctx, 10)
+    ctx_emit(ctx, 20)
+    ctx_emit(ctx, 30)
+    print(102)
+    
+    print(ctx_get(ctx, 0))
+    print(ctx_get(ctx, 1))
+    print(ctx_get(ctx, 2))
+    
+    print(200)
+}

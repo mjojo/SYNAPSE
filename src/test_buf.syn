@@ -1,0 +1,5 @@
+fn main() {
+    let buf = alloc_bytes(10)
+    set_byte(buf, 0, 55)
+    print(get_byte(buf, 0))
+}

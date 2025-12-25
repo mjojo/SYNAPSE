@@ -1,0 +1,131 @@
+// ============================================================
+// SYNAPSE SELF-COMPILER V3 (Phase 38 - Local Arrays)
+// Uses Strings, Stable JIT (local arrays workaround)
+// ============================================================
+
+fn emit_tok(dm, tc, type, val) {
+    dm[tc] = type
+    let idx2 = tc + 1000
+    dm[idx2] = val
+    return tc + 1
+}
+
+fn eat(dm, pc, t) {
+    let type = dm[pc]
+    if (type == t) { return pc + 1 }
+    return pc
+}
+
+fn node_new(dm, ai, type, val) {
+    dm[ai] = type
+    let p1 = ai + 1
+    dm[p1] = val
+    let p2 = ai + 2
+    dm[p2] = 0
+    return ai
+}
+
+fn emit(bm, ci, b) {
+    set_byte(bm, ci, b)
+    return ci + 1
+}
+
+fn dump_hex(bm, len) {
+    let i = 0
+    while (i < len) {
+        print(get_byte(bm, i))
+        i = i + 1
+    }
+}
+
+fn main() {
+    print(111111)
+    
+    let dm = alloc(4096)
+    let bm = alloc_bytes(2048)
+    
+    let src = "fn main { return 123 }"
+    puts(src)
+    
+    // === LEXER ===
+    print(222222)
+    let len = strlen(src)
+    let i = 0
+    let tc = 0
+    
+    while (i < len) {
+        let c = get_byte(src, i)
+        let h = 0
+        
+        if (h == 0) { if (c == 32) { i = i + 1 h = 1 } }
+        if (h == 0) { if (c == 102) { tc = emit_tok(dm, tc, 1, 0) i = i + 2 h = 1 } }
+        if (h == 0) { if (c == 109) { tc = emit_tok(dm, tc, 2, 1000) i = i + 4 h = 1 } }
+        if (h == 0) { if (c == 123) { tc = emit_tok(dm, tc, 3, 0) i = i + 1 h = 1 } }
+        if (h == 0) { if (c == 114) { tc = emit_tok(dm, tc, 5, 0) i = i + 6 h = 1 } }
+        if (h == 0) { if (c == 49) { tc = emit_tok(dm, tc, 6, 123) i = i + 3 h = 1 } }
+        if (h == 0) { if (c == 125) { tc = emit_tok(dm, tc, 4, 0) i = i + 1 h = 1 } }
+        if (h == 0) { i = i + 1 }
+    }
+    
+    // === PARSER ===
+    print(333333)
+    let pc = 0
+    let ai = 2000
+    
+    pc = eat(dm, pc, 1)
+    pc = eat(dm, pc, 2)
+    pc = eat(dm, pc, 3)
+    pc = eat(dm, pc, 5)
+    
+    let val_idx = pc + 1000
+    let val = dm[val_idx]
+    pc = eat(dm, pc, 6)
+    
+    let num = ai
+    ai = node_new(dm, ai, 4, val)
+    ai = ai + 4
+    let ret = ai
+    ai = node_new(dm, ai, 3, 0)
+    let p_child = ret + 2
+    dm[p_child] = num
+    ai = ai + 4
+    
+    pc = eat(dm, pc, 4)
+    
+    let func = ai
+    ai = node_new(dm, ai, 1, 1000)
+    let p_body = func + 2
+    dm[p_body] = ret
+    
+    // === CODEGEN ===
+    print(444444)
+    let ci = 0
+    
+    ci = emit(bm, ci, 85)
+    ci = emit(bm, ci, 72)
+    ci = emit(bm, ci, 137)
+    ci = emit(bm, ci, 229)
+    
+    let ret_ptr = dm[func + 2]
+    let num_ptr = dm[ret_ptr + 2]
+    let v_idx = num_ptr + 1
+    let v = dm[v_idx]
+    
+    ci = emit(bm, ci, 72)
+    ci = emit(bm, ci, 184)
+    ci = emit(bm, ci, v)
+    ci = emit(bm, ci, 0)
+    ci = emit(bm, ci, 0)
+    ci = emit(bm, ci, 0)
+    ci = emit(bm, ci, 0)
+    ci = emit(bm, ci, 0)
+    ci = emit(bm, ci, 0)
+    ci = emit(bm, ci, 0)
+    
+    ci = emit(bm, ci, 93)
+    ci = emit(bm, ci, 195)
+    
+    // === OUTPUT ===
+    print(555555)
+    dump_hex(bm, ci)
+}

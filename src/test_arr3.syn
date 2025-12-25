@@ -1,0 +1,10 @@
+// Test global array access - simplest
+
+let arr = alloc(10)
+
+fn main() {
+    print(111)
+    arr[0] = 42
+    print(arr[0])
+    print(222)
+}

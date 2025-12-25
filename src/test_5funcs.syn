@@ -1,0 +1,12 @@
+// Scaling test: 5 functions
+fn f1(x) { return x + 1 }
+fn f2(x) { return f1(x) + 1 }
+fn f3(x) { return f2(x) + 1 }
+fn f4(x) { return f3(x) + 1 }
+
+fn main() {
+    print(100)
+    let r = f4(10)
+    print(r)
+    print(200)
+}

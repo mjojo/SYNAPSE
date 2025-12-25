@@ -1,0 +1,15 @@
+// Compare local vs global array
+fn main() {
+    print(1)
+    
+    // Local array (works)
+    let local_arr = alloc(10)
+    print(2)
+    print(local_arr)
+    print(3)
+    
+    local_arr[0] = 42
+    print(4)
+    print(local_arr[0])
+    print(5)
+}

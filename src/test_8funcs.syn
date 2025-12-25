@@ -1,0 +1,51 @@
+// Scaling test: 8 functions with array access
+fn f1(ctx) { 
+    let arr = ctx[0]
+    return arr[0] 
+}
+
+fn f2(ctx) { 
+    let arr = ctx[0]
+    return arr[1] 
+}
+
+fn f3(ctx) { 
+    return f1(ctx) + f2(ctx) 
+}
+
+fn f4(ctx, v) { 
+    let arr = ctx[0]
+    arr[2] = v
+}
+
+fn f5(ctx) { 
+    return f3(ctx) 
+}
+
+fn f6(ctx) {
+    let arr = ctx[0]
+    return arr[2]
+}
+
+fn f7(ctx) {
+    f4(ctx, 100)
+    return f6(ctx)
+}
+
+fn main() {
+    print(100)
+    let ctx = alloc(10)
+    let arr = alloc(10)
+    ctx[0] = arr
+    arr[0] = 10
+    arr[1] = 20
+    print(110)
+    
+    let r1 = f5(ctx)
+    print(r1)
+    
+    let r2 = f7(ctx)
+    print(r2)
+    
+    print(200)
+}

@@ -1,0 +1,16 @@
+// Test array access in function without nested if
+
+let arr = alloc(10)
+
+fn set_arr(idx, val) {
+    print(77)
+    arr[idx] = val
+    print(78)
+}
+
+fn main() {
+    print(111)
+    set_arr(0, 42)
+    print(arr[0])
+    print(222)
+}

@@ -1,0 +1,41 @@
+// Debug: lex only with emit_tok
+
+let data_mem = alloc(4096) 
+let tok_count = 0
+
+fn emit_tok(type, val) {
+    print(800)
+    print(type)
+    data_mem[tok_count] = type
+    let idx2 = tok_count + 1000
+    data_mem[idx2] = val
+    tok_count = tok_count + 1
+    print(801)
+}
+
+fn main() {
+    print(111)
+    
+    let src = "fn main { return 123 }"
+    let len = strlen(src)
+    let i = 0
+    
+    while (i < len) {
+        let c = get_byte(src, i)
+        print(c)
+        let h = 0
+        
+        if (h == 0) { if (c == 32) { i = i + 1 h = 1 } }
+        if (h == 0) { if (c == 102) { emit_tok(1, 0) i = i + 2 h = 1 } }
+        if (h == 0) { if (c == 109) { emit_tok(2, 1000) i = i + 4 h = 1 } }
+        if (h == 0) { if (c == 123) { emit_tok(3, 0) i = i + 1 h = 1 } }
+        if (h == 0) { if (c == 114) { emit_tok(5, 0) i = i + 6 h = 1 } }
+        if (h == 0) { if (c == 49) { emit_tok(6, 123) i = i + 3 h = 1 } }
+        if (h == 0) { if (c == 125) { emit_tok(4, 0) i = i + 1 h = 1 } }
+        if (h == 0) { i = i + 1 }
+        
+        print(i)
+    }
+    
+    print(222)
+}

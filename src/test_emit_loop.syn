@@ -1,0 +1,11 @@
+fn main() {
+    let buf = alloc_bytes(1024)
+    let cursor = 0
+    let i = 0
+    while i < 10 {
+        set_byte(buf, cursor, i)
+        cursor = cursor + 1
+        i = i + 1
+    }
+    print(get_byte(buf, 5))
+}

@@ -1,0 +1,73 @@
+// Ultra-simple lexer test with explicit else-if simulation
+
+fn main() {
+    print(111)
+    
+    let src = "fn main { return 123 }"
+    let len = strlen(src)
+    let i = 0
+    
+    while (i < len) {
+        let c = get_byte(src, i)
+        print(c)
+        
+        let handled = 0
+        
+        // Each check is guarded by handled == 0
+        if (handled == 0) {
+            if (c == 32) { 
+                i = i + 1 
+                handled = 1 
+            }
+        }
+        if (handled == 0) {
+            if (c == 102) { 
+                print(1001) // fn token
+                i = i + 2 
+                handled = 1 
+            }
+        }
+        if (handled == 0) {
+            if (c == 109) { 
+                print(1002) // main token
+                i = i + 4 
+                handled = 1 
+            }
+        }
+        if (handled == 0) {
+            if (c == 123) { 
+                print(1003) // { token
+                i = i + 1 
+                handled = 1 
+            }
+        }
+        if (handled == 0) {
+            if (c == 114) { 
+                print(1005) // return token
+                i = i + 6 
+                handled = 1 
+            }
+        }
+        if (handled == 0) {
+            if (c == 49) { 
+                print(1006) // 123 token
+                i = i + 3 
+                handled = 1 
+            }
+        }
+        if (handled == 0) {
+            if (c == 125) { 
+                print(1004) // } token
+                i = i + 1 
+                handled = 1 
+            }
+        }
+        if (handled == 0) {
+            i = i + 1
+        }
+        
+        print(i)
+    }
+    
+    print(222)
+}

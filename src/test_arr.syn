@@ -1,0 +1,28 @@
+// Test array access in nested if
+
+let arr = alloc(10)
+
+fn set_arr(idx, val) {
+    print(77)
+    arr[idx] = val
+    print(78)
+}
+
+fn main() {
+    print(111)
+    
+    let c = 102
+    let h = 0
+    
+    if (h == 0) { 
+        if (c == 102) { 
+            print(1)
+            set_arr(0, 42)
+            print(2)
+            h = 1 
+        } 
+    }
+    
+    print(arr[0])
+    print(222)
+}

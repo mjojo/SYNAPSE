@@ -1,0 +1,18 @@
+// Ultra minimal lex test
+
+fn main() {
+    print(111)
+    
+    let src = "fn main { return 123 }"
+    let len = strlen(src)
+    print(len)
+    
+    let i = 0
+    while (i < len) {
+        let c = get_byte(src, i)
+        print(c)
+        i = i + 1
+    }
+    
+    print(222)
+}

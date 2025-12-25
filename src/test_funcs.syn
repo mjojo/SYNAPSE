@@ -1,0 +1,16 @@
+// Minimal 3-function test
+fn f1(x) {
+    return x + 1
+}
+
+fn f2(x) {
+    let v = f1(x)
+    return v + 2
+}
+
+fn main() {
+    print(100)
+    let r = f2(10)
+    print(r)
+    print(200)
+}

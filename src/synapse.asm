@@ -195,6 +195,7 @@ section '.data' data readable writeable
     dbg_expr_start db '[EXPR] Starting',13,10,0
     dbg_expr_tok db '[EXPR] After next_token: type=',0
     hex_chars      db '0123456789ABCDEF',0
+    dbg_fn_parsing db '[JIT] Compiling fn: ',0
     
     ; Intrinsics strings
     str_print      db 'print',0
@@ -322,16 +323,16 @@ section '.bss' data readable writeable
     var_name_buf    rb 64       ; Buffer for variable name in let
     
     ; Symbol table (simple: name_ptr, offset pairs) - LOCAL to each function
-    sym_table       rb 2048     ; 64 entries * 32 bytes (24 name + 8 offset)
+    sym_table       rb 8192     ; 256 entries * 32 bytes (24 name + 8 offset)
     sym_count       dd ?
     sym_offset      dd ?        ; Next local variable offset (negative, grows down)
     param_offset    dd ?        ; Next parameter offset (positive, +16, +24...)
     
     ; GLOBAL symbol table - shared across functions
     ; Format: name (24 bytes) + address in global_vars (8 bytes) = 32 bytes per entry
-    global_sym_table rb 2048    ; 64 entries * 32 bytes
+    global_sym_table rb 8192    ; 256 entries * 32 bytes
     global_sym_count dd ?
-    global_vars      rb 512     ; 64 global variables * 8 bytes each
+    global_vars      rb 2048    ; 256 global variables * 8 bytes each
     global_vars_ptr  dq ?
     
     ; Fixed intrinsic argument location (for print, etc.)
@@ -342,7 +343,7 @@ section '.bss' data readable writeable
     param_count      dd ?       ; Number of parameters found
     
     ; Function table (name hash -> jit address)
-    func_table      rb 2048     ; 64 entries * 32 bytes (name_ptr, jit_addr, arg_count)
+    func_table      rb 8192     ; 256 entries * 32 bytes (name_ptr, jit_addr, arg_count)
     func_count      dd ?
     cur_func_name   rb 64       ; Current function name being compiled
     main_addr       dq ?        ; Address of main() for execution
@@ -660,6 +661,19 @@ compile_program:
     jnz .copy_fname
 .fname_done:
     
+    ; === DEBUG: Print function name being compiled ===
+    push r14
+    sub rsp, 32
+    lea rcx, [dbg_fn_parsing]
+    call print_string
+    lea rcx, [cur_func_name]
+    call print_string
+    lea rcx, [newline_str]
+    call print_string
+    add rsp, 32
+    pop r14
+    ; === END DEBUG ===
+    
     ; Save JIT address for this function
     mov r14, [jit_cursor]       ; Save function start address
     
@@ -676,12 +690,33 @@ compile_program:
     mov byte [rdi+2], 0xE5
     add rdi, 3
     
-    ; SUB RSP, 256 (48 81 EC 00 01 00 00) - 7 bytes
+    ; SUB RSP, 288 (256 locals + 32 shadow for calls)
+    ; 288 = 0x120
     mov byte [rdi], 0x48
     mov byte [rdi+1], 0x81
     mov byte [rdi+2], 0xEC
-    mov dword [rdi+3], 256      ; 00 01 00 00 in little-endian
+    mov dword [rdi+3], 288      ; 288 bytes
     add rdi, 7
+    
+    ; === HOME REGISTERS (Fastcall/Win64) ===
+    ; We save RCX, RDX, R8, R9 to [RBP+16]..[RBP+40]
+    ; So they appear as regular stack parameters to the rest of the code
+    
+    ; MOV [RBP+16], RCX (48 89 4D 10)
+    mov dword [rdi], 0x104D8948
+    add rdi, 4
+    
+    ; MOV [RBP+24], RDX (48 89 55 18)
+    mov dword [rdi], 0x18558948
+    add rdi, 4
+    
+    ; MOV [RBP+32], R8  (4C 89 45 20)
+    mov dword [rdi], 0x2045894C
+    add rdi, 4
+    
+    ; MOV [RBP+40], R9  (4C 89 4D 28)
+    mov dword [rdi], 0x284D894C
+    add rdi, 4
     
     mov [jit_cursor], rdi
     
@@ -712,12 +747,12 @@ compile_program:
     cmp dword [cur_tok_type], TOK_OP
     jne .check_param_ident
     cmp qword [cur_tok_value], OP_RPAREN
-    je .register_params_reverse
+    je .register_params
     
 .check_param_ident:
     ; Expect identifier (parameter name)
     cmp dword [cur_tok_type], TOK_IDENT
-    jne .register_params_reverse ; Not an identifier, assume end
+    jne .register_params ; Not an identifier, assume end
     
     ; Copy param name to param_names buffer
     ; Destination = param_names + param_count * 32
@@ -748,7 +783,7 @@ compile_program:
     
     ; Check for comma (more parameters) or ')' (end)
     cmp dword [cur_tok_type], TOK_OP
-    jne .register_params_reverse
+    jne .register_params
     
     cmp qword [cur_tok_value], OP_COMMA
     jne .check_rparen
@@ -759,33 +794,28 @@ compile_program:
     
 .check_rparen:
     cmp qword [cur_tok_value], OP_RPAREN
-    jne .register_params_reverse
+    jne .register_params
     
-.register_params_reverse:
-    ; Now we have param_count params in param_names buffer
-    ; Register in REVERSE order: last param gets +16, second-to-last +24, etc.
+.register_params:
+    ; Register params in FORWARD order (Arg1 -> +16, Arg2 -> +24...)
+    ; This matches our Win64 Homing logic (RCX -> [RBP+16])
     
     mov dword [param_offset], 16
-    mov eax, [param_count]
-    test eax, eax
-    jz .params_done
-    
-    dec eax                     ; Start from last param (index = count - 1)
+    xor rbx, rbx                ; RBX = current index (0)
     
 .reg_param_loop:
-    cmp eax, 0
-    jl .params_done
+    cmp ebx, [param_count]
+    jge .params_done
     
-    ; Get pointer to param name: param_names + eax * 32
-    push rax
-    shl eax, 5                  ; * 32
+    ; Get pointer: param_names + rbx * 32
+    mov eax, ebx
+    shl eax, 5
     lea rcx, [param_names]
     add rcx, rax
     
-    call sym_add_param          ; Register with current offset (+16, +24, ...)
+    call sym_add_param          ; Register, increments param_offset
     
-    pop rax
-    dec eax                     ; Move to previous param
+    inc ebx
     jmp .reg_param_loop
     
 .params_done:
@@ -826,11 +856,11 @@ compile_program:
     ; Generate function epilogue: ADD RSP, 256; POP RBP; RET
     mov rdi, [jit_cursor]
     
-    ; ADD RSP, 256 (48 81 C4 00 01 00 00) - 7 bytes
+    ; ADD RSP, 288 (48 81 C4 20 01 00 00)
     mov byte [rdi], 0x48
     mov byte [rdi+1], 0x81
     mov byte [rdi+2], 0xC4
-    mov dword [rdi+3], 256
+    mov dword [rdi+3], 288
     add rdi, 7
     
     ; POP RBP (0x5D)
@@ -1087,18 +1117,25 @@ parse_block:
     jmp .arr_gen_store
     
 .arr_gen_global:
-    ; Global: MOV RDX, [global_addr]
-    mov word [rdi], 0xBA48      ; MOV RDX, imm64
+    ; Global: Load 64-bit address, then dereference to get pointer
+    ; MOV RDX, imm64 (48 BA ...)
+    mov word [rdi], 0xBA48
     mov [rdi+2], r13
     add rdi, 10
-    mov dword [rdi], 0x128B48   ; MOV RDX, [RDX] (load pointer value)
+    ; MOV RDX, [RDX] (48 8B 12) - Fixed byte order
+    mov byte [rdi], 0x48        ; REX.W
+    mov byte [rdi+1], 0x8B      ; MOV r64, r/m64
+    mov byte [rdi+2], 0x12      ; ModR/M: [RDX] -> RDX
     add rdi, 3
     mov [jit_cursor], rdi
     
 .arr_gen_store:
-    ; Generate: MOV [RDX + RCX*8], RAX
+    ; Generate: MOV [RDX + RCX*8], RAX (48 89 04 CA)
     mov rdi, [jit_cursor]
-    mov dword [rdi], 0xCA048948 ; MOV [RDX + RCX*8], RAX (48 89 04 CA)
+    mov byte [rdi], 0x48        ; REX.W
+    mov byte [rdi+1], 0x89      ; MOV r/m64, r64
+    mov byte [rdi+2], 0x04      ; ModR/M: SIB follows
+    mov byte [rdi+3], 0xCA      ; SIB: scale=8, index=RCX, base=RDX
     add qword [jit_cursor], 4
     
     jmp .stmt_loop
@@ -1158,26 +1195,11 @@ parse_block:
 .skip_paren:
     
     ; Generate function call
-    mov rdi, [jit_cursor]
-    
-    ; MOV RAX, func_addr (48 B8 + 8 bytes)
-    mov word [rdi], 0xB848
-    mov [rdi+2], r12
-    add rdi, 10
-    
-    ; CALL RAX (FF D0)
-    mov word [rdi], 0xD0FF
-    add rdi, 2
-    
-    ; Cleanup ALL arguments: ADD RSP, arg_count * 8
-    ; R14 = number of arguments
-    mov eax, r14d
-    shl eax, 3                  ; * 8
-    
-    ; ADD RSP, imm8 (48 83 C4 xx)
-    mov dword [rdi], 0x00C48348
-    mov [rdi+3], al
-    add rdi, 4
+    ; Use common call generation (Standard ABI)
+    ; Input: R12 = Func Addr, R14D = Arg Count
+    mov rax, r12
+    mov ecx, r14d
+    call generate_call_common
     
     mov [jit_cursor], rdi
     jmp .stmt_loop
@@ -1716,23 +1738,11 @@ compile_while:
 .while_skip_paren:
     
     ; Generate CALL
-    mov rdi, [jit_cursor]
-    
-    ; MOV RAX, func_addr
-    mov word [rdi], 0xB848
-    mov [rdi+2], r14
-    add rdi, 10
-    
-    ; CALL RAX
-    mov word [rdi], 0xD0FF
-    add rdi, 2
-    
-    ; Cleanup ALL arguments: ADD RSP, arg_count * 8
-    mov eax, r15d
-    shl eax, 3                  ; arg_count * 8
-    mov dword [rdi], 0xC48348   ; ADD RSP, imm8 (48 83 C4 xx)
-    mov [rdi+3], al             ; Store imm8 (stack cleanup amount)
-    add rdi, 4
+    ; Use common call generation
+    ; Input: R14 = Func Addr, R15D = Arg Count
+    mov rax, r14
+    mov ecx, r15d
+    call generate_call_common
 
     mov [jit_cursor], rdi
     jmp .body_loop
@@ -1826,8 +1836,14 @@ compile_if:
     ; Compile condition
     call compile_expr
     
-    ; Skip ')'
-    call next_token
+    ; Check for ')' and skip if present
+    call peek_token
+    cmp dword [peek_tok_type], TOK_OP
+    jne .no_rparen_skip
+    cmp qword [peek_tok_value], OP_RPAREN
+    jne .no_rparen_skip
+    call next_token         ; Consume ')'
+.no_rparen_skip:
     
     ; Generate: TEST RAX, RAX
     mov rdi, [jit_cursor]
@@ -1852,6 +1868,7 @@ compile_if:
     call next_token
     jmp .find_lbrace
 .found_lbrace:
+    ; NOTE: Scope isolation removed - was corrupting function call stack
     ; '{' is current token. DON'T call next_token here!
     ; Let .if_body use peek to see first statement
     
@@ -2173,19 +2190,11 @@ compile_if:
 
 .if_do_call:
     ; CALL
-    mov rdi, [jit_cursor]
-    mov word [rdi], 0xB848
-    mov [rdi+2], r14
-    add rdi, 10
-    mov word [rdi], 0xD0FF
-    add rdi, 2
-    
-    ; Cleanup ALL arguments: ADD RSP, arg_count * 8
-    mov eax, r15d
-    shl eax, 3                  ; arg_count * 8
-    mov dword [rdi], 0xC48348   ; ADD RSP, imm8 (48 83 C4 xx)
-    mov [rdi+3], al             ; Store imm8 (stack cleanup amount)
-    add rdi, 4
+    ; Use common call generation
+    ; Input: R14 = Func Addr, R15D = Arg Count
+    mov rax, r14
+    mov ecx, r15d
+    call generate_call_common
 
     mov [jit_cursor], rdi
     jmp .if_body
@@ -2195,6 +2204,8 @@ compile_if:
     jmp .if_body
 
 .if_body_done:
+    ; NOTE: Scope isolation removed - was corrupting function call stack
+    
     call next_token ; Skip '}'
     
     ; === ELSE CHECK ===
@@ -2229,6 +2240,7 @@ compile_if:
     je .found_else_brace
     jmp .find_else_brace
 .found_else_brace:
+    ; NOTE: Scope isolation removed
     ; '{' is current token. DON'T skip it, let peek see first statement
     
     ; === ELSE BODY LOOP ===
@@ -2488,18 +2500,9 @@ compile_if:
     call next_token             ; Consume ')'
 
 .else_do_call:
-    mov rdi, [jit_cursor]
-    mov word [rdi], 0xB848
-    mov [rdi+2], r14
-    add rdi, 10
-    mov word [rdi], 0xD0FF
-    add rdi, 2
-    
-    mov eax, r15d
-    shl eax, 3
-    mov dword [rdi], 0xC48348
-    mov [rdi+3], al
-    add rdi, 4
+    mov rax, r14
+    mov ecx, r15d
+    call generate_call_common
 
     mov [jit_cursor], rdi
     jmp .else_body
@@ -2508,6 +2511,8 @@ compile_if:
     jmp .else_body
 
 .else_body_done:
+    ; NOTE: Scope isolation removed
+    
     call next_token ; }
     
     ; Patch JMP
@@ -2956,14 +2961,20 @@ compile_term:
     mov word [rdi], 0xBA48      ; MOV RDX, imm64
     mov [rdi+2], r13
     add rdi, 10
-    mov dword [rdi], 0x128B48   ; MOV RDX, [RDX]
+    ; MOV RDX, [RDX] (48 8B 12) - Fixed byte order
+    mov byte [rdi], 0x48
+    mov byte [rdi+1], 0x8B
+    mov byte [rdi+2], 0x12
     add rdi, 3
     mov [jit_cursor], rdi
     
 .arr_get_load:
-    ; Generate: MOV RAX, [RDX + RCX*8]
+    ; Generate: MOV RAX, [RDX + RCX*8] (48 8B 04 CA)
     mov rdi, [jit_cursor]
-    mov dword [rdi], 0xCA048B48 ; MOV RAX, [RDX + RCX*8]
+    mov byte [rdi], 0x48
+    mov byte [rdi+1], 0x8B
+    mov byte [rdi+2], 0x04
+    mov byte [rdi+3], 0xCA
     add qword [jit_cursor], 4
     ret
     
@@ -3031,27 +3042,13 @@ compile_term:
     call next_token
 .skip_call_paren:
     
-    ; Generate CALL
-    mov rdi, [jit_cursor]
+    ; Generate CALL (Expression context)
+    ; Input: R15 = Func Addr, R14D = Arg Count
+    mov rax, r15
+    mov ecx, r14d
+    call generate_call_common
     
-    ; MOV RAX, func_addr
-    mov word [rdi], 0xB848
-    mov [rdi+2], r15
-    add rdi, 10
-    
-    ; CALL RAX
-    mov word [rdi], 0xD0FF
-    add rdi, 2
-    
-    ; ADD RSP, N*8
-    mov eax, r14d
-    shl eax, 3
-    
-    mov byte [rdi], 0x48
-    mov byte [rdi+1], 0x81
-    mov byte [rdi+2], 0xC4
-    mov [rdi+3], eax
-    add rdi, 7
+    ; Note: generate_call_common leaves result in RAX, which is what we want (expression return value)
     
     mov [jit_cursor], rdi
     ret
@@ -3096,7 +3093,10 @@ compile_term:
     mov word [rdi], 0xB948
     mov [rdi + 2], rbx
     add rdi, 10
-    mov dword [rdi], 0x018B48
+    ; MOV RAX, [RCX] (48 8B 01) - Fixed byte order
+    mov byte [rdi], 0x48
+    mov byte [rdi+1], 0x8B
+    mov byte [rdi+2], 0x01
     add rdi, 3
     mov [jit_cursor], rdi
     ret
@@ -3111,7 +3111,10 @@ compile_term:
     mov word [rdi], 0xB948
     mov [rdi + 2], rbx
     add rdi, 10
-    mov dword [rdi], 0x018B48
+    ; MOV RAX, [RCX] (48 8B 01) - Fixed byte order
+    mov byte [rdi], 0x48
+    mov byte [rdi+1], 0x8B
+    mov byte [rdi+2], 0x01
     add rdi, 3
     mov [jit_cursor], rdi
     ret
@@ -3809,9 +3812,8 @@ intrinsic_print:
     push rdi
     sub rsp, 32                 ; Shadow space for Windows x64
     
-    ; Read argument from stack and save it
-    ; +32 (shadow) +8 (rdi) +8 (rsi) +8 (rbx) +8 (ret) = 64, then arg
-    mov rbx, [rsp + 64]         ; Save argument in RBX
+    ; Argument is in RCX (Win64 ABI)
+    mov rbx, rcx                ; Save argument in RBX
     
     ; Print prefix "> "
     lea rcx, [print_prefix]
@@ -3854,8 +3856,8 @@ intrinsic_alloc:
     push rbx
     push rsi
     
-    ; Read 'size' argument from stack
-    mov rcx, [rsp + 24]         ; Size in qwords
+    ; Size argument is in RCX
+    ; Convert to bytes (size * 8)
     
     ; Convert to bytes (size * 8)
     shl rcx, 3
@@ -3881,9 +3883,9 @@ intrinsic_input:
     
     sub rsp, 32                 ; Shadow space
     
-    ; Get arguments: buf = [rsp+56], len = [rsp+64]
-    mov r10, [rsp + 56]         ; buf pointer
-    mov r11, [rsp + 64]         ; max length
+    ; Arguments: buf=RCX, len=RDX
+    mov r10, rcx                ; buf pointer
+    mov r11, rdx                ; max length
     
     ; Call ReadConsoleA
     ; hConsoleInput, lpBuffer, nNumberOfCharsToRead, lpNumberOfCharsRead, lpInputControl
@@ -3914,9 +3916,9 @@ intrinsic_streq:
     push rsi
     push rdi
     
-    ; Get arguments: str1 = [rsp+32], str2 = [rsp+40]
-    mov rsi, [rsp + 32]         ; str1
-    mov rdi, [rsp + 40]         ; str2
+    ; Arguments: str1=RCX, str2=RDX
+    mov rsi, rcx                ; str1
+    mov rdi, rdx                ; str2
     
 .streq_loop:
     mov al, [rsi]
@@ -3957,8 +3959,8 @@ intrinsic_puts:
     sub rsp, 32                 ; Shadow space
     
     ; Stack: 32 (sub) + 24 (pushes) + 8 (ret) = 64
-    ; Get string argument
-    mov rsi, [rsp + 64]         ; str pointer
+    ; Argument: str=RCX
+    mov rsi, rcx                ; str pointer
     
     ; Calculate string length
     xor rcx, rcx
@@ -4011,8 +4013,10 @@ intrinsic_fopen:
     ; [RSP + 80] = Arg2 (Mode)
     ; [RSP + 88] = Arg1 (Filename)
 
-    mov rcx, [rsp + 88]     ; Arg1: Filename (lpFileName)
-    mov rbx, [rsp + 80]     ; Arg2: Mode
+    ; Arg1=RCX (Filename), Arg2=RDX (Mode)
+    mov rbx, rdx        ; Check Mode
+    push rbx
+    push rcx
     
     test rbx, rbx
     jnz .mode_write
@@ -4022,6 +4026,9 @@ intrinsic_fopen:
     mov edx, 0x80000000     ; GENERIC_READ
     mov r8d, 1              ; ShareMode = 1 (FILE_SHARE_READ)
     xor r9d, r9d            ; Security = NULL
+    
+    ; Stack args for WinAPI (relative to current RSP)
+    pop rcx               ; Restore Filename
     
     ; Stack args for WinAPI (relative to current RSP)
     mov qword [rsp+32], 3   ; OPEN_EXISTING (Arg5)
@@ -4063,7 +4070,7 @@ intrinsic_fclose:
     sub rsp, 32             ; Shadow space
     
     ; Offset: 32 (local) + 8 (saved) + 8 (ret) = 48
-    mov rcx, [rsp + 48]     ; Arg1: Handle
+    ; Arg1 = RCX
     test rcx, rcx
     jz .fclose_skip
     
@@ -4438,9 +4445,10 @@ intrinsic_fwrite:
 ; Stack after CALL: [RSP]=ret, [RSP+8]=index, [RSP+16]=ptr
 ; -----------------------------------------------------------------------------
 intrinsic_get_byte:
-    mov rax, [rsp + 16]         ; ptr (first arg = higher offset)
-    add rax, [rsp + 8]          ; + index (second arg = RSP+8)
-    movzx rax, byte [rax]       ; Load byte, zero-extend
+    ; RCX = ptr, RDX = index
+    mov rax, rcx
+    add rax, rdx
+    movzx rax, byte [rax]
     ret
 
 ; -----------------------------------------------------------------------------
@@ -4450,11 +4458,12 @@ intrinsic_get_byte:
 ; Stack after CALL: [RSP]=ret, [RSP+8]=value, [RSP+16]=index, [RSP+24]=ptr
 ; -----------------------------------------------------------------------------
 intrinsic_set_byte:
-    mov rax, [rsp + 24]         ; ptr (first arg)
-    add rax, [rsp + 16]         ; + index (second arg)
-    mov rcx, [rsp + 8]          ; value (third arg)
-    mov [rax], cl               ; Store low byte only
-    xor eax, eax                ; Return 0
+    ; RCX = ptr, RDX = index, R8 = value
+    mov rax, rcx
+    add rax, rdx
+    mov rcx, r8
+    mov [rax], cl
+    xor eax, eax
     ret
 
 ; -----------------------------------------------------------------------------
@@ -4463,15 +4472,16 @@ intrinsic_set_byte:
 ; Stack after CALL: [RSP]=ret, [RSP+8]=str
 ; -----------------------------------------------------------------------------
 intrinsic_strlen:
-    mov rax, [rsp + 8]          ; str ptr
-    xor rcx, rcx                ; counter = 0
+    ; RCX = str
+    mov rax, rcx
+    xor rcx, rcx
 .strlen_loop:
     cmp byte [rax + rcx], 0
     je .strlen_done
     inc rcx
     jmp .strlen_loop
 .strlen_done:
-    mov rax, rcx                ; Return length
+    mov rax, rcx
     ret
 
 ; -----------------------------------------------------------------------------
@@ -4480,9 +4490,149 @@ intrinsic_strlen:
 ; Stack after CALL: [RSP]=ret, [RSP+8]=count
 ; -----------------------------------------------------------------------------
 intrinsic_alloc_bytes:
-    mov rcx, [rsp + 8]          ; count (bytes)
-    mov rax, [heap_ptr]         ; Return current heap ptr
-    add [heap_ptr], rcx         ; Advance by count bytes
+    ; RCX = count
+    mov rax, [heap_ptr]
+    add [heap_ptr], rcx
+    ret
+
+; =============================================================================
+; generate_call_common - Emit Win64 ABI compliant CALL sequence
+; Input: RAX = Function Address, ECX = Argument Count
+; Logic:
+; 1. Pop args from Stack into RCX, RDX, R8, R9 (reverse order of PUSH)
+; 2. Allocate Shadow Space (32 bytes)
+; 3. Align Stack (16 bytes)
+; 4. CALL RAX
+; 5. Cleanup
+; =============================================================================
+generate_call_common:
+    push rbx
+    push r12
+    push r13
+    
+    mov r12, rax    ; Func Addr
+    mov r13d, ecx   ; Arg Count
+    
+    mov rdi, [jit_cursor]
+    
+    ; --- 1. POP ARGS INTO REGISTERS ---
+    ; Stack currently has: [Arg1 (Deep)] ... [ArgN (Top)]
+    ; We need Arg1 in RCX, Arg2 in RDX...
+    ; But POP gets Top (ArgN).
+    ; Problem: We pushed in order 1, 2, 3..
+    ; PUSH 1. PUSH 2. PUSH 3.
+    ; Top is 3.
+    ; Win64 wants 1 in RCX.
+    ; If we POP, we get 3 (R8).
+    ; So POP -> R8. POP -> RDX. POP -> RCX.
+    ; Valid!
+    
+    ; Logic:
+    ; If Count >= 4: POP R9.
+    ; If Count >= 3: POP R8.
+    ; If Count >= 2: POP RDX.
+    ; If Count >= 1: POP RCX.
+    
+    cmp r13d, 4
+    jl .check_3
+    ; POP R9 (41 59)
+    mov word [rdi], 0x5941
+    add rdi, 2
+.check_3:
+    cmp r13d, 3
+    jl .check_2
+    ; POP R8 (41 58)
+    mov word [rdi], 0x5841
+    add rdi, 2
+.check_2:
+    cmp r13d, 2
+    jl .check_1
+    ; POP RDX (5A)
+    mov byte [rdi], 0x5A
+    inc rdi
+.check_1:
+    cmp r13d, 1
+    jl .done_pops
+    ; POP RCX (59)
+    mov byte [rdi], 0x59
+    inc rdi
+.done_pops:
+
+    ; --- 2. CALCULATE STACK PADDING & SHADOW SPACE ---
+    ; We need to reserve 32 bytes (Shadow).
+    ; And ensure RSP is 16-byte aligned before CALL.
+    ; Current RSP (at runtime execution point):
+    ; Function Entry: Aligned (0 mod 16).
+    ; Params > 4 are still on stack.
+    ; Count of stack params = max(0, ArgCount - 4).
+    ; Each is 8 bytes.
+    ; Top of stack has Arg5, Arg6...
+    ; If StackParams is Odd, RSP ends in 8. Misaligned.
+    ; If Even, RSP ends in 0. Aligned.
+    
+    ; Shadow space = 32.
+    ; Total subtrahend = 32.
+    ; If StackParams is Odd, we need +8 padding.
+    ; So Sub = 40.
+    
+    xor rbx, rbx    ; Padding amount
+    
+    mov eax, r13d
+    sub eax, 4
+    cmp eax, 0
+    jle .no_stack_args
+    
+    ; Test if odd
+    test eax, 1
+    jz .no_padding
+    mov rbx, 8      ; Need 8 bytes padding
+.no_padding:
+.no_stack_args:
+
+    ; Total adjustment = 32 + Padding
+    add rbx, 32
+    
+    ; SUB RSP, rbx (48 83 EC xx)
+    mov dword [rdi], 0xEC8348
+    mov [rdi+3], bl
+    add rdi, 4
+    
+    ; --- 3. EMIT CALL ---
+    ; MOV RAX, FuncAddr (48 B8 ...)
+    mov word [rdi], 0xB848
+    mov [rdi+2], r12
+    add rdi, 10
+    
+    ; CALL RAX (FF D0)
+    mov word [rdi], 0xD0FF
+    add rdi, 2
+    
+    ; --- 4. CLEANUP ---
+    ; ADD RSP, 32 + Padding
+    mov dword [rdi], 0xC48348
+    mov [rdi+3], bl
+    add rdi, 4
+    
+    ; Also cleanup Stack Args (>4)
+    ; They are still on stack!
+    ; Arg Count > 4?
+    mov eax, r13d
+    sub eax, 4
+    cmp eax, 0
+    jle .finish_call
+    
+    ; ADD RSP, eax * 8
+    shl eax, 3
+    mov dword [rdi], 0xC48348
+    mov [rdi+3], al
+    add rdi, 4
+    
+.finish_call:
+    mov [jit_cursor], rdi
+    
+    pop r13
+    pop r12
+    pop rbx
     ret
 
 func_add:
@@ -4592,18 +4742,14 @@ str_main db 'main',0
 sym_add:
     ; RCX = name pointer
     ; Returns: EAX = offset (negative from RBP)
+    ; NOTE: Always adds new entry (enables variable shadowing)
     push rbx
     push rsi
     push rdi
     
     mov rsi, rcx
     
-    ; First check if exists
-    call sym_find
-    test eax, eax
-    jnz .sym_exists
-    
-    ; Add new entry
+    ; Add new entry (ALWAYS - no checking for existing)
     mov eax, [sym_count]
     shl eax, 5                  ; * 32 (new entry size)
     lea rdi, [sym_table]
@@ -4635,12 +4781,6 @@ sym_add:
     inc dword [sym_count]
     
     ; Return the offset we just assigned
-    jmp .sym_done
-
-.sym_exists:
-    ; sym_find already returned the offset in EAX
-    ; Just return it
-
 .sym_done:
     pop rdi
     pop rsi
@@ -4704,29 +4844,28 @@ sym_find:
     
     mov r12, rcx                ; Save name
     
-    xor ebx, ebx
-    mov ecx, [sym_count]
-    test ecx, ecx
+    mov ebx, [sym_count]
+    test ebx, ebx
     jz .not_found
+    dec ebx                     ; Start at Count-1
     
 .find_loop:
     mov eax, ebx
-    shl eax, 5                  ; * 32 (new entry size)
+    shl eax, 5                  ; * 32
     lea rdi, [sym_table]
     add rdi, rax
     
     mov rsi, r12
     push rdi
-    ; rdi already points to name string (not a pointer now)
     call str_eq
     pop rdi
     
     test eax, eax
     jnz .found
     
-    inc ebx
-    cmp ebx, [sym_count]
-    jl .find_loop
+    dec ebx
+    cmp ebx, 0
+    jge .find_loop
     
 .not_found:
     xor eax, eax
@@ -4773,7 +4912,7 @@ mem_init:
 jit_init:
     sub rsp, 40
     xor ecx, ecx
-    mov edx, 64*1024
+    mov edx, 256*1024              ; 256KB JIT buffer (was 64KB)
     mov r8d, MEM_COMMIT or MEM_RESERVE
     mov r9d, PAGE_EXECUTE_RW
     call [VirtualAlloc]

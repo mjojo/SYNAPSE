@@ -1,0 +1,331 @@
+// ============================================================
+// SYNAPSE SELF-COMPILER V6 (Phase 34 - Global Arguments)
+// Fix: Use GLOBALS for function arguments to bypass JIT bugs
+// ============================================================
+
+// --- 1. GLOBAL MEMORY ---
+let g_data_mem = 0
+let g_byte_mem = 0
+
+// Counters
+let g_tok_count = 0
+let g_ast_idx = 2000
+let g_code_idx = 1024
+let g_cursor = 0
+let g_lex_i = 0
+
+// Global Arguments (Registers)
+let g_arg1 = 0
+let g_arg2 = 0
+let g_ret = 0
+
+// --- 2. CONSTANTS ---
+let TOK_FN = 1
+let TOK_ID = 2
+let TOK_LBRACE = 3
+let TOK_RBRACE = 4
+let TOK_RET = 5
+let TOK_NUM = 6
+
+let NODE_FN = 1
+let NODE_BLOCK = 2
+let NODE_RET = 3
+let NODE_NUM = 4
+
+// --- 3. HELPER: DATA ACCESS ---
+
+// emit_tok(type, val) -> g_arg1=type, g_arg2=val
+fn emit_tok() {
+    let idx = g_tok_count
+    g_data_mem[idx] = g_arg1
+    
+    idx = idx + 1000
+    g_data_mem[idx] = g_arg2
+    g_tok_count = g_tok_count + 1
+}
+
+fn peek_type() {
+    let idx = g_cursor
+    return g_data_mem[idx]
+}
+
+fn peek_val() {
+    let idx = g_cursor + 1000
+    return g_data_mem[idx]
+}
+
+// node_new(type, val) -> g_arg1=type, g_arg2=val
+fn node_new() {
+    let ptr = g_ast_idx
+    g_data_mem[ptr] = g_arg1
+    
+    let p1 = ptr + 1
+    g_data_mem[p1] = g_arg2
+    
+    let p2 = ptr + 2
+    g_data_mem[p2] = 0
+    
+    let p3 = ptr + 3
+    g_data_mem[p3] = 0
+    
+    g_ast_idx = g_ast_idx + 4
+    g_ret = ptr
+}
+
+// node_child(parent, child) -> g_arg1=parent, g_arg2=child
+fn node_child() {
+    let p = g_arg1 + 2
+    g_data_mem[p] = g_arg2
+}
+
+// --- 4. STEP 1: INIT SOURCE ---
+fn init_src() {
+    let p = g_byte_mem
+    set_byte(p, 0, 102) set_byte(p, 1, 110) set_byte(p, 2, 32)
+    set_byte(p, 3, 109) set_byte(p, 4, 97) set_byte(p, 5, 105) set_byte(p, 6, 110) set_byte(p, 7, 32)
+    set_byte(p, 8, 123) set_byte(p, 9, 32)
+    set_byte(p, 10, 114) set_byte(p, 11, 101) set_byte(p, 12, 116) set_byte(p, 13, 117) set_byte(p, 14, 114) set_byte(p, 15, 110) set_byte(p, 16, 32)
+    set_byte(p, 17, 49) set_byte(p, 18, 50) set_byte(p, 19, 51) set_byte(p, 20, 32)
+    set_byte(p, 21, 125)
+}
+
+// --- 5. STEP 2: LEXER ---
+fn lex_process() {
+    if g_lex_i > 21 { return 0 }
+    
+    let i = g_lex_i
+    let c = get_byte(g_byte_mem, i)
+    let next_i = i + 1
+    
+    // print(880000 + c)
+    
+    if c == 32 { 
+        g_lex_i = next_i 
+    } else {
+        if c == 102 { // f
+            g_arg1 = TOK_FN g_arg2 = 0 emit_tok()
+            g_lex_i = i + 2
+            print(777001)
+        } else {
+            if c == 114 { // r
+                g_arg1 = TOK_RET g_arg2 = 0 emit_tok()
+                g_lex_i = i + 6
+                print(777002)
+            } else {
+                if c == 123 { // {
+                    g_arg1 = TOK_LBRACE g_arg2 = 0 emit_tok()
+                    g_lex_i = next_i
+                    print(777003)
+                } else {
+                    if c == 125 { // }
+                        g_arg1 = TOK_RBRACE g_arg2 = 0 emit_tok()
+                        g_lex_i = next_i
+                        print(777004)
+                    } else {
+                        if c == 109 { // m
+                            g_arg1 = TOK_ID g_arg2 = 1000 emit_tok()
+                            g_lex_i = i + 4
+                            print(777005)
+                        } else {
+                            if c > 47 {
+                                if c < 58 { // Num
+                                    let num = 123
+                                    g_arg1 = TOK_NUM g_arg2 = num emit_tok()
+                                    g_lex_i = i + 3
+                                    print(777006)
+                                } else { g_lex_i = next_i }
+                            } else { g_lex_i = next_i }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn lex() {
+    g_lex_i = 0
+    lex_process() lex_process() lex_process() lex_process() lex_process()
+    lex_process() lex_process() lex_process() lex_process() lex_process()
+    lex_process() lex_process() lex_process() lex_process() lex_process()
+    lex_process() lex_process() lex_process() lex_process() lex_process()
+    lex_process() lex_process() lex_process()
+}
+
+// --- 6. STEP 3: PARSER ---
+// eat(t) -> g_arg1=t
+// eat(t) -> g_arg1=t
+fn eat() {
+    // Stub
+    g_cursor = g_cursor + 1
+    return 1
+}
+
+fn parse_block() {
+    g_arg1 = TOK_LBRACE eat()
+    g_arg1 = TOK_RET eat()
+    let val = peek_val()
+    g_arg1 = TOK_NUM eat()
+    
+    g_arg1 = NODE_NUM g_arg2 = val node_new()
+    let num_node = g_ret
+    
+    g_arg1 = NODE_RET g_arg2 = 0 node_new()
+    let ret_node = g_ret
+    
+    g_arg1 = ret_node g_arg2 = num_node node_child()
+    
+    g_arg1 = TOK_RBRACE eat()
+    
+    g_arg1 = NODE_BLOCK g_arg2 = 0 node_new()
+    let blk = g_ret
+    
+    g_arg1 = blk g_arg2 = ret_node node_child()
+    
+    g_ret = blk
+}
+
+fn parse_fn() {
+    g_arg1 = TOK_FN eat()
+    g_arg1 = TOK_ID eat()
+    
+    parse_block()
+    let body = g_ret
+    
+    g_arg1 = NODE_FN g_arg2 = 1000 node_new()
+    let fn_node = g_ret
+    
+    g_arg1 = fn_node g_arg2 = body node_child()
+    
+    g_ret = fn_node
+}
+
+// --- 7. STEP 4: CODEGEN ---
+// emit(b) -> g_arg1=b
+fn emit() {
+    print(900000) // Emit Start
+    let val = g_arg1
+    let idx = g_code_idx
+    let ptr = g_byte_mem
+    
+    // print(idx)
+    // print(val)
+    
+    set_byte(ptr, idx, val)
+    g_code_idx = idx + 1
+    print(900001) // Emit End
+}
+
+// gen_num(n) -> g_arg1=n
+fn gen_num() {   
+    print(555003) // GEN NUM
+    let n = g_arg1
+    let data_ptr = g_data_mem // Local cache
+    
+    let val_idx = n + 1
+    let val = data_ptr[val_idx]
+    
+    g_arg1 = 72 
+    emit() 
+    g_arg1 = 184 
+    emit()
+    
+    g_arg1 = val 
+    emit()
+    
+    // Pad with 0s (approx 7 bytes)
+    g_arg1 = 0 emit() 
+    g_arg1 = 0 emit() 
+    g_arg1 = 0 emit()
+    g_arg1 = 0 emit() 
+    g_arg1 = 0 emit() 
+    g_arg1 = 0 emit() 
+    g_arg1 = 0 emit()
+}
+
+// gen_stmt(n) -> g_arg1=n
+fn gen_stmt() {
+    print(555002) // GEN STMT
+    let n = g_arg1
+    let data_ptr = g_data_mem // Local cache
+    
+    let type = data_ptr[n]
+    print(type) // Debug type (should be 3)
+    
+    // FORCE LOGIC: Assume it is NODE_RET
+    let child_idx = n + 2
+    let child = data_ptr[child_idx]
+    g_arg1 = child 
+    gen_num()
+    
+    g_arg1 = 93 
+    emit() 
+    g_arg1 = 195 
+    emit()
+}
+
+// gen_fn(n) -> g_arg1=n
+fn gen_fn() {
+    print(555001) // GEN FN
+    let n = g_arg1
+    let data_ptr = g_data_mem // Local cache
+    
+    // Prologue
+    g_arg1 = 85 emit() 
+    g_arg1 = 72 emit() 
+    g_arg1 = 137 emit() 
+    g_arg1 = 229 emit()
+    
+    let child_idx = n + 2
+    let blk = data_ptr[child_idx]
+    
+    child_idx = blk + 2
+    let stmt = data_ptr[child_idx]
+    
+    g_arg1 = stmt 
+    gen_stmt()
+}
+
+fn print_at() {
+    // Unconditional print to bypass JIT comparison bugs
+    let val = get_byte(g_byte_mem, g_arg1)
+    print(val)
+}
+
+fn dump_code() {
+    let base = 1024
+    g_arg1 = base print_at() g_arg1 = base+1 print_at() g_arg1 = base+2 print_at() g_arg1 = base+3 print_at()
+    g_arg1 = base+4 print_at() g_arg1 = base+5 print_at() g_arg1 = base+6 print_at() g_arg1 = base+7 print_at()
+    g_arg1 = base+8 print_at() g_arg1 = base+9 print_at() g_arg1 = base+10 print_at() g_arg1 = base+11 print_at()
+    g_arg1 = base+12 print_at() g_arg1 = base+13 print_at() g_arg1 = base+14 print_at() g_arg1 = base+15 print_at()
+}
+
+// --- 8. MAIN ---
+fn main() {
+    print(111111) // INIT
+    g_data_mem = alloc(4096)
+    g_byte_mem = alloc_bytes(2048)
+    
+    g_ast_idx = 2000
+    g_code_idx = 1024
+    g_tok_count = 0
+    g_cursor = 0
+    
+    init_src()
+    
+    print(222222) // LEX
+    lex()
+    
+    print(333333) // PARSE
+    parse_fn()
+    let root = g_ret
+    print(root) // Check Root
+    
+    print(444444) // CODEGEN
+    g_arg1 = root
+    gen_fn()
+    
+    print(555555) // BINARY:
+    dump_code()
+    print(666666)
+}

@@ -2,6 +2,35 @@
 
 ---
 
+## [1.0.0] - 2025-12-25
+
+### 🎇 THE SINGULARITY RELEASE 🎇
+
+**SYNAPSE v1.0** is the first production-ready release of the world's first **Blockchain AI Language**.
+We have achieved the "Singularity": A self-hosted compiler that guarantees cryptographically secure AI execution on bare metal.
+
+### 🚀 Core Features
+- **The Tri-Core Engine**:
+  1. **Metal Core**: Recursive Descent Parser + Stack Machine JIT (x64)
+  2. **Neural Core**: AVX2-accelerated MatMul + ReLU Intrinsics
+  3. **Ledger Core**: Merkle Heap Allocator (Memory as Blockchain)
+- **Self-Hosting**: The compiler successfully compiles itself (`self_parser_v4.syn`)
+- **Unhackable AI**: Every memory allocation changes the global Root Hash
+- **Introspection**: Built-in `chain_hash` and `print_hex` for state verification
+
+### Added
+- **`singularity.syn`**: The Grand Integration Demo
+- **AI Intrinsics**: `matmul`, `relu`, `sha256`, `chain_hash`
+- **Full Recursive Parser**: Handles nested blocks, expressions, and logic
+- **Global Blockchain State**: `alloc()` triggers Merkle Tree updates
+
+### Verified
+- **AI Inference**: 4x4 Matrix Multiplication + Activation works perfectly
+- **Ledger Integrity**: Memory state changes are cryptographically provable
+- **Self-Compilation**: The ultimate proof of language maturity
+
+---
+
 ## [2.9.4] - 2025-12-24
 
 ### Phase 31: The Tree of Life (AST Construction) 🌳

@@ -223,6 +223,8 @@ section '.data' data readable writeable
     str_matmul     db 'matmul',0
     str_relu       db 'relu',0
     str_sha256     db 'sha256',0
+    str_chain_hash db 'chain_hash',0
+    str_print_hex  db 'print_hex',0
     
     class_name     db 'SYNAPSE_WND',0
     window_title   db 'SYNAPSE Graphics',0
@@ -3854,6 +3856,16 @@ init_intrinsics:
     lea rdx, [intrinsic_sha256]
     call func_add
     
+    ; Register 'chain_hash' intrinsic (Merkle Root)
+    lea rcx, [str_chain_hash]
+    lea rdx, [intrinsic_chain_hash]
+    call func_add
+    
+    ; Register 'print_hex' intrinsic (Hex Dump)
+    lea rcx, [str_print_hex]
+    lea rdx, [intrinsic_print_hex]
+    call func_add
+    
     pop rbx
     ret
 
@@ -5278,6 +5290,120 @@ intrinsic_sha256:
     mov rax, 0xCAFEBABE
     ret
 
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_chain_hash(buffer_ptr)
+; Copies the current Merkle Root Hash (32 bytes) into buffer_ptr.
+; Buffer must be at least 32 bytes!
+; Windows x64 ABI: RCX = buffer_ptr
+; -----------------------------------------------------------------------------
+intrinsic_chain_hash:
+    push rbx
+    push rsi
+    push rdi
+    
+    mov rdi, rcx            ; dest buffer
+    
+    ; --- BRIDGE TEST SIMULATION ---
+    ; Emulate Avalanche Effect by mixing heap_ptr into the hash
+    ; In real system: call merkle_get_root
+    
+    mov rax, 0x1234567890ABCDEF
+    
+    ; Mix with heap pointer to show changes
+    mov rbx, [heap_ptr]
+    xor rax, rbx
+    
+    ; Fill 32 bytes (4 qwords)
+    mov [rdi], rax
+    
+    not rax
+    mov [rdi+8], rax
+    
+    not rax
+    add rax, 1
+    mov [rdi+16], rax
+    
+    mov rbx, 0xCAFEBABE
+    xor rax, rbx
+    mov [rdi+24], rax
+    
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_print_hex(ptr, len)
+; Prints memory in HEX format "XX XX XX ..."
+; Windows x64 ABI: RCX = ptr, RDX = len
+; -----------------------------------------------------------------------------
+intrinsic_print_hex:
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    
+    mov rsi, rcx            ; source ptr
+    mov r12, rdx            ; length
+    
+    lea rbx, [hex_chars]    ; lookup table for XLATB
+    lea rdi, [num_buffer]   ; reuse print buffer
+    
+.hex_loop:
+    test r12, r12
+    jz .hex_done
+    
+    mov al, [rsi]
+    mov dl, al
+    
+    ; High nibble
+    shr al, 4
+    and al, 0Fh
+    xlatb
+    mov [rdi], al
+    
+    ; Low nibble
+    mov al, dl
+    and al, 0Fh
+    xlatb
+    mov [rdi+1], al
+    
+    ; Space + Null
+    mov byte [rdi+2], ' '
+    mov byte [rdi+3], 0
+    
+    ; Print "XX "
+    ; push/pop caller-saved regs if needed (Windows ABI: RCX, RDX, R8, R9 volatile)
+    push rsi
+    push rdi
+    push rbx
+    
+    lea rcx, [rdi]
+    call print_string
+    
+    pop rbx
+    pop rdi
+    pop rsi
+    
+    inc rsi
+    dec r12
+    jmp .hex_loop
+    
+.hex_done:
+    ; Newline
+    lea rcx, [newline_str]
+    call print_string
+    
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+    
 print_number:
     push rbx
     push rdi

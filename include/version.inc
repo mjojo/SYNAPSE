@@ -2,31 +2,31 @@
 ; SYNAPSE Version Information
 ; =============================================================================
 
-SYNAPSE_VERSION_MAJOR = 2
-SYNAPSE_VERSION_MINOR = 9
-SYNAPSE_VERSION_PATCH = 2
+SYNAPSE_VERSION_MAJOR = 1
+SYNAPSE_VERSION_MINOR = 0
+SYNAPSE_VERSION_PATCH = 0
 
 ; Stage: 1=alpha, 2=beta, 3=rc, 4=stable
 SYNAPSE_VERSION_STAGE = 4
 
 ; Build date (YYYYMMDD)
-SYNAPSE_BUILD_DATE = 20251224
+SYNAPSE_BUILD_DATE = 20251225
 
 ; Component versions
-SYNAPSE_LEXER_VERSION = 4        ; +token grouping
-SYNAPSE_PARSER_VERSION = 7       ; +file I/O parsing
-SYNAPSE_JIT_VERSION = 9          ; +R12/R13 preservation, MOV RCX fix
-SYNAPSE_AVX_VERSION = 1
-SYNAPSE_NEURAL_VERSION = 2
-SYNAPSE_CRYPTO_VERSION = 1
-SYNAPSE_LEDGER_VERSION = 2
+SYNAPSE_LEXER_VERSION = 5        ; +tokens 2.0
+SYNAPSE_PARSER_VERSION = 8       ; +recursive descent
+SYNAPSE_JIT_VERSION = 10         ; +stack machine
+SYNAPSE_AVX_VERSION = 2          ; +matmul/relu
+SYNAPSE_NEURAL_VERSION = 3       ; +inference
+SYNAPSE_CRYPTO_VERSION = 2       ; +chain_hash
+SYNAPSE_LEDGER_VERSION = 3       ; +introspection
 SYNAPSE_CORE_VERSION = 1
-SYNAPSE_BRIDGE_VERSION = 2       ; +file I/O intrinsics
-SYNAPSE_CODEGEN_VERSION = 6      ; +alloc_bytes/get_byte/set_byte
-SYNAPSE_SYMBOLS_VERSION = 2      ; +param reversal
-SYNAPSE_FUNCTIONS_VERSION = 2    ; +pointer args
-SYNAPSE_FILEIO_VERSION = 1       ; NEW: File I/O support
+SYNAPSE_BRIDGE_VERSION = 3       ; +intrinsics V2
+SYNAPSE_CODEGEN_VERSION = 7      ; +emit_x64
+SYNAPSE_SYMBOLS_VERSION = 3      ; +global/local
+SYNAPSE_FUNCTIONS_VERSION = 3    ; +fastcall
+SYNAPSE_FILEIO_VERSION = 2       ; +full support
 
 ; Version strings for display
-SYNAPSE_VERSION_STR equ 'v2.9.0-selfhost'
-SYNAPSE_FULL_NAME   equ 'SYNAPSE v2.9.0 - Self-Hosting Foundation'
+SYNAPSE_VERSION_STR equ 'v1.0.0-singularity'
+SYNAPSE_FULL_NAME   equ 'SYNAPSE v1.0.0 - The Singularity Release'

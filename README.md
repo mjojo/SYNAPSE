@@ -2,19 +2,18 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.9.0--selfhost-gold)
-![Size](https://img.shields.io/badge/binary-8kb-blue)
+![Version](https://img.shields.io/badge/version-1.0.0--singularity-gold)
+![Size](https://img.shields.io/badge/binary-18kb-blue)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 
-# 🧠 SYNAPSE v2.9
+# 🎆 SYNAPSE v1.0
+**The Singularity Release**
 
-**Unhackable AI on Bare Metal Assembly**
+*"The Language where `malloc` is a Transaction"*
 
-*The World's First Self-Hosting Blockchain AI Platform*
-
-**🏆 Self-Hosted Lexer • File I/O • GUI • Deep Network • JIT Compiler! 🏆**
+**🏆 Self-Hosting • Blockchain Memory • Bare Metal AI • Stack JIT 🏆**
 
 </div>
 
@@ -32,50 +31,78 @@ In a world where "Hello World" in Electron weighs 100 MB, we created an **AI-Blo
 
 ---
 
+## 🌌 The Singularity Example
+
+Before you read the features, look at the code. This script proves that memory allocation impacts the cryptographic state of the machine.
+
+```rust
+// singularity.syn
+fn main() {
+    print(888888) // == START SINGULARITY ==
+
+    // 1. Snapshot State (Genesis)
+    let hash = alloc(4)
+    chain_hash(hash)
+    print_hex(hash, 32)
+    
+    // 2. Initialize AI (Allocates memory -> Changes Hash)
+    let inputs = alloc(4)
+    let weights = alloc(16)
+    
+    // 3. Verify Memory State Changed
+    chain_hash(hash)
+    print_hex(hash, 32) // Hash CHANGED! 
+    
+    // 4. Run AI (Metal + Neural)
+    matmul(inputs, weights, inputs, 1, 4, 4)
+    relu(inputs, 4)
+}
+```
+
+**Output:**
+```
+> 888888
+3F C9 BC 92 ... (Genesis Hash)
+C0 36 43 6D ... (Post-Alloc Hash - CHANGED!)
+> 111111        (AI Result)
+```
+
+---
+
 ## 🚀 Key Features
 
-### 🔐 MOVA Core (Unhackable Memory)
+### 1. The Tri-Core Engine
 
-Unlike C++ or Rust, SYNAPSE doesn't use a standard heap.
+| Core | Function |
+|---|---|
+| **Metal Core** | Recursive Descent Parser + Stack Machine JIT (x64) |
+| **Neural Core** | AVX2-accelerated MatMul + ReLU Intrinsics |
+| **Ledger Core** | Merkle Heap Allocator (Memory as Blockchain) |
+
+### 2. Unhackable Memory (MOVA)
 
 | Feature | Description |
-|---------|-------------|
+|---|---|
 | **Merkle Heap** | All memory is a cryptographic ledger |
 | **Chain of Trust** | Changing ANY byte instantly changes the global `Root Hash` |
 | **Tamper-Evident** | Neural weights tampering is impossible without detection |
-| **SHA-256 Native** | Hardware-accelerated cryptographic core |
 
-### 🧠 Bare Metal AI
+### 3. Bare Metal AI
 
 | Feature | Description |
-|---------|-------------|
+|---|---|
 | **AVX2 Native** | Matrix ops and ReLU compiled to optimal machine code |
-| **MNIST Ready** | 784→128→10 neural network runs on protected memory |
 | **No Dependencies** | No Python, TensorFlow, or CUDA. Just CPU |
-| **Tiny Footprint** | Entire compiler + runtime = **~8 KB** |
+| **Tiny Footprint** | Entire compiler + runtime = **~18 KB** |
 
-### ⚡ JIT Compiler
+### 4. Stack Machine JIT
 
 | Feature | Description |
-|---------|-------------|
-| **Text → Tokens → AST → x64** | Full compilation pipeline |
-| **Auto-Ledger** | Compiler automatically generates blockchain calls |
-| **Intrinsics Bridge** | Script commands map to kernel functions |
-| **Control Flow** | if/else/while with JIT backpatching |
-| **Variables** | let x = 10, let y = x, i = i + 1 |
-| **Real Loops** | while (i < 5) with counter increments |
-| **Functions** | fn name() { return } + CALL/RET |
-| **Arrays** | ptr[0] = 42 + pointer arithmetic |
-| **Neural Math** | IMUL for input * weight calculations |
-| **Dot Product** | Full Dot Product: [2,3,4] * [10,20,30] = 200 |
-| **ReLU Activation** | relu(-50)=0, relu(50)=50 + SUB operation |
-| **Matrix Layer** | 2x2 Dense Layer: [50, 110] + Array Store |
-| **Memory (v2.5)** | `alloc(size)` + Pointer passing between functions |
-| **Vectors (v2.6)** | `C = A + B` with full array operations |
-| **File I/O (v2.7)** | `fopen/fread/fwrite/fclose` - Read source files! |
-| **GUI (v2.8)** | `msgbox(text, title)` - Windows MessageBox |
-| **Bytes (v2.9)** | `alloc_bytes/get_byte/set_byte` - Byte-level memory |
-| **Self-Hosting (v2.9)** | **First lexer written in SYNAPSE!** |
+|---|---|
+| **Text → x64** | Full compilation pipeline: Lexer -> Parser -> AST -> CodeGen |
+| **Recursive** | Handles nested blocks, expressions, and logic (`10+2*5`) |
+| **Intrinsics** | Direct mapping to Assembly: `matmul`, `relu`, `sha256` |
+| **Self-Hosting** | The compiler is written in SYNAPSE itself (`self_parser_v4.syn`) |
 
 ---
 

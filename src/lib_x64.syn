@@ -1,0 +1,127 @@
+// ============================================================
+// SYNAPSE x64 BACKEND LIBRARY (Phase 1)
+// Translates high-level intent into x64 machine code bytes
+// ============================================================
+
+// --- 1. GLOBAL STATE (JIT Buffer) ---
+// В реальном компиляторе мы будем передавать 'ctx', 
+// но для начала используем глобальные переменные для простоты.
+global let jit_buf = alloc_bytes(65536) // 64KB for code
+global let jit_ptr = 0                  // Current offset
+
+// --- 2. BASE EMITTERS ---
+
+fn emit(b) {
+    set_byte(jit_buf, jit_ptr, b)
+    jit_ptr = jit_ptr + 1
+}
+
+fn emit16(w) {
+    // Little Endian
+    let low = w % 256
+    let high = w / 256
+    emit(low)
+    emit(high)
+}
+
+fn emit32(d) {
+    emit16(d % 65536)
+    emit16(d / 65536)
+}
+
+fn emit64(q) {
+    // Разбиваем 64-бит число на байты (SYNAPSE v1.0 поддерживает большие числа)
+    // Так как у нас пока нет побитовых сдвигов '>>' для переменных (только в парсере?),
+    // используем деление.
+    
+    let i = 0
+    let temp = q
+    while i < 8 {
+        let b = temp % 256
+        emit(b)
+        temp = temp / 256
+        i = i + 1
+    }
+}
+
+// --- 3. INSTRUCTION SET (The Vocabulary) ---
+
+// MOV RAX, imm64 (48 B8 ...)
+fn x64_mov_rax(val) {
+    emit(0x48)
+    emit(0xB8)
+    emit64(val)
+}
+
+// PUSH RAX (50)
+fn x64_push_rax() {
+    emit(0x50)
+}
+
+// POP RAX (58)
+fn x64_pop_rax() {
+    emit(0x58)
+}
+
+// POP RCX (59)
+fn x64_pop_rcx() {
+    emit(0x59)
+}
+
+// ADD RAX, RCX (48 01 C8)
+fn x64_add_rax_rcx() {
+    emit(0x48)
+    emit(0x01)
+    emit(0xC8)
+}
+
+// SUB RAX, RCX (48 29 C8)
+fn x64_sub_rax_rcx() {
+    emit(0x48)
+    emit(0x29)
+    emit(0xC8)
+}
+
+// IMUL RAX, RCX (48 0F AF C1)
+fn x64_imul_rax_rcx() {
+    emit(0x48)
+    emit(0x0F)
+    emit(0xAF)
+    emit(0xC1)
+}
+
+// RET (C3)
+fn x64_ret() {
+    emit(0xC3)
+}
+
+// PROLOGUE: PUSH RBP; MOV RBP, RSP
+fn x64_prologue() {
+    emit(0x55)       // PUSH RBP
+    emit(0x48)
+    emit(0x89)
+    emit(0xE5)       // MOV RBP, RSP
+}
+
+// EPILOGUE: POP RBP; RET
+fn x64_epilogue() {
+    emit(0x5D)       // POP RBP
+    emit(0xC3)       // RET
+}
+
+// --- 4. UTILS ---
+
+fn jit_get_addr() {
+    // Возвращает физический адрес буфера (для запуска через JIT)
+    // В текущей версии intrinsic 'alloc_bytes' возвращает УКАЗАТЕЛЬ на кучу.
+    // jit_buf уже является адресом.
+    return jit_buf
+}
+
+fn reset_jit() {
+    jit_ptr = 0
+}
+
+fn dump_jit_hex() {
+    print_hex(jit_buf, jit_ptr)
+}

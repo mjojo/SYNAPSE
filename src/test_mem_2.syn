@@ -1,0 +1,10 @@
+fn main() {
+    let mem = alloc_bytes(100)
+    print(mem)
+    
+    // Write 200 (0xC8)
+    set_byte(mem, 0, 200)
+    
+    let val = get_byte(mem, 0)
+    print(val)
+}

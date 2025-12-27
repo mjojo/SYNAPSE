@@ -1,0 +1,15 @@
+// Debug: test c < 58 directly
+fn main() {
+    let c = 52
+    
+    print(1001)
+    
+    // Direct test
+    if c < 58 {
+        print(2001)
+    } else {
+        print(2002)
+    }
+    
+    return 0
+}

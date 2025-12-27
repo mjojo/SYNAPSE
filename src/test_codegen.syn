@@ -1,0 +1,183 @@
+// ============================================================
+// SYNAPSE x64 BACKEND LIBRARY (Phase 1)
+// Translates high-level intent into x64 machine code bytes
+// ============================================================
+
+// --- 1. GLOBAL STATE (JIT Buffer) ---
+// In a real compiler we would pass 'ctx',
+// but for now we use global variables for simplicity.
+global let jit_buf = 0                  // 64KB for code (init in main)
+global let jit_ptr = 0                  // Current offset
+
+// --- 2. BASE EMITTERS ---
+
+fn emit(b) {
+    print(b) // DEBUG: Print every byte emitted
+    set_byte(jit_buf, jit_ptr, b)
+    jit_ptr = jit_ptr + 1
+}
+
+fn emit16(w) {
+    // Little Endian
+    let low = w % 256
+    let high = w / 256
+    emit(low)
+    emit(high)
+}
+
+fn emit32(d) {
+    emit16(d % 65536)
+    emit16(d / 65536)
+}
+
+fn emit64(q) {
+    // Split 64-bit number into bytes
+    // Unrolled loop because 'while' on locals is buggy
+    let temp = q
+    
+    emit(temp % 256)
+    temp = temp / 256
+    
+    emit(temp % 256)
+    temp = temp / 256
+    
+    emit(temp % 256)
+    temp = temp / 256
+    
+    emit(temp % 256)
+    temp = temp / 256
+    
+    emit(temp % 256)
+    temp = temp / 256
+    
+    emit(temp % 256)
+    temp = temp / 256
+    
+    emit(temp % 256)
+    temp = temp / 256
+    
+    emit(temp % 256)
+}
+
+// --- 3. INSTRUCTION SET (The Vocabulary) ---
+
+// MOV RAX, imm64 (48 B8 ...)
+fn x64_mov_rax(val) {
+    emit(0x48)
+    emit(0xB8)
+    emit64(val)
+}
+
+// PUSH RAX (50)
+fn x64_push_rax() {
+    emit(0x50)
+}
+
+// POP RAX (58)
+fn x64_pop_rax() {
+    emit(0x58)
+}
+
+// POP RCX (59)
+fn x64_pop_rcx() {
+    emit(0x59)
+}
+
+// ADD RAX, RCX (48 01 C8)
+fn x64_add_rax_rcx() {
+    emit(0x48)
+    emit(0x01)
+    emit(0xC8)
+}
+
+// SUB RAX, RCX (48 29 C8)
+fn x64_sub_rax_rcx() {
+    emit(0x48)
+    emit(0x29)
+    emit(0xC8)
+}
+
+// IMUL RAX, RCX (48 0F AF C1)
+fn x64_imul_rax_rcx() {
+    emit(0x48)
+    emit(0x0F)
+    emit(0xAF)
+    emit(0xC1)
+}
+
+// RET (C3)
+fn x64_ret() {
+    emit(0xC3)
+}
+
+// PROLOGUE: PUSH RBP; MOV RBP, RSP
+fn x64_prologue() {
+    emit(0x55)       // PUSH RBP
+    emit(0x48)
+    emit(0x89)
+    emit(0xE5)       // MOV RBP, RSP
+}
+
+// EPILOGUE: POP RBP; RET
+fn x64_epilogue() {
+    emit(0x5D)       // POP RBP
+    emit(0xC3)       // RET
+}
+
+// --- 4. UTILS ---
+
+fn jit_get_addr() {
+    return jit_buf
+}
+
+fn reset_jit() {
+    jit_ptr = 0
+}
+
+fn dump_jit_hex() {
+    print_hex(jit_buf, jit_ptr)
+}
+
+// ============================================================
+// TEST HARNESS
+// ============================================================
+
+fn main() {
+    print(111111) // Start CodeGen Test
+    
+    // Initialize JIT Buffer (Global init doesn't support calls yet)
+    jit_buf = alloc_bytes(65536)
+    
+    reset_jit()
+    
+    // Generate function: fn test() { return 10 + 20 }
+    
+    x64_prologue()
+    
+    // 10
+    x64_mov_rax(10)
+    x64_push_rax()
+    
+    // 20
+    x64_mov_rax(20)
+    
+    // POP 10 into RCX
+    x64_pop_rcx()
+    
+    // ADD 10 + 20 -> RAX
+    x64_add_rax_rcx()
+    
+    x64_epilogue()
+    
+    print(222222) // Code Generated. Size:
+    print(jit_ptr)
+    
+    print(333333) // Hex Dump:
+    dump_jit_hex()
+    
+    // Expected: 55 48 89 E5 ... 48 01 C8 ... 5D C3
+    
+    print(444444) // Executing JIT Code...
+    let result = call(jit_buf)
+    print(result) // Should be 30
+}

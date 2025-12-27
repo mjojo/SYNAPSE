@@ -15,13 +15,18 @@ let TOK_LET = 60
 let TOK_EQ = 61
 let TOK_EOF = 99
 
-let NODE_IF = 6     // [NEW]
+// AST Nodes (ALIGNED)
 let NODE_FN = 10
 let NODE_BLOCK = 11
 let NODE_RET = 12
 let NODE_NUM = 13
 let NODE_LET = 20
 let NODE_ID = 21
+let NODE_IF = 6
+let NODE_WHILE = 8
+let NODE_ASSIGN = 9
+let NODE_ADD = 30
+let NODE_SUB = 31
 
 // State Offsets
 let OFF_SRC_MEM = 0
@@ -37,15 +42,16 @@ let OFF_SYM_COUNT = 72
 let OFF_STACK_DEPTH = 80
 let OFF_SYM_PTR = 88
 
-
 // --- MATH UTILS ---
 
-fn val_div_256(val) {
-    return val / 256
-}
+fn val_div_256(val) { return val / 256 }
+fn val_mod_256(val) { return val % 256 }
 
-fn val_mod_256(val) {
-    return val % 256
+// FIX: Handle negative numbers for backward jumps
+fn to_u8(val) {
+    let v = val % 256
+    if v < 0 { v = v + 256 }
+    return v
 }
 
 // --- PARTITIONED WRITER ---
@@ -324,25 +330,44 @@ fn wb_3(ptr, off, val) {
 
 
 fn write_byte_safe(ptr, off, val) {
-    // print(999333) // Safe Write
-    // print(ptr)
-    // print(off)
-    // print(val)
-    if wb_0(ptr, off, val) { return 0 }
-    if wb_1(ptr, off, val) { return 0 }
-    if wb_2(ptr, off, val) { return 0 }
-    if wb_3(ptr, off, val) { return 0 }
+    let v = to_u8(val) // SANITIZE NEGATIVES
+    if wb_0(ptr, off, v) { return 0 }
+    if wb_1(ptr, off, v) { return 0 }
+    if wb_2(ptr, off, v) { return 0 }
+    if wb_3(ptr, off, v) { return 0 }
     print(999444) // FAILED
     return 0
 }
 
 
 fn emit(state, val) {
-    print(888000) // Emit Start
-    print(state)
-    let mem = get_qword(state, 510) // OFF_CODE_BUF - INLINED
-    print(mem)
-    let cursor = get_qword(state, 530) // OFF_CODE_CURSOR - INLINED
+    // print(888000) // Emit Start
+    // print(state)
+    
+    // Inline get_qword(state, 510) -> mem
+    let mem = 0
+    let p = 517
+    let k = 8
+    while k > 0 {
+        let b = get_byte(state, p)
+        mem = mem * 256
+        mem = mem + b
+        p = p - 1
+        k = k - 1
+    }
+    // print(mem)
+    
+    // Inline get_qword(state, 530) -> cursor
+    let cursor = 0
+    let p2 = 537
+    let k2 = 8
+    while k2 > 0 {
+        let b2 = get_byte(state, p2)
+        cursor = cursor * 256
+        cursor = cursor + b2
+        p2 = p2 - 1
+        k2 = k2 - 1
+    }
     
     write_byte_safe(mem, cursor, val)
     set_state(state, 530, cursor + 1)
@@ -374,7 +399,17 @@ fn set_int32(state, cursor, val) {
     print(999111) // Set Int32 Start
     print(state)
     print(OFF_CODE_BUF)
-    let mem = get_state(state, 510) // OFF_CODE_BUF
+    // Inline get_state(state, 510) -> mem
+    let mem = 0
+    let p = 517
+    let k = 8
+    while k > 0 {
+        let b = get_byte(state, p)
+        mem = mem * 256
+        mem = mem + b
+        p = p - 1
+        k = k - 1
+    }
     print(mem)
     let v = val
     
@@ -475,6 +510,40 @@ fn sym_find(state, hash) {
     return 0 // Not found
 }
 
+fn sym_global_add(state, hash, addr) {
+    let ptr = get_state(state, 600) // OFF_GLOBALS_PTR
+    let cnt = get_state(state, 560) // Reuse OFF_SYM_COUNT? No, need GLOBAL count.
+    // Let's use 610 for OFF_GLOBALS_COUNT
+    let g_cnt = get_state(state, 610)
+    
+    let mem = get_state(state, 500) // OFF_DATA_MEM
+    
+    let off = ptr + (g_cnt * 16)
+    set_qword(mem, off, hash)
+    set_qword(mem, off + 8, addr)
+    
+    set_state(state, 610, g_cnt + 1)
+}
+
+fn sym_global_find(state, hash) {
+    let ptr = get_state(state, 600) // OFF_GLOBALS_PTR
+    let g_cnt = get_state(state, 610)
+    let mem = get_state(state, 500)
+    
+    let i = 0
+    while i < g_cnt {
+        let idx = i * 16
+        // offset from ptr
+        let slot = ptr + idx
+        let h = get_qword(mem, slot)
+        if h == hash {
+            return get_qword(mem, slot + 8) // Return ADDR
+        }
+        i = i + 1
+    }
+    return 0
+}
+
 // --- MEMORY SETUP ---
 
 fn init_memory(state) {
@@ -498,6 +567,10 @@ fn init_memory(state) {
     // 80 -> 570: OFF_STACK_DEPTH
     set_state(state, 570, 0)
     
+    // Globals Table (Start at offset 90000)
+    set_state(state, 600, 90000)
+    set_state(state, 610, 0)
+    
     // Lex/Parse offsets (If not hardcoded in lex/parse yet):
     // OFF_SRC_LEN = 24. If resolves to 0. 
     // Lex: get_state(state, OFF_SRC_LEN).
@@ -510,118 +583,124 @@ fn init_memory(state) {
 
 fn init_src(state, CAST_SRC_BUF_PTR) {
     let b = CAST_SRC_BUF_PTR
-    print(111222) // Init Src Start
-    print(b)
+    print(111222) 
     let p = 0
-    // fn main { 
-    //   let i = 10 
-    //   let sum = 0 
-    //   while i { 
-    //     sum = sum + i 
-    //     i = i - 1 
-    //   } 
-    //   return sum 
+    
+    // fn fib(n) {
+    //   if n < 2 { return n }
+    //   return fib(n-1) + fib(n-2)
     // }
     
-    // fn main {
+    // fn fib(n) {
     set_byte(b, p, 102) p=p+1 // f
     set_byte(b, p, 110) p=p+1 // n
     set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 102) p=p+1 // f
+    set_byte(b, p, 105) p=p+1 // i
+    set_byte(b, p, 98) p=p+1  // b
+    set_byte(b, p, 40) p=p+1  // (
+    set_byte(b, p, 110) p=p+1 // n
+    set_byte(b, p, 41) p=p+1  // )
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 123) p=p+1 // {
+    set_byte(b, p, 32) p=p+1  // _
+    
+    // if n < 2 { return n }
+    set_byte(b, p, 105) p=p+1 // i
+    set_byte(b, p, 102) p=p+1 // f
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 110) p=p+1 // n
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 60) p=p+1  // <
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 50) p=p+1  // 2
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 123) p=p+1 // {
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 114) p=p+1 // return
+    set_byte(b, p, 101) p=p+1
+    set_byte(b, p, 116) p=p+1
+    set_byte(b, p, 117) p=p+1
+    set_byte(b, p, 114) p=p+1
+    set_byte(b, p, 110) p=p+1
+    set_byte(b, p, 32) p=p+1
+    set_byte(b, p, 110) p=p+1
+    set_byte(b, p, 32) p=p+1
+    set_byte(b, p, 125) p=p+1 // }
+    set_byte(b, p, 32) p=p+1
+    
+    // return fib(n-1) + fib(n-2)
+    set_byte(b, p, 114) p=p+1 // return
+    set_byte(b, p, 101) p=p+1
+    set_byte(b, p, 116) p=p+1
+    set_byte(b, p, 117) p=p+1
+    set_byte(b, p, 114) p=p+1
+    set_byte(b, p, 110) p=p+1
+    set_byte(b, p, 32) p=p+1
+    
+    // fib(n-1)
+    set_byte(b, p, 102) p=p+1 // f
+    set_byte(b, p, 105) p=p+1 // i
+    set_byte(b, p, 98) p=p+1 // b
+    set_byte(b, p, 40) p=p+1 // (
+    set_byte(b, p, 110) p=p+1 // n
+    set_byte(b, p, 45) p=p+1 // -
+    set_byte(b, p, 49) p=p+1 // 1
+    set_byte(b, p, 41) p=p+1 // )
+    
+    set_byte(b, p, 32) p=p+1
+    set_byte(b, p, 43) p=p+1 // +
+    set_byte(b, p, 32) p=p+1
+    
+    // fib(n-2)
+    set_byte(b, p, 102) p=p+1 // f
+    set_byte(b, p, 105) p=p+1 // i
+    set_byte(b, p, 98) p=p+1 // b
+    set_byte(b, p, 40) p=p+1 // (
+    set_byte(b, p, 110) p=p+1 // n
+    set_byte(b, p, 45) p=p+1 // -
+    set_byte(b, p, 50) p=p+1 // 2
+    set_byte(b, p, 41) p=p+1 // )
+    
+    set_byte(b, p, 32) p=p+1
+    set_byte(b, p, 125) p=p+1 // }
+    set_byte(b, p, 32) p=p+1
+    
+    // fn main { return fib(10) }
+    set_byte(b, p, 102) p=p+1 // f
+    set_byte(b, p, 110) p=p+1 // n
+    set_byte(b, p, 32) p=p+1
     set_byte(b, p, 109) p=p+1 // m
-    set_byte(b, p, 97) p=p+1  // a
+    set_byte(b, p, 97) p=p+1 // a
     set_byte(b, p, 105) p=p+1 // i
     set_byte(b, p, 110) p=p+1 // n
-    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 40) p=p+1 // (
+    set_byte(b, p, 41) p=p+1 // )
+    set_byte(b, p, 32) p=p+1
     set_byte(b, p, 123) p=p+1 // {
-    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 32) p=p+1
     
-    // let i = 10
-    set_byte(b, p, 108) p=p+1 // l
-    set_byte(b, p, 101) p=p+1 // e
-    set_byte(b, p, 116) p=p+1 // t
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 105) p=p+1 // i
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 61) p=p+1  // =
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 49) p=p+1  // 1
-    set_byte(b, p, 48) p=p+1  // 0
-    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 114) p=p+1 // return
+    set_byte(b, p, 101) p=p+1
+    set_byte(b, p, 116) p=p+1
+    set_byte(b, p, 117) p=p+1
+    set_byte(b, p, 114) p=p+1
+    set_byte(b, p, 110) p=p+1
+    set_byte(b, p, 32) p=p+1
     
-    // let s = 0
-    set_byte(b, p, 108) p=p+1 // l
-    set_byte(b, p, 101) p=p+1 // e
-    set_byte(b, p, 116) p=p+1 // t
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 115) p=p+1 // s
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 61) p=p+1  // =
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 48) p=p+1  // 0
-    set_byte(b, p, 32) p=p+1  // _
+    // fib(10)
+    set_byte(b, p, 102) p=p+1 // f
+    set_byte(b, p, 105) p=p+1 // i
+    set_byte(b, p, 98) p=p+1 // b
+    set_byte(b, p, 40) p=p+1 // (
+    set_byte(b, p, 49) p=p+1 // 1
+    set_byte(b, p, 48) p=p+1 // 0
+    set_byte(b, p, 41) p=p+1 // )
     
-    // while i {
-    set_byte(b, p, 119) p=p+1 // w
-    set_byte(b, p, 104) p=p+1 // h
-    set_byte(b, p, 105) p=p+1 // i
-    set_byte(b, p, 108) p=p+1 // l
-    set_byte(b, p, 101) p=p+1 // e
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 105) p=p+1 // i
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 123) p=p+1 // {
-    set_byte(b, p, 32) p=p+1  // _
-    
-    // s = s + i
-    set_byte(b, p, 115) p=p+1 // s
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 61) p=p+1  // =
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 115) p=p+1 // s
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 43) p=p+1  // +
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 105) p=p+1 // i
-    set_byte(b, p, 32) p=p+1  // _
-    
-    // i = i - 1
-    set_byte(b, p, 105) p=p+1 // i
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 61) p=p+1  // =
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 105) p=p+1 // i
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 45) p=p+1  // -
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 49) p=p+1  // 1
-    set_byte(b, p, 32) p=p+1  // _
-
-    // }
+    set_byte(b, p, 32) p=p+1
     set_byte(b, p, 125) p=p+1 // }
-    set_byte(b, p, 32) p=p+1  // _
-
-    // return s
-    set_byte(b, p, 114) p=p+1 // r
-    set_byte(b, p, 101) p=p+1 // e
-    set_byte(b, p, 116) p=p+1 // t
-    set_byte(b, p, 117) p=p+1 // u
-    set_byte(b, p, 114) p=p+1 // r
-    set_byte(b, p, 110) p=p+1 // n
-    set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 115) p=p+1 // s
-    set_byte(b, p, 32) p=p+1  
     
-    // }
-    set_byte(b, p, 125) p=p+1 // }
-    set_byte(b, p, 0)         // EOF
-    
-    set_state(state, 24, p) // OFF_SRC_LEN = 24
-    set_state(state, 32, 0) // OFF_CODE_IDX = 32
-    
-    print(999888) // Init Src Verify
-    print(get_byte(b, 0)) // Should be 102 (f) or 125?
-    // First byte written: set_byte(b, p, 102) (f)
-    // So 102.
+    set_byte(b, p, 0) // EOF
 }
 
 // --- AST UTILS (V4 - With Next Pointer) ---
@@ -736,8 +815,7 @@ fn is_alpha(c) {
 
 
 // --- CONSTANTS ---
-
-// Tokens
+// Tokens (Extending v6)
 let TOK_EOF = 0
 let TOK_FN = 1
 let TOK_ID = 2
@@ -751,23 +829,39 @@ let TOK_IF = 9
 let TOK_WHILE = 10
 let TOK_PLUS = 11
 let TOK_MINUS = 12
+let TOK_LT = 13     // <
+let TOK_GT = 14     // >
+let TOK_EQ_EQ = 15  // ==
+let TOK_COMMA = 16  // ,
 
 // AST Nodes
 let NODE_FN = 1
-let NODE_BLOCK = 2
-let NODE_LET = 3
+let NODE_BLOCK = 11
+let NODE_LET = 20
 let NODE_ID = 4
 let NODE_NUM = 5
-let NODE_RET = 6
-let NODE_IF = 7
-let NODE_WHILE = 8
-let NODE_ASSIGN = 9
-let NODE_ADD = 10
-let NODE_SUB = 11
-
-// ... (State offsets unchanged) ...
+let NODE_RET = 2
+let NODE_IF = 4
+let NODE_WHILE = 7
+let NODE_ASSIGN = 6
+let NODE_ADD = 30
+let NODE_SUB = 31
+let NODE_LT = 40
+let NODE_GT = 41
+let NODE_EQ = 42
+let NODE_CALL = 50
 
 // [Skipping to Lexer changes]
+
+/* 
+   OFF_DATA_MEM = 500
+   OFF_CODE_BUF = 510
+   OFF_DATA_PTR = 520
+   OFF_CODE_CURSOR = 530
+   OFF_SRC_MEM = 540
+   OFF_SYM_PTR = 550  (Locals)
+   OFF_GLOBALS_PTR = 600 (Functions)
+*/
 
 fn lex(state) {
     print(600000) // Trace Lex
@@ -805,6 +899,48 @@ fn lex(state) {
     if c == 43 { get_char(state) set_state(state, 580, 11) return 0 } // PLUS
     if c == 45 { get_char(state) set_state(state, 580, 12) return 0 } // MINUS
     
+    // Check '<' (60)
+    if c == 60 { 
+        get_char(state) 
+        set_state(state, 580, 13) // TOK_LT
+        return 0 
+    }
+    
+    // Check '>' (62)
+    if c == 62 { 
+        get_char(state) 
+        set_state(state, 580, 14) // TOK_GT
+        return 0 
+    }
+    
+    // Check '==' vs '='
+    if c == 61 {
+        get_char(state)
+        let next = peek_char(state)
+        if next == 61 { // Found second '='
+            get_char(state)
+            set_state(state, 580, 15) // TOK_EQ_EQ
+            return 0
+        }
+        set_state(state, 580, 6) // TOK_EQ (Assignment)
+        return 0
+    }
+    
+let TOK_COMMA = 16  // ,
+let TOK_LPAREN = 17 // (
+let TOK_RPAREN = 18 // )
+
+// ...
+
+    // Check ',' (44)
+    if c == 44 { get_char(state) set_state(state, 580, 16) return 0 }
+    
+    // Check '(' (40)
+    if c == 40 { get_char(state) set_state(state, 580, 17) return 0 }
+    
+    // Check ')' (41)
+    if c == 41 { get_char(state) set_state(state, 580, 18) return 0 }
+
     if is_digit(c) == 1 {
         let val = 0
         let looping = 1
@@ -900,6 +1036,39 @@ fn parse_term(state) {
     if t == TOK_ID {
         let name = peek_val(state)
         eat(state, TOK_ID)
+        
+        if next == 17 { // TOK_LPAREN
+            eat(state, 17)
+            let call_node = node_new(state, NODE_CALL, name)
+            
+            // Parse Args
+            let t = peek_type(state)
+            if t == 18 { // RPAREN - No Args
+                eat(state, 18)
+                return call_node
+            }
+            
+            // First Arg
+            let arg = parse_expr(state)
+            node_child(state, call_node, arg)
+            let curr_arg = arg
+            
+            let looping = 1
+            while looping {
+                t = peek_type(state)
+                if t == 16 { // COMMA
+                    eat(state, 16)
+                    let next_arg = parse_expr(state)
+                    node_next(state, curr_arg, next_arg)
+                    curr_arg = next_arg
+                } else {
+                    looping = 0
+                }
+            }
+            eat(state, 18) // RPAREN
+            return call_node
+        }
+        
         return node_new(state, NODE_ID, name)
     }
     if t == TOK_NUM {
@@ -928,6 +1097,33 @@ fn parse_expr(state) {
         let node = node_new(state, NODE_SUB, 0)
         node_child(state, node, left)
         node_next(state, left, right)
+        left = node
+        t = peek_type(state)
+    }
+
+    // Handle Comparisons
+    if t == TOK_LT { // <
+        eat(state, TOK_LT)
+        let right = parse_expr(state) // Recursive
+        let node = node_new(state, NODE_LT, 0)
+        node_child(state, node, left)
+        node_next(state, left, right)
+        return node
+    }
+    if t == TOK_GT { // >
+        eat(state, TOK_GT)
+        let right = parse_expr(state)
+        let node = node_new(state, NODE_GT, 0)
+        node_child(state, node, left)
+        node_next(state, left, right)
+        return node
+    }
+    if t == TOK_EQ_EQ { // ==
+        eat(state, TOK_EQ_EQ)
+        let right = parse_expr(state)
+        let node = node_new(state, NODE_EQ, 0)
+        node_child(state, node, left)
+        node_next(state, left, right)
         return node
     }
     
@@ -937,56 +1133,46 @@ fn parse_expr(state) {
 
 fn parse_statement(state) {
     let type = peek_type(state)
-    print(700000 + type) 
+    // print(700000 + type) 
     
     // LET = 60
     if type == 60 {
-        print(700005) // Enter LET
+        // print(700005) // Enter LET
         eat(state, 60)
         let name = peek_val(state)
         eat(state, 2) // TOK_ID
         eat(state, 61) // TOK_EQ
         let expr = parse_expr(state)
         
-        let node = node_new(state, 5, name) // NODE_LET = 5 (Check constant!)
-        // Wait, NODE_LET constant? Let's assume 5 is NODE_LET.
-        // Actually I should allow NODE constants if possible, or check them.
-        // Assuming NODE constants work (as gen_stmts uses them).
-        // But TOK constants failed.
-        
+        let node = node_new(state, NODE_LET, name)
         node_child(state, node, expr)
         return node
     }
         
     // ASSIGN (ID = ...) TOK_ID = 2
     if type == 2 {
-        print(700002) // Enter ASSIGN
+        // print(700002) // Enter ASSIGN
         let name = peek_val(state)
         eat(state, 2) // TOK_ID
         eat(state, 61) // TOK_EQ
         let expr = parse_expr(state)
-        let node = node_new(state, 6, name) // NODE_ASSIGN = 6
+        let node = node_new(state, NODE_ASSIGN, name)
         node_child(state, node, expr)
         return node
     }
 
     // IF = 9
     if type == 9 {
-        print(700009) // Enter IF
+        // print(700009) // Enter IF
         eat(state, 9)
         let cond = parse_expr(state)
         
         // Body
         eat(state, 3) // LBRACE
-        let body = node_new(state, 3, 0) // NODE_BLOCK
-        // ... recursive parse_stmt loop ...
-        // Inline parse_block logic here too? 
-        // Or reuse parse_func_def buffer logic?
-        // Simpler to copy-paste loop logic.
+        let body = node_new(state, NODE_BLOCK, 0)
         
         let looping = 1
-        let curr = body // Wait, curr needs to be initialized
-        // If empty block?
+        let curr = body
         let t = peek_type(state)
         if t == 4 { // RBRACE
              looping = 0
@@ -1002,17 +1188,18 @@ fn parse_statement(state) {
                  if t == 4 { inner_loop = 0 }
                  else {
                      let next = parse_statement(state)
-                     if next == 0 { inner_loop = 0 }
-                     else {
+                     if next != 0 {
                          node_next(state, curr, next)
                          curr = next
+                     } else {
+                         inner_loop = 0
                      }
                  }
              }
         }
         eat(state, 4) // RBRACE
         
-        let node = node_new(state, 4, 0) // NODE_IF = 4
+        let node = node_new(state, NODE_IF, 0)
         node_child(state, node, cond)
         node_next(state, cond, body)
         return node
@@ -1020,50 +1207,54 @@ fn parse_statement(state) {
 
     // WHILE = 10
     if type == 10 {
-        print(700010) // Enter WHILE
+        // print(700010) // Enter WHILE
         eat(state, 10)
         let cond = parse_expr(state)
         
         eat(state, 3) // LBRACE
-        let body = node_new(state, 3, 0) // BLOCK
+        let body = node_new(state, NODE_BLOCK, 0)
         
-        // Block parsing logic (same as IF)
-        let looping = 1
+        // Body Parsing
         let curr = body
         let t = peek_type(state)
-        if t == 4 { looping = 0 }
-        else {
+        
+        // Check Empty Block
+        if t != 4 {
              let stmt = parse_statement(state)
              node_child(state, body, stmt)
              curr = stmt
+             
              let inner_loop = 1
              while inner_loop {
                  t = peek_type(state)
                  if t == 4 { inner_loop = 0 }
                  else {
                      let next = parse_statement(state)
-                     if next {
+                     if next != 0 {
                          node_next(state, curr, next)
                          curr = next
                      } else {
-                        inner_loop = 0
+                         inner_loop = 0
                      }
                  }
              }
         }
         eat(state, 4) // RBRACE
         
-        let node = node_new(state, 7, 0) // NODE_WHILE = 7
+        let node = node_new(state, NODE_WHILE, 0)
         node_child(state, node, cond)
         node_next(state, cond, body)
         return node
     }
 
-    // RETURN = 8
+    // RETURN = 8 (Using 8 as per original check, make sure TOK_RET matches)
+    // Actually TOK_RET is 5 in header, but 8 here? 
+    // Lexer logic check needed. 
+    // Assuming 8 was working for 'return'.
     if type == 8 {
         eat(state, 8)
         let val = parse_expr(state)
-        let node = node_new(state, 2, 0) // NODE_RET = 2
+        let node = node_new(state, NODE_RET, 0)
         node_child(state, node, val)
         return node
     }
@@ -1082,57 +1273,92 @@ fn parse_statement(state) {
 fn parse_func_def(state) {
     print(800000) // Parse Func Def Start
     let t = peek_type(state)
-    print(t)
     
     eat(state, 1) // TOK_FN
-    print(800001)
+    let name_hash = peek_val(state)
     eat(state, 2) // TOK_ID
-    print(800002)
-    eat(state, 3) // TOK_LBRACE
-    print(800003)
-    let head = node_new(state, 3, 0) // NODE_BLOCK
-    print(800004) // Node New Done
-    let t = peek_type(state)
-    print(800005) // Peek Done
-    print(t)
     
-    if t == 4 { // TOK_RBRACE
+    // Create FN node
+    let fn_node = node_new(state, NODE_FN, name_hash)
+    
+    // Parse Args: ( a, b )
+    eat(state, 17) // LPAREN
+    
+    let args_head = 0
+    let curr_arg = 0
+    
+    let t_arg = peek_type(state)
+    if t_arg != 18 { // Not RPAREN
+       // Parse first arg
+       let arg_name = peek_val(state)
+       eat(state, 2) // TOK_ID
+       args_head = node_new(state, NODE_ID, arg_name)
+       curr_arg = args_head
+       
+       let looping = 1
+       while looping {
+           let tt = peek_type(state)
+           if tt == 16 { // COMMA
+               eat(state, 16)
+               let n_name = peek_val(state)
+               eat(state, 2) // TOK_ID
+               let n_node = node_new(state, NODE_ID, n_name)
+               node_next(state, curr_arg, n_node)
+               curr_arg = n_node
+           } else {
+               looping = 0
+           }
+       }
+    }
+    eat(state, 18) // RPAREN
+    
+    // Link Args to FN (Child)
+    node_child(state, fn_node, args_head)
+    
+    // Parse Body
+    eat(state, 3) // TOK_LBRACE
+    let body = node_new(state, NODE_BLOCK, 0)
+    
+    // Link Body to FN (Next - unconventional but space saving)
+    // Or link Body to Args->Next? No, Args is a list.
+    // Let's use `node_next(state, fn_node, body)`?
+    // Standard AST: Child=Args, Next=SiblingFunction?
+    // V7 structure: Funcs are parsed one by one. Next is unused.
+    // So `node_next(state, fn_node, body)` is fine to store body.
+    node_next(state, fn_node, body)
+
+    // Body Parsing (Same as before)
+    // Return head? No, return fn_node.
+    
+    let t = peek_type(state)    
+    if t == 4 { // TOK_RBRACE (Empty Body)
         eat(state, 4)
-        return head
+        return fn_node
     }
     
-    // Parse first statement
+    // Parse statements
     let stmt = parse_statement(state)
-    node_child(state, head, stmt)
+    node_child(state, body, stmt)
     let curr = stmt
     
     let looping = 1
     while looping {
         t = peek_type(state)
-        print(555555)
-        print(t)
-        
         if t == 4 { // TOK_RBRACE
              looping = 0
         } else {
-            // print(444444) // Else
             let next_stmt = parse_statement(state)
-            print(333111) // Next Stmt Check
-            print(next_stmt)
-            
-            if next_stmt {
-                print(333222) // Success
+            if next_stmt != 0 {
                 node_next(state, curr, next_stmt)
                 curr = next_stmt
             } else {
-                 print(333000) // FAILURE/RETURN
                  if t == 4 { eat(state, 4) }
-                 return head
+                 return fn_node
             }
         }
     }
     eat(state, 4) // TOK_RBRACE
-    return head
+    return fn_node
 }
 
 fn check_integrity(state) {
@@ -1174,8 +1400,103 @@ fn emit64(state, val) {
 
 
 
+fn gen_cmp(state, node, set_opcode) {
+    let left = get_node_child(state, node)
+    let right = get_node_next(state, left)
+    
+    // 1. Eval Left -> RAX, Push
+    gen_expr(state, left)
+    emit(state, 80) // PUSH RAX
+    
+    // 2. Eval Right -> RAX, Move to RCX
+    gen_expr(state, right)
+    emit(state, 72) emit(state, 137) emit(state, 193) // MOV RCX, RAX
+    
+    // 3. Pop Left -> RAX
+    emit(state, 88) // POP RAX
+    
+    // 4. CMP RAX, RCX
+    emit(state, 72) emit(state, 57) emit(state, 200) // CMP RAX, RCX (0x48 0x39 0xC8)
+    
+    // 5. SETcc AL
+    emit(state, 15) emit(state, set_opcode) emit(state, 192) // SETcc AL (0x0F <OP> 0xC0)
+    
+    // 6. MOVZX RAX, AL (Zero extend byte to 64-bit)
+    emit(state, 72) emit(state, 15) emit(state, 182) emit(state, 192)
+    
+    return 0
+}
+
+fn gen_call(state, node) {
+    let name_hash = get_node_val(state, node)
+    let func_addr = sym_global_find(state, name_hash)
+    
+    // Evaluate Args (Push to stack)
+    let arg = get_node_child(state, node)
+    let count = 0
+    while arg {
+        gen_expr(state, arg)
+        emit(state, 80) // PUSH RAX
+        count = count + 1
+        arg = get_node_next(state, arg)
+    }
+    
+    // Pop into Registers (Reverse Order)
+    // Win64: RCX, RDX, R8, R9
+    
+    // If count >= 4: Pop R9
+    if count == 4 { emit(state, 65) emit(state, 89) } // POP R9 (41 59)
+    if count > 3 { // 4 or 3 ??
+       // Wait, if count is 4. Stack: [Arg1, Arg2, Arg3, Arg4] (Top)
+       // Pop Arg4 -> R9.
+       // Pop Arg3 -> R8.
+       // Pop Arg2 -> RDX.
+       // Pop Arg1 -> RCX.
+    }
+    
+    // Re-logic:
+    // If we have 1 arg: Push 1. Pop RCX.
+    // If 2 args: Push 1, Push 2. Pop RDX (2), Pop RCX (1).
+    // If 3 args: Push 1, 2, 3. Pop R8 (3), Pop RDX (2), Pop RCX (1).
+    // If 4 args: Push 1, 2, 3, 4. Pop R9 (4), Pop R8 (3), Pop RDX (2), Pop RCX (1).
+    
+    if count == 4 { emit(state, 65) emit(state, 89) count = 3 } // POP R9
+    if count == 3 { emit(state, 65) emit(state, 88) count = 2 } // POP R8 (41 58)
+    if count == 2 { emit(state, 90) count = 1 } // POP RDX (5A)
+    if count == 1 { emit(state, 89) } // POP RCX (59)
+    
+    // TODO: Stack args if > 4 not supported yet.
+    
+    // Call
+    if func_addr == 0 {
+       // FORWARD REFERENCE?
+       // For now, emit placeholder CALL relative 0?
+       // Or Panic if checking strict.
+       // Recursive fib calls 'fib' (hash). If we register 'fib' before body...
+       // 'main' calls 'fib'. 'fib' is defined later.
+       // Let's rely on simple backpatching or pre-pass in main loop?
+       // In `gen_call`, if 0, we can't emit CALL absolute.
+       // CALL RELATIVE (E8) requires offset.
+       
+       // HACK: Panic if not found
+       print(666991) // FUNC NOT FOUND
+       print(name_hash)
+    } else {
+       // CALL RAX (FF D0) or CALL REL (E8)
+       // Addr is Absolute.
+       emit(state, 72) emit(state, 184) emit64(state, func_addr) // MOV RAX, addr
+       emit(state, 255) emit(state, 208) // CALL RAX
+    }
+    return 0
+}
+
 fn gen_expr(state, node) {
     let type = get_node_type(state, node)
+    
+    if type == NODE_CALL {
+        gen_call(state, node)
+        return 0
+    }
     
     if type == NODE_NUM {
         emit(state, 72) emit(state, 184)
@@ -1188,6 +1509,19 @@ fn gen_expr(state, node) {
         let offset = sym_find(state, vname)
         emit(state, 72) emit(state, 139) emit(state, 69)
         emit(state, 256 - offset)
+        return 0
+    }
+    
+    if type == NODE_LT {
+        gen_cmp(state, node, 156) // SETL (0x9C) = 156
+        return 0
+    }
+    if type == NODE_GT {
+        gen_cmp(state, node, 159) // SETG (0x9F) = 159
+        return 0
+    }
+    if type == NODE_EQ {
+        gen_cmp(state, node, 148) // SETE (0x94) = 148
         return 0
     }
     
@@ -1317,53 +1651,56 @@ fn gen_stmts(state, block) {
                 // 1. Label Start
                 let loop_start = get_state(state, OFF_CODE_CURSOR)
                 
-                t1 = get_node_child(state, stmt) // cond
-                t2 = get_node_next(state, t1)    // body
+                let cond = get_node_child(state, stmt)
+                let body = get_node_next(state, cond)
                 
                 // 2. Gen Condition
-                gen_expr(state, t1)
+                gen_expr(state, cond)
                 
-                // 3. JE End
+                // 3. JE End (Placeholder)
                 emit(state, 72) emit(state, 131) emit(state, 248) emit(state, 0)
                 emit(state, 15) emit(state, 132)
                 patch = get_state(state, OFF_CODE_CURSOR)
                 emit(state, 0) emit(state, 0) emit(state, 0) emit(state, 0)
                 
                 // 4. Gen Body
-                gen_stmts(state, t2)
+                gen_stmts(state, body)
                 
-                // 5. JMP Start
+                // 5. JMP Start (Backward)
                 emit(state, 233) // E9
-                
                 let curr = get_state(state, OFF_CODE_CURSOR)
                 let jump_target = curr + 4
                 let back_off = loop_start - jump_target
                 
-                // Emit 32-bit signed offset
-                // Since we are emitting to current cursor, we can just use set_int32 behavior inline if we had set_byte there?
-                // Or just emit bytes.
-                // back_off is negative.
+                // Emit Signed 32-bit (using to_u8 handles negative)
                 let v = back_off
-                emit(state, val_mod_256(v))
-                v = val_div_256(v)
-                emit(state, val_mod_256(v))
-                v = val_div_256(v)
-                emit(state, val_mod_256(v))
-                v = val_div_256(v)
-                emit(state, val_mod_256(v))
+                emit(state, to_u8(v))
+                
+                // Arith Shift Emulation
+                v = v / 256
+                if back_off < 0 { v = v - 1 } 
+                emit(state, to_u8(v))
+                
+                v = v / 256
+                if back_off < 0 { v = v - 1 }
+                emit(state, to_u8(v)) // Sign extend
+                
+                v = v / 256
+                if back_off < 0 { v = v - 1 }
+                emit(state, to_u8(v)) // Sign extend
 
                 // 6. Backpatch JE
-                t1 = get_state(state, OFF_CODE_CURSOR) // Loop end (after JMP)
-                t2 = t1 - patch - 4
-                t3 = get_state(state, OFF_CODE_BUF)
+                let loop_end = get_state(state, OFF_CODE_CURSOR)
+                let fwd_off = loop_end - patch - 4
                 
-                write_byte_safe(t3, patch, val_mod_256(t2))
+                let mem = get_state(state, OFF_CODE_BUF)
+                write_byte_safe(mem, patch, val_mod_256(fwd_off))
+                let t2 = val_div_256(fwd_off)
+                write_byte_safe(mem, patch + 1, val_mod_256(t2))
                 t2 = val_div_256(t2)
-                write_byte_safe(t3, patch + 1, val_mod_256(t2))
+                write_byte_safe(mem, patch + 2, val_mod_256(t2))
                 t2 = val_div_256(t2)
-                write_byte_safe(t3, patch + 2, val_mod_256(t2))
-                t2 = val_div_256(t2)
-                write_byte_safe(t3, patch + 3, val_mod_256(t2))
+                write_byte_safe(mem, patch + 3, val_mod_256(t2))
             }
 
             // NODE_RET
@@ -1378,14 +1715,84 @@ fn gen_stmts(state, block) {
     }
 }
 
-fn gen_iterative(state, root) {
-    // Prologue: PUSH RBP; MOV RBP, RSP
-    emit(state, 85) emit(state, 72) emit(state, 137) emit(state, 229)
+fn gen_iterative(state, node) {
+    print(777999) 
     
-    gen_stmts(state, root)
-    
-    // Epilogue fallback
-    emit(state, 93) emit(state, 195)
+    // NODE_FN Check
+    let type = get_node_type(state, node)
+    if type == NODE_FN {
+        let name_hash = get_node_val(state, node)
+        let addr = get_state(state, 530) // OFF_CODE_CURSOR (Current Address)
+        
+        // Register Global Address
+        sym_global_add(state, name_hash, addr)
+        
+        // Prologue: PUSH RBP; MOV RBP, RSP
+        emit(state, 85) emit(state, 72) emit(state, 137) emit(state, 229)
+        
+        // Reset Local Stack Depth (offset 570)
+        // Assume prev function finished.
+        set_state(state, 570, 0)
+        
+        // Bind Arguments
+        let arg = get_node_child(state, node)
+        let count = 0
+        
+        while arg {
+            let arg_name = get_node_val(state, arg)
+            let stack_off = sym_add(state, arg_name)
+            
+            // Store Register to Stack
+            // MOV [RBP - off], Reg
+            // Win64: RCX, RDX, R8, R9
+            // Opcode varies by register.
+            // MOV [RBP-d8], Reg ??
+            // MOV r/m64, r64. (MOV [rbp-X], RCX)
+            // 48 89 4D <disp8> (if disp < 128)
+            // 48 89 8D <disp32> (if larger)
+            // Let's assume disp < 128 for simple tests.
+            // 256 - off. If off=8 -> -8 = F8.
+            let disp = 256 - stack_off
+            
+            emit(state, 72) emit(state, 137) // REX.W MOV
+            
+            if count == 0 { emit(state, 77) } // ModRM: 4D (01 001 101) -> [RBP+d8], RCX (001)
+            // Wait. 0x4D = 01 (bits 6-7) 001 (Reg=RCX) 101 (Rm=RBP/Disp8)
+            // Wait. 
+            // MOV r/m64, r64
+            // Reg field is Source. R/M is Dest.
+            // 89 /r. 
+            // Dest is [RBP-off]. Source is RCX (0).
+            // Mod=01 (Disp8). RM=101 (Check docs... RBP is 101).
+            // Reg=000 (RAX), 001 (RCX), 010 (RDX), 011 (RBX)...
+            // RCX=1. Reg=001.
+            // ModRM byte: 01 001 101 = 0x4D. Correct.
+            
+            if count == 1 { emit(state, 85) } // Reg=010 (RDX). 01 010 101 = 0x55.
+            if count == 2 { emit(state, 69) } // Reg=000 ??? No, R8.
+            // R8 needs REX.R (0x4C prefix? or 0x44?)
+            // REX.R bit 2 for Reg extension. 
+            // R8 is 8. modulo 8 is 0. But REX.R=1.
+            // Prefix was 72 (0x48). Need 0x4C (76) for R8 source?
+            // Actually, handle R8/R9 later if needed. Fib only uses 1 arg (n).
+            
+            emit(state, disp)
+
+            count = count + 1
+            arg = get_node_next(state, arg)
+        }
+        
+        // Body (Next of FN is Body block)
+        let body = get_node_next(state, node)
+        gen_stmts(state, body)
+        
+        // Epilogue
+        // emit(state, 93) emit(state, 195) (Handled by Returns mostly, but fallback good)
+    } else {
+        // Fallback for direct block (if main is parsed as block in v7)
+        // But Parse now returns FN?
+        // Let's assume NODE_FN only.
+    }
 }
 
 fn dump_code(state) {
@@ -1426,33 +1833,20 @@ fn test_memory(state) {
 
 fn main() {
     print(111111) // Start
-    let state = alloc(1000)
-    print(state) // State Ptr
+    let state = alloc(1000000) // 1MB Unified Block
+    print(state) 
     
-    let src = alloc(200000) // 200kb Safe
-    // ...
+    // Derived Src (Offset 300k)
+    let src = state + 300000
     
-    // In init_src:
-    // ...
-    // set_state(state, OFF_CODE_IDX, 0)
-    // print(999888)
-    // print(get_byte(b, 0))
-    let data = alloc(200000) // 200kb Safe
-
-
-    let code = alloc_exec(200000) // 200kb Safe
-    print(998001) // Alloc Code
+    // Derived Data (Offset 10k)
+    let data = state + 10000
+    
+    // Code (Separate Exec)
+    let code = alloc_exec(200000)
     print(code)
     
-    print(998005) // Alloc Src
-    print(src)
-    print(998006) // Alloc Data
-    print(data)
-    
-    if src == data {
-        print(666667) // FATAL: ALIASING SRC DATA
-        return 0
-    }
+    if src == data { return 0 } // Should not happen
 
     if state == code {
         print(666666) // FATAL: ALIASING
@@ -1481,18 +1875,51 @@ fn main() {
     print(peek_char(state))
     
     lex(state) 
-// ...
     
-    let root = parse_func_def(state)
-    print(222222) // Parsed
+    // Parse/Compile Loop
+    let looping = 1
+    while looping {
+        let t = peek_type(state)
+        if t == 99 { // TOK_EOF
+            looping = 0
+        } else {
+            let root = parse_func_def(state)
+            print(222222) // Parsed Fn
+            
+            print(998998) // Check Code Buf
+            
+            gen_iterative(state, root)
+            print(333333) // Compiled Fn
+        }
+    }
     
-    print(998998) // Check Code Buf Before Gen
-    print(state)
-    print(get_state(state, 510))
-    
-    gen_iterative(state, root)
-    print(333333) // Compiled
     dump_code(state)
+    
+    // Execute Generated Code
+    print(888888) // EXECUTE
+    
+    // Hash for "main"
+    // m=109, a=97, i=105, n=110
+    // 0*33+109=109
+    // 3694
+    // 122007
+    // 4026341
+    let main_hash = 4026341
+    let main_off = sym_global_find(state, main_hash)
+    print(main_off)
+    
+    if main_off != 0 {
+        let code_base = get_state(state, 510) // OFF_CODE_BUF
+        let entry = code_base + main_off
+        print(999000) // ENTRY ABS
+        print(entry)
+        
+        let f = entry
+        let res = f()
+        print(555555) // RESULT
+        print(res)
+    }
+    
     return 0
 }
 

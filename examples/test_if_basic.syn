@@ -1,0 +1,21 @@
+// Test IF statement in Synapse
+
+fn main() {
+    print(111)
+    
+    let x = 3
+    print(x)
+    
+    if x == 3 {
+        print(222)
+    }
+    
+    print(333)
+    
+    if x == 5 {
+        print(444)
+    }
+    
+    print(555)
+    return 0
+}

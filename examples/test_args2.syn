@@ -1,0 +1,9 @@
+// Test function argument passing - minimal
+fn test2(a, b) {
+    print(a)
+    print(b)
+}
+
+fn main() {
+    test2(42, 99)
+}

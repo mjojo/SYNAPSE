@@ -1,0 +1,18 @@
+fn main() {
+    print(111)
+    let m = alloc(100)
+    
+    // We know poke works to write (maybe)
+    poke(m, 123) 
+    
+    // Test get_byte with variable
+    let off = 0
+    let v = get_byte(m, off)
+    print(v)
+    
+    // Test get_byte constant
+    let v2 = get_byte(m, 0)
+    print(v2)
+    
+    return 0
+}

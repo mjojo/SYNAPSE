@@ -1,0 +1,10 @@
+// Sequential ifs
+
+fn main():
+    print(100)
+    if 1:
+        print(200)
+    if 1:
+        print(300)
+    print(400)
+    return 0

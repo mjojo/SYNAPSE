@@ -1,0 +1,14 @@
+fn main() {
+    let m = alloc_bytes(100)
+    print(m)
+    
+    // Dump initial
+    print_hex(m, 16)
+    
+    // Write
+    set_byte(m, 0, 0xAA)
+    set_byte(m, 1, 0xBB)
+    
+    // Dump after write
+    print_hex(m, 16)
+}

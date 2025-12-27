@@ -1,0 +1,6 @@
+fn main() {
+    let x = 257
+    let y = x % 256
+    print(y)
+    return 0
+}

@@ -1,0 +1,19 @@
+// Test if inside while
+fn main() {
+    let i = 0
+    let digit = 0
+    
+    while i < 2 {
+        digit = 4
+        print(100)
+        print(digit)
+        
+        if digit < 10 {
+            print(111)
+        }
+        
+        i = i + 1
+    }
+    
+    print(999)
+}

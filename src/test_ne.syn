@@ -1,20 +1,9 @@
-// Test != operator
-
 fn main() {
-    let a = 10
-    let b = 20
-    
-    if (a != b) {
-        print(1)
-    } else {
-        print(0)
+    print(100)
+    let a = 1
+    while a != 0 {
+        print(a)
+        a = 0
     }
-    
-    if (a != 10) {
-        print(0)
-    } else {
-        print(1)
-    }
-    
-    print(999)
+    print(200)
 }

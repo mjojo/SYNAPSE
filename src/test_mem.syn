@@ -1,0 +1,14 @@
+fn main() {
+    print(100)
+    
+    // Alloc
+    let mem = alloc_bytes(100)
+    print(mem) // Should be > 0
+    
+    // Write
+    set_byte(mem, 0, 123)
+    let v_chk = get_byte(mem, 0)
+    print(v_chk)
+    
+    print(400)
+}

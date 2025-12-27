@@ -1,0 +1,11 @@
+// Test == operator
+fn main() {
+    let x = 1
+    print(100)
+    
+    if x == 1 {
+        print(111)
+    }
+    
+    print(999)
+}

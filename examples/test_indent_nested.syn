@@ -1,0 +1,14 @@
+// Test nested Python-style blocks
+
+fn main():
+    print(100)
+    
+    let x = 5
+    if x:
+        print(200)
+        if x == 5:
+            print(300)
+        print(400)
+    
+    print(500)
+    return 0

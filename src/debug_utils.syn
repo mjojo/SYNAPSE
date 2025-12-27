@@ -1,0 +1,17 @@
+fn set_qword(ptr, off, val) {
+    let v = val
+    let i = 0
+    while i < 8 {
+        set_byte(ptr, off + i, v % 256)
+        v = v / 256
+        i = i + 1
+    }
+}
+
+fn main() {
+    print(111)
+    let m = alloc(100)
+    set_qword(m, 0, 123456789)
+    print(222)
+    return 0
+}

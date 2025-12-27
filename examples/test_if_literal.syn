@@ -1,0 +1,24 @@
+// Test IF with literal
+
+fn main() {
+    print(111)
+    
+    // Test 1: if with literal 1
+    if 1 {
+        print(222)
+    }
+    
+    // Test 2: if with literal 0
+    if 0 {
+        print(333)
+    }
+    
+    // Test 3: if with variable = 1
+    let x = 1
+    if x {
+        print(444)
+    }
+    
+    print(555)
+    return 0
+}

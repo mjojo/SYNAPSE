@@ -1,0 +1,11 @@
+fn main() {
+    print(111)
+    let m = alloc_exec(100)
+    print(m)
+    
+    poke(m, 123)
+    let v = peek(m)
+    print(v)
+    
+    return 0
+}

@@ -225,6 +225,8 @@ section '.data' data readable writeable
     str_sha256     db 'sha256',0
     str_chain_hash db 'chain_hash',0
     str_print_hex  db 'print_hex',0
+    str_invoke     db 'invoke',0   ; Call code at address
+    str_alloc_exec db 'alloc_exec',0  ; Allocate executable memory
     
     class_name     db 'SYNAPSE_WND',0
     window_title   db 'SYNAPSE Graphics',0
@@ -271,6 +273,7 @@ section '.data' data readable writeable
     OP_LBRACKET = 14
     OP_RBRACKET = 15
     OP_NE       = 16     ; != operator
+    OP_MOD      = 17     ; % modulo operator
     
     ; Keyword table
     kw_fn       db 'fn',0
@@ -1324,35 +1327,157 @@ compile_while:
     push r13
     push r14
     
-    ; Skip 'while' (reads '(', lex_pos now at first token of condition)
+    ; Skip 'while' keyword - now at first token of condition
     call next_token
     
-    ; DON'T skip '(' here! compile_expr's first next_token will read the first 
-    ; token of condition. The '(' is now in cur_tok but we ignore it.
-    ; compile_expr will call next_token first which reads 'i' (first term)
+    ; Check if we have '(' - if so, use old method with compile_expr
+    ; If not (like "while i < len"), handle manually
+    cmp dword [cur_tok_type], TOK_OP
+    jne .while_no_paren
+    cmp qword [cur_tok_value], OP_LPAREN
+    jne .while_no_paren
     
-    ; === LOOP START: Save address here so condition is re-evaluated each iteration ===
+    ; ========== WITH PARENTHESES: while (cond) ==========
+    ; === LOOP START ===
     mov r12, [jit_cursor]
     
-    ; Compile condition (e.g., i < 6)
-    ; After: cur_tok = last token of expr, lex_pos at ')'
-    call compile_expr       ; Result in RAX
+    call compile_expr
     
-    ; --- FIX: SAVE RAX before next_token ---
-    push rax                ; Save condition result!
-    
-    ; Skip ')' - already consumed by compile_expr or it's next
+    push rax
     call peek_token
-    cmp dword [cur_tok_type], TOK_OP
-    jne .skip_paren_done
-    cmp qword [cur_tok_value], OP_RPAREN
-    jne .skip_paren_done
-    call next_token         ; This clobbers RAX!
-.skip_paren_done:
+    cmp dword [peek_tok_type], TOK_OP
+    jne .while_paren_done
+    cmp qword [peek_tok_value], OP_RPAREN
+    jne .while_paren_done
+    call next_token
+.while_paren_done:
+    pop rax
+    jmp .while_gen_test
+
+.while_no_paren:
+    ; ========== NO PARENTHESES: while i < len ==========
+    ; cur_tok is already the first term (e.g., 'i')
+    ; DON'T call next_token - compile_term expects cur_tok to be the term
     
-    pop rax                 ; Restore condition result
-    ; --- FIX END ---
+    ; === LOOP START ===
+    mov r12, [jit_cursor]
     
+    ; Compile first term (already in cur_tok)
+    call compile_term
+    
+    ; Check for comparison operator
+    call peek_token
+    cmp dword [peek_tok_type], TOK_OP
+    jne .while_gen_test     ; No operator, just use term as condition
+    
+    ; Check which operator
+    mov rax, [peek_tok_value]
+    cmp rax, OP_LT
+    je .while_do_lt
+    cmp rax, OP_GT
+    je .while_do_gt
+    cmp rax, OP_EQ
+    je .while_do_eq
+    cmp rax, OP_NE
+    je .while_do_ne
+    jmp .while_gen_test     ; Unknown operator, just use left term
+    
+.while_do_lt:
+    ; PUSH RAX (left)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    add qword [jit_cursor], 1
+    
+    call next_token         ; Consume '<'
+    call next_token         ; Move to right term
+    call compile_term       ; Right in RAX
+    
+    ; POP RCX (left)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    add qword [jit_cursor], 1
+    
+    ; CMP RCX, RAX
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    
+    ; SETL AL + MOVZX
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC09C0F
+    add qword [jit_cursor], 3
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    jmp .while_gen_test
+
+.while_do_gt:
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    add qword [jit_cursor], 1
+    call next_token
+    call next_token
+    call compile_term
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    add qword [jit_cursor], 1
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    ; SETG AL
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC09F0F
+    add qword [jit_cursor], 3
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    jmp .while_gen_test
+
+.while_do_eq:
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    add qword [jit_cursor], 1
+    call next_token
+    call next_token
+    call compile_term
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    add qword [jit_cursor], 1
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    ; SETE AL
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0940F
+    add qword [jit_cursor], 3
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    jmp .while_gen_test
+
+.while_do_ne:
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    add qword [jit_cursor], 1
+    call next_token
+    call next_token
+    call compile_term
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    add qword [jit_cursor], 1
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    ; SETNE AL
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0950F
+    add qword [jit_cursor], 3
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    jmp .while_gen_test
+
+.while_gen_test:
     ; Generate: TEST RAX, RAX
     mov rdi, [jit_cursor]
     mov dword [rdi], 0xC08548
@@ -1446,11 +1571,21 @@ compile_while:
     jmp .body_loop
 
 .while_if:
-    ; compile_if expects 'if' as current token from peek
+    ; After peek_token in .body_loop:
+    ; - cur_tok = 'if' (keyword) 
+    ; - lex_pos = BEFORE 'if' (restored by peek_token)
+    ;
+    ; compile_if's first next_token reads 'if' into cur_tok (again).
+    ; But then compile_if expects cur_tok to be the first term after 'if'.
+    ; So we need ONE next_token here to advance lex_pos past 'if'.
+    ; Then compile_if's next_token will read the first term.
+    
+    call next_token         ; Consume 'if' - now lex_pos is AFTER 'if'
+    
     ; IMPORTANT: Save R12/R13 which hold while loop addresses!
     push r12
     push r13
-    call compile_if
+    call compile_if         ; compile_if will next_token to read first term
     pop r13
     pop r12
     jmp .body_loop
@@ -1822,36 +1957,150 @@ compile_if:
     push r14
     push r15
     
-    ; Skip 'if'
+    ; Read first term of condition (caller ensures 'if' was already consumed)
     call next_token
 
 .manual_entry:              ; Entry point when 'if' was already consumed (by if_handle_ident)
-    ; --- FIX: Skip '(' if present ---
-    ; compile_expr expects to read the first term immediately.
-    ; If syntax is "if (cond)", we are at '(' after reading 'if'.
-    ; We peek and skip '(' so compile_expr reads the actual condition.
+    ; --- FIX: Handle both "if (cond)" and "if cond" ---
+    ; After skipping 'if', cur_tok is either '(' or first term of condition.
+    ; JUST CHECK cur_tok DIRECTLY - no peek needed!
     
-    call peek_token
-    cmp dword [peek_tok_type], TOK_OP
-    jne .no_paren_skip_if
-    cmp qword [peek_tok_value], OP_LPAREN
-    jne .no_paren_skip_if
+    ; Check: is cur_tok '('?
+    cmp dword [cur_tok_type], TOK_OP
+    jne .if_no_paren
+    cmp qword [cur_tok_value], OP_LPAREN
+    jne .if_no_paren
     
-    call next_token         ; Consume '('
-.no_paren_skip_if:
-    ; ---------------------
-
-    ; Compile condition
+    ; Has '(' - consume it, compile_expr will read first term
+    call next_token         
+    jmp .if_compile_cond
+    
+.if_no_paren:
+    ; cur_tok IS the first term. Call compile_term directly.
+    call compile_term
+    jmp .if_expr_loop_entry
+    
+.if_compile_cond:
+    ; Normal path - compile_expr handles everything
     call compile_expr
+    jmp .if_after_cond
     
-    ; Check for ')' and skip if present
+.if_expr_loop_entry:
+    ; Manual expr loop for no-paren case
     call peek_token
     cmp dword [peek_tok_type], TOK_OP
-    jne .no_rparen_skip
-    cmp qword [peek_tok_value], OP_RPAREN
-    jne .no_rparen_skip
-    call next_token         ; Consume ')'
-.no_rparen_skip:
+    jne .if_after_cond
+    
+    mov rax, [peek_tok_value]
+    cmp rax, OP_LBRACE      ; Stop at '{'
+    je .if_after_cond
+    
+    ; Handle operators manually or call into compile_expr loop
+    ; For simplicity, just check common comparisons
+    cmp rax, OP_LT
+    je .if_do_lt
+    cmp rax, OP_GT
+    je .if_do_gt
+    cmp rax, OP_EQ
+    je .if_do_eq
+    cmp rax, OP_NE
+    je .if_do_ne
+    jmp .if_after_cond
+    
+.if_do_lt:
+    call next_token         ; Consume '<'
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    call next_token         ; Read right operand
+    call compile_term
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59    ; POP RCX
+    inc qword [jit_cursor]
+    
+    ; CMP RCX, RAX
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    
+    ; SETL AL
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC09C0F
+    add qword [jit_cursor], 3
+    
+    ; MOVZX RAX, AL
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    
+    jmp .if_expr_loop_entry
+    
+.if_do_gt:
+    call next_token
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    call next_token
+    call compile_term
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    inc qword [jit_cursor]
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC09F0F    ; SETG AL
+    add qword [jit_cursor], 3
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    jmp .if_expr_loop_entry
+
+.if_do_eq:
+    call next_token
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    call next_token
+    call compile_term
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    inc qword [jit_cursor]
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0940F    ; SETE AL
+    add qword [jit_cursor], 3
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    jmp .if_expr_loop_entry
+
+.if_do_ne:
+    call next_token
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    call next_token
+    call compile_term
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    inc qword [jit_cursor]
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0950F    ; SETNE AL
+    add qword [jit_cursor], 3
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    jmp .if_expr_loop_entry
+
+.if_after_cond:
     
     ; Generate: TEST RAX, RAX
     mov rdi, [jit_cursor]
@@ -1931,11 +2180,19 @@ compile_if:
     call compile_return
     jmp .if_body
 .if_nested_if:
-    ; Recursive call - compile_if will call next_token itself
+    ; Recursive call - need to consume 'if' first since peek_token saw it
+    ; IMPORTANT: Save R12 which holds our JZ patch location!
+    push r12
+    call next_token         ; Consume 'if' keyword that peek_token saw
     call compile_if
+    pop r12
     jmp .if_body
 .if_nested_while:
+    ; IMPORTANT: Save R12 which holds our JZ patch location!
+    push r12
+    call next_token         ; Consume 'while' keyword that peek_token saw
     call compile_while
+    pop r12
     jmp .if_body
 
 ; --- IF BLOCK IDENTIFIER HANDLER ---
@@ -2001,7 +2258,10 @@ compile_if:
 .force_nested_if:
     ; We already consumed 'if' as identifier, jump to compile_if's manual entry
     ; which skips the next_token that would consume 'if'
+    ; IMPORTANT: Save R12 which holds our JZ patch location!
+    push r12
     call compile_if_manual
+    pop r12
     jmp .if_body
 
 .force_nested_while:
@@ -2009,7 +2269,10 @@ compile_if:
     mov rax, [lex_pos]
     sub rax, 5          ; "while" is 5 chars - backtrack
     mov [lex_pos], rax
+    ; IMPORTANT: Save R12 which holds our JZ patch location!
+    push r12
     call compile_while
+    pop r12
     jmp .if_body
 
 .if_var_assign:
@@ -2587,10 +2850,10 @@ compile_expr:
     ; Check for operator
     call peek_token
     
-    cmp dword [cur_tok_type], TOK_OP
+    cmp dword [peek_tok_type], TOK_OP
     jne .expr_done
     
-    mov rax, [cur_tok_value]
+    mov rax, [peek_tok_value]
     
     ; Check for closing paren - means end of expression
     cmp rax, OP_RPAREN
@@ -2604,6 +2867,8 @@ compile_expr:
     je .do_mul
     cmp rax, OP_DIV
     je .do_div
+    cmp rax, OP_MOD
+    je .do_mod
     cmp rax, OP_LT
     je .do_lt
     cmp rax, OP_GT
@@ -2714,6 +2979,46 @@ compile_expr:
     ; IDIV RCX (RDX:RAX / RCX, quotient in RAX)
     mov rdi, [jit_cursor]
     mov dword [rdi], 0xF9F748    ; 48 F7 F9 = IDIV RCX
+    add qword [jit_cursor], 3
+    
+    jmp .expr_loop
+
+.do_mod:
+    ; Modulo: left % right (remainder)
+    ; Same as div but result is in RDX
+    call next_token
+    
+    ; PUSH RAX (save left)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    call next_token
+    call compile_term   ; RAX = right (divisor)
+    
+    ; POP RCX (RCX = left, RAX = right)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59
+    inc qword [jit_cursor]
+    
+    ; XCHG RAX, RCX (now RAX = left, RCX = right/divisor)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC88748     ; 48 87 C8 = XCHG RAX, RCX
+    add qword [jit_cursor], 3
+    
+    ; CQO (sign extend RAX to RDX:RAX)
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0x9948       ; 48 99 = CQO
+    add qword [jit_cursor], 2
+    
+    ; IDIV RCX (RDX:RAX / RCX, quotient in RAX, remainder in RDX)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xF9F748    ; 48 F7 F9 = IDIV RCX
+    add qword [jit_cursor], 3
+    
+    ; MOV RAX, RDX (move remainder to RAX)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xD08948    ; 48 89 D0 = MOV RAX, RDX
     add qword [jit_cursor], 3
     
     jmp .expr_loop
@@ -3393,6 +3698,8 @@ next_token:
     je .op_rbracket
     cmp al, '!'
     je .op_exclaim
+    cmp al, '%'
+    je .op_mod
     
     ; Unknown - skip
     jmp next_token
@@ -3421,6 +3728,9 @@ next_token:
     jmp .done
 .op_div:
     mov qword [cur_tok_value], OP_DIV
+    jmp .done
+.op_mod:
+    mov qword [cur_tok_value], OP_MOD
     jmp .done
 .op_lt:
     mov qword [cur_tok_value], OP_LT
@@ -3864,6 +4174,16 @@ init_intrinsics:
     ; Register 'print_hex' intrinsic (Hex Dump)
     lea rcx, [str_print_hex]
     lea rdx, [intrinsic_print_hex]
+    call func_add
+    
+    ; Register 'invoke' intrinsic (Call code at address)
+    lea rcx, [str_invoke]
+    lea rdx, [intrinsic_invoke]
+    call func_add
+    
+    ; Register 'alloc_exec' intrinsic (Allocate executable memory)
+    lea rcx, [str_alloc_exec]
+    lea rdx, [intrinsic_alloc_exec]
     call func_add
     
     pop rbx
@@ -5399,6 +5719,70 @@ intrinsic_print_hex:
     
     pop r13
     pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_invoke - Call code at address
+; Usage: invoke(addr)
+; Returns the result from the called code (in RAX)
+; -----------------------------------------------------------------------------
+intrinsic_invoke:
+    push rbx
+    push rsi
+    push rdi
+    
+    ; Argument is in RCX (Win64 ABI)
+    mov rax, rcx                ; Address to call
+    
+    ; Reserve shadow space for callee
+    sub rsp, 32
+    
+    ; Call the address
+    call rax
+    
+    ; Restore shadow space
+    add rsp, 32
+    
+    ; RAX now contains the return value
+    
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; intrinsic_alloc_exec - Allocate executable memory
+; Usage: alloc_exec(size)
+; Returns pointer to executable memory region
+; Uses VirtualAlloc with PAGE_EXECUTE_READWRITE
+; -----------------------------------------------------------------------------
+intrinsic_alloc_exec:
+    push rbx
+    push rsi
+    push rdi
+    
+    ; Argument is in RCX (Win64 ABI) = size
+    mov rbx, rcx                ; Save size
+    
+    ; VirtualAlloc(NULL, size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE)
+    ; RCX = lpAddress = 0
+    ; RDX = dwSize = size
+    ; R8  = flAllocationType = MEM_COMMIT | MEM_RESERVE = 0x3000
+    ; R9  = flProtect = PAGE_EXECUTE_READWRITE = 0x40
+    
+    sub rsp, 32             ; Shadow space
+    xor rcx, rcx            ; NULL
+    mov rdx, rbx            ; size
+    mov r8, 0x3000          ; MEM_COMMIT | MEM_RESERVE
+    mov r9, 0x40            ; PAGE_EXECUTE_READWRITE
+    call [VirtualAlloc]
+    add rsp, 32
+    
+    ; RAX = pointer to executable memory (or NULL on failure)
+    
     pop rdi
     pop rsi
     pop rbx

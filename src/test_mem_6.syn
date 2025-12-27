@@ -1,0 +1,9 @@
+fn main() {
+    let m = alloc(100) // 800 bytes
+    print(m)
+    
+    // Write 0xAA
+    set_byte(m, 0, 170)
+    let v = get_byte(m, 0)
+    print(v)
+}

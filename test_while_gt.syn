@@ -1,0 +1,24 @@
+// Test get_byte and > inside while loop
+fn main() {
+    let s = "42"
+    let pos = 0
+    let len = 2
+    
+    while pos < len {
+        let c = get_byte(s, pos)
+        
+        print(1001)
+        print(c)
+        
+        // Test c > 47
+        if c > 47 {
+            print(1)
+        } else {
+            print(0)
+        }
+        
+        pos = pos + 1
+    }
+    
+    return 0
+}

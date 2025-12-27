@@ -1,0 +1,13 @@
+fn foo() {
+    print(111)
+    bar()
+}
+
+fn bar() {
+    print(222)
+}
+
+fn main() {
+    foo()
+    return 0
+}

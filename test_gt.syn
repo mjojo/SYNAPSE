@@ -1,0 +1,23 @@
+// Test > operator
+fn main() {
+    let c = 52
+    
+    print(1001)
+    print(c)
+    
+    if c > 47 {
+        print(1)
+    } else {
+        print(0)
+    }
+    
+    // Test with variable vs literal
+    let x = 47
+    if c > x {
+        print(2)
+    } else {
+        print(3)
+    }
+    
+    return 0
+}

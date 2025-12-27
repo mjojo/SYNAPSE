@@ -1,0 +1,17 @@
+fn main() {
+    print(111)
+    let m = alloc(100)
+    print(m)
+    
+    // Try poke
+    poke(m, 123)
+    let v = peek(m)
+    print(v)
+    
+    // Try poke with offset
+    poke(m + 8, 222)
+    let v2 = peek(m + 8)
+    print(v2)
+    
+    return 0
+}

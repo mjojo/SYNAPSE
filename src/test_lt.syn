@@ -1,0 +1,9 @@
+fn main() {
+    let var_i = 0
+    
+    if var_i < 8 {
+        print(1)
+    } else {
+        print(0)
+    }
+}

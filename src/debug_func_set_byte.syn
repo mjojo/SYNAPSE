@@ -1,0 +1,11 @@
+fn helper(p) {
+    set_byte(p, 0, 123)
+}
+
+fn main() {
+    print(111)
+    let m = alloc(100)
+    helper(m)
+    print(222)
+    return 0
+}

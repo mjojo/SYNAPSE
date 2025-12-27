@@ -1,0 +1,606 @@
+// ============================================================
+// SYNAPSE SELF-HOSTED JIT COMPILER v1.5 (Indent Parser)
+// Phase 48: Syntax Shift - Indentation Support
+// ============================================================
+
+// --- 1. MEMORY & GLOBALS ---
+let data_mem = 0 
+let code_mem = 0
+
+// Token Stream
+let tok_count = 0
+let ast_idx = 4000
+let code_idx = 0
+
+// Indentation State
+let indent_stack = 0 
+let indent_top = 0
+let at_line_start = 1
+
+// Parser State
+let p_cursor = 0
+
+// Source for lexer
+let lex_src = 0
+let lex_pos = 0
+let lex_len = 0
+
+// --- 2. CONSTANTS ---
+let TOK_NUM = 1
+let TOK_PLUS = 2
+let TOK_RET = 3
+let TOK_EOF = 4
+let TOK_INDENT = 10 
+let TOK_DEDENT = 11
+let TOK_NEWLINE = 12
+let TOK_COLON = 13
+let TOK_IF = 14
+let TOK_WHILE = 15
+let TOK_LT = 20
+let TOK_GT = 21
+
+let NODE_NUM = 1
+let NODE_ADD = 2
+let NODE_RET = 3
+let NODE_BLOCK = 4 
+let NODE_IF = 5
+let NODE_WHILE = 6
+let NODE_LT = 7
+let NODE_GT = 8
+
+// --- 3. X64 BACKEND ---
+fn emit(b) {
+    set_byte(code_mem, code_idx, b)
+    code_idx = code_idx + 1
+}
+
+fn emit64(val) {
+    // Emit 8 bytes of val (little-endian)
+    let v = val
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+}
+
+fn x64_prologue() {
+    emit(85)              // PUSH RBP  (0x55 = 85)
+    emit(72)              // 0x48
+    emit(137)             // 0x89
+    emit(229)             // MOV RBP, RSP (0xE5 = 229)
+}
+
+fn x64_epilogue() {
+    emit(93)              // 0x5D POP RBP
+    emit(195)             // 0xC3 RET
+}
+
+fn x64_mov_rax(val) {
+    emit(72)    // 0x48 REX.W
+    emit(184)   // 0xB8 MOV RAX, imm64
+    emit64(val)
+}
+
+fn x64_push_rax() { emit(80) }  // 0x50
+fn x64_pop_rcx()  { emit(89) }  // 0x59
+
+fn x64_add_rax_rcx() {
+    emit(72)    // 0x48
+    emit(1)     // 0x01
+    emit(200)   // 0xC8 ADD RAX, RCX
+}
+
+// Emit 32-bit value (Little Endian) for jump offsets
+fn emit_32(val) {
+    let v = val
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+}
+
+// Backpatch: Overwrite 4 bytes at addr with val
+fn patch_32(addr, val) {
+    let v = val
+    set_byte(code_mem, addr, v % 256)
+    v = v / 256
+    set_byte(code_mem, addr + 1, v % 256)
+    v = v / 256
+    set_byte(code_mem, addr + 2, v % 256)
+    v = v / 256
+    set_byte(code_mem, addr + 3, v % 256)
+}
+
+// TEST RAX, RAX (sets ZF if RAX == 0)
+fn x64_test_rax() {
+    emit(72)    // 0x48 REX.W
+    emit(133)   // 0x85 TEST r/m64, r64
+    emit(192)   // 0xC0 RAX, RAX
+}
+
+// JZ rel32 (Jump if Zero) - returns patch address
+fn x64_jz_placeholder() {
+    emit(15)    // 0x0F Two-byte opcode prefix
+    emit(132)   // 0x84 JZ rel32
+    let addr = code_idx
+    emit_32(0)  // Placeholder offset
+    return addr
+}
+
+// JMP rel32 (Unconditional) - returns patch address  
+fn x64_jmp_placeholder() {
+    emit(233)   // 0xE9 JMP rel32
+    let addr = code_idx
+    emit_32(0)  // Placeholder offset
+    return addr
+}
+
+// --- 4. HELPER FUNCTIONS ---
+fn emit_token(type, val) {
+    let k = tok_count
+    data_mem[k] = type
+    data_mem[k + 1000] = val
+    tok_count = tok_count + 1
+}
+
+// --- 5. LEXER (Full with Indentation Support) ---
+
+// Helper: skip whitespace (not at line start)
+fn lex_skip_space() {
+    let c = get_byte(lex_src, lex_pos)
+    while c == 32 {
+        lex_pos = lex_pos + 1
+        c = get_byte(lex_src, lex_pos)
+    }
+}
+
+// Helper: parse a number
+fn lex_number() {
+    let num = 0
+    let c = get_byte(lex_src, lex_pos)
+    
+    // '0'-1 = 47, '9'+1 = 58
+    while c > 47 {
+        if c < 58 {
+            let digit = c - 48
+            num = num * 10 + digit
+            lex_pos = lex_pos + 1
+            c = get_byte(lex_src, lex_pos)
+        } else {
+            c = 0  // break
+        }
+    }
+    
+    emit_token(TOK_NUM, num)
+}
+
+// Main lexer function - SIMPLIFIED for debug
+fn lex(src) {
+    lex_src = src
+    lex_pos = 0
+    lex_len = strlen(src)
+    
+    print(7001)
+    print(lex_len)
+    
+    while lex_pos < lex_len {
+        let c = get_byte(lex_src, lex_pos)
+        print(7002)
+        print(c)
+        
+        // SIMPLE: Just check if digit
+        // '0' = 48, '9' = 57
+        // c > 47 and c < 58
+        let is_digit = 0
+        if c > 47 {
+            if c < 58 {
+                is_digit = 1
+            }
+        }
+        
+        print(7003)
+        print(is_digit)
+        
+        if is_digit == 1 {
+            print(7004)
+            lex_number()
+        } else {
+            // Skip non-digit
+            lex_pos = lex_pos + 1
+        }
+    }
+    
+    emit_token(TOK_EOF, 0)
+}
+
+// --- 6. PARSER (Indentation Support) ---
+fn eat() { p_cursor = p_cursor + 1 }
+fn peek() { 
+    // Handle Global[Local] access explicitly if needed, but p_cursor is global
+    // And data_mem is global. Global[Global] crash risk?
+    // In emit_token we fixed it.
+    // data_mem[p_cursor] -> Global[Global].
+    // FIX: use local.
+    let k = p_cursor
+    return data_mem[k] 
+}
+fn peek_val() { 
+    let k = p_cursor
+    return data_mem[k + 1000] 
+}
+
+fn node_new(type, val) {
+    let p = ast_idx
+    // Use local copy of data_mem for indexing
+    let dm = data_mem
+    let k = p
+    dm[k] = type
+    let k1 = k + 1
+    dm[k1] = val
+    let k2 = k + 2
+    dm[k2] = 0
+    let k3 = k + 3
+    dm[k3] = 0
+    let k4 = k + 4
+    dm[k4] = 0 // Next ptr
+    ast_idx = ast_idx + 8
+    return p
+}
+
+fn parse_expr() {
+    let val = peek_val()
+    eat() // Eat Num
+    
+    let left = node_new(NODE_NUM, val)
+    
+    let t = peek()
+    if t == TOK_PLUS {
+        eat() // Eat +
+        let right = parse_expr() // Recurse
+        
+        let node = node_new(NODE_ADD, 0)
+        // Access fields
+        let dm = data_mem
+        let k = node
+        let k2 = k + 2
+        let k3 = k + 3
+        dm[k2] = left
+        dm[k3] = right
+        return node
+    }
+    
+    if t == TOK_LT {
+        eat() // Eat <
+        let right = parse_expr() // Recurse
+        
+        let node = node_new(NODE_LT, 0)
+        let dm = data_mem
+        let k = node
+        let k2 = k + 2
+        let k3 = k + 3
+        dm[k2] = left
+        dm[k3] = right
+        return node
+    }
+    
+    if t == TOK_GT {
+        eat() // Eat >
+        let right = parse_expr() // Recurse
+        
+        let node = node_new(NODE_GT, 0)
+        let dm = data_mem
+        let k = node
+        let k2 = k + 2
+        let k3 = k + 3
+        dm[k2] = left
+        dm[k3] = right
+        return node
+    }
+    
+    return left
+}
+
+// Forward decl - Synapse allows arbitrary order? 
+// No, mostly one pass. But recursion works if function exists.
+// fn parse_block() { ... } 
+
+// But we need `parse_stmt` to call `parse_block`? 
+// And `parse_block` to call `parse_stmt`. Mutual recursion.
+// Synapse JIT handles this if names are visible.
+
+fn parse_stmt() {
+    let k = p_cursor
+    let t = data_mem[k]
+    
+    // Check if it's return
+    if t == 3 {
+        eat() // Eat return
+        let expr = parse_expr()
+        
+        let node = node_new(NODE_RET, 0)
+        let kn = node
+        data_mem[kn+2] = expr
+        return node
+    }
+    
+    // Handle Stray Newlines
+    if t == 12 {
+        eat()
+        return 0 // Null stmt
+    }
+    
+    if t == 14 {
+        return parse_if()
+    }
+    
+    if t == 15 {
+        return parse_while()
+    }
+    
+    return 0
+}
+
+fn parse_while() {
+    eat() // eat WHILE
+    let cond = parse_expr()
+    
+    // Temporarily skip block parsing
+    // if peek() == TOK_COLON { eat() }
+    // if peek() == TOK_NEWLINE { eat() }
+    // let body = parse_block()
+    let body = 0
+    
+    let node = node_new(NODE_WHILE, 0)
+    let k = node
+    data_mem[k+2] = cond
+    data_mem[k+3] = body
+    return node
+}
+
+fn parse_block() {
+    // Simplified: just eat INDENT, parse one stmt, eat DEDENT
+    let t = peek()
+    if t == TOK_INDENT {
+        eat()
+    }
+
+    let block_node = node_new(NODE_BLOCK, 0)
+    
+    // Parse single statement for now
+    let stmt = parse_stmt()
+    
+    let k_blk = block_node
+    data_mem[k_blk + 2] = stmt
+    
+    // Eat DEDENT if present
+    let t2 = peek()
+    if t2 == TOK_DEDENT {
+        eat()
+    }
+    
+    return block_node
+}
+
+fn parse_if() {
+    eat() // eat IF
+    let cond = parse_expr()
+    
+    // Temporarily skip block parsing
+    // if peek() == TOK_COLON { eat() }
+    // if peek() == TOK_NEWLINE { eat() }
+    // let body = parse_block()
+    let body = 0
+    
+    let node = node_new(NODE_IF, 0)
+    let k = node
+    data_mem[k+2] = cond
+    data_mem[k+3] = body
+    return node
+}
+
+// --- 7. CODEGEN ---
+fn gen(node) {
+    // Use local copy of data_mem
+    let dm = data_mem
+    let k = node
+    let type = dm[k]
+    
+    if type == NODE_NUM {
+        let k1 = k + 1
+        let val = dm[k1]
+        x64_mov_rax(val)
+        return 0
+    }
+    
+    if type == NODE_ADD {
+        let left = data_mem[k+2]
+        let right = data_mem[k+3]
+        gen(left)
+        x64_push_rax()
+        gen(right)
+        x64_pop_rcx()
+        x64_add_rax_rcx()
+        return 0
+    }
+    
+    // NODE_LT: left < right
+    // Push left, gen right, pop rcx, cmp rcx,rax, setl al, movzx rax,al
+    if type == NODE_LT {
+        let left = data_mem[k+2]
+        let right = data_mem[k+3]
+        gen(left)
+        x64_push_rax()    // push left
+        gen(right)
+        x64_pop_rcx()     // rcx = left, rax = right
+        
+        // CMP RCX, RAX  (compares left - right)
+        emit(72)    // 0x48 REX.W
+        emit(57)    // 0x39 CMP
+        emit(193)   // 0xC1 (RCX, RAX)
+        
+        // SETL AL (set if less)
+        emit(15)    // 0x0F
+        emit(156)   // 0x9C SETL
+        emit(192)   // 0xC0 AL
+        
+        // MOVZX RAX, AL
+        emit(72)    // 0x48 REX.W
+        emit(15)    // 0x0F
+        emit(182)   // 0xB6 MOVZX
+        emit(192)   // 0xC0 RAX,AL
+        
+        return 0
+    }
+    
+    // NODE_GT: left > right
+    if type == NODE_GT {
+        let left = data_mem[k+2]
+        let right = data_mem[k+3]
+        gen(left)
+        x64_push_rax()
+        gen(right)
+        x64_pop_rcx()     // rcx = left, rax = right
+        
+        // CMP RCX, RAX
+        emit(72)    // 0x48 REX.W
+        emit(57)    // 0x39 CMP
+        emit(193)   // 0xC1 (RCX, RAX)
+        
+        // SETG AL (set if greater)
+        emit(15)    // 0x0F
+        emit(159)   // 0x9F SETG
+        emit(192)   // 0xC0 AL
+        
+        // MOVZX RAX, AL
+        emit(72)    // 0x48 REX.W
+        emit(15)    // 0x0F
+        emit(182)   // 0xB6 MOVZX
+        emit(192)   // 0xC0 RAX,AL
+        
+        return 0
+    }
+    
+    if type == NODE_RET {
+        let child = data_mem[k+2]
+        gen(child)
+        // emits RAX, but we need RET
+        x64_epilogue() 
+        return 0
+    }
+    
+    // TEMPORARY: Just generate code for immediate body of block (only 1st stmt)
+    if type == NODE_BLOCK {
+         let stmt = data_mem[k+2]
+         // Loop through stmts
+         while stmt > 0 {
+             gen(stmt)
+             let k_s = stmt
+             stmt = data_mem[k_s+4]
+         }
+         return 0
+    }
+    
+    if type == NODE_IF {
+        let cond = data_mem[k+2]
+        let body = data_mem[k+3]
+        
+        // 1. Generate condition (result in RAX)
+        gen(cond)
+        
+        // 2. TEST RAX, RAX (sets ZF if false/zero)
+        x64_test_rax()
+        
+        // 3. JZ to end (skip body if condition is false)
+        let patch_addr = x64_jz_placeholder()
+        
+        // 4. Generate body
+        gen(body)
+        
+        // 5. Backpatch: offset = current - (patch_addr + 4)
+        let offset = code_idx - patch_addr - 4
+        patch_32(patch_addr, offset)
+        
+        return 0
+    }
+    
+    if type == NODE_WHILE {
+        let cond = data_mem[k+2]
+        let body = data_mem[k+3]
+        
+        // 1. Remember loop start
+        let loop_start = code_idx
+        
+        // 2. Generate condition
+        gen(cond)
+        
+        // 3. TEST RAX, RAX
+        x64_test_rax()
+        
+        // 4. JZ to exit (skip body + jump back if false)
+        let patch_exit = x64_jz_placeholder()
+        
+        // 5. Generate body
+        gen(body)
+        
+        // 6. JMP back to loop_start
+        emit(0xE9)  // JMP rel32
+        // Offset = target - (current + 4)
+        let back_offset = loop_start - code_idx - 4
+        emit_32(back_offset)
+        
+        // 7. Backpatch exit jump
+        let exit_offset = code_idx - patch_exit - 4
+        patch_32(patch_exit, exit_offset)
+        
+        return 0
+    }
+}
+
+// --- 8. MAIN ---
+fn main() {
+    // Init Globals
+    data_mem = alloc(64000)
+    code_mem = alloc_exec(32000)  // Executable memory for JIT
+    
+    // Simplest test - just a number
+    let src = "42"
+    
+    // 1. LEX
+    lex(src)
+    
+    print(8001)
+    print(tok_count)
+    // Print first token type and value
+    print(8002)
+    print(data_mem[0])
+    print(8003)
+    print(data_mem[1000])
+    
+    // 2. PARSE
+    p_cursor = 0
+    let root = parse_expr()
+    
+    // 3. CODEGEN
+    code_idx = 0    // Reset code index!
+    x64_prologue()
+    gen(root)
+    x64_epilogue()
+    
+    // 4. EXECUTE
+    let res = invoke(code_mem) 
+    print(res)    // Expected: 42
+}

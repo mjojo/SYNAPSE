@@ -1,0 +1,12 @@
+// Test < with local variable
+fn main() {
+    let digit = 4
+    print(100)
+    print(digit)
+    
+    if digit < 10 {
+        print(111)
+    }
+    
+    print(999)
+}

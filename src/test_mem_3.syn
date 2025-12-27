@@ -1,0 +1,13 @@
+fn main() {
+    let mem = alloc_bytes(100)
+    print(mem)
+    
+    set_byte(mem, 0, 170) // 0xAA
+    set_byte(mem, 1, 187) // 0xBB
+    
+    let v0 = get_byte(mem, 0)
+    print(v0)
+    
+    let v1 = get_byte(mem, 1)
+    print(v1)
+}

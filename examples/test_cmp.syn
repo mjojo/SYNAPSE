@@ -1,0 +1,23 @@
+// Test comparison in Synapse
+
+fn main() {
+    print(111)
+    
+    let x = 3
+    let y = 3
+    let z = x == y
+    
+    print(222)
+    print(z)
+    
+    let a = 3 == 3
+    print(333)
+    print(a)
+    
+    if 1 {
+        print(444)
+    }
+    
+    print(555)
+    return 0
+}

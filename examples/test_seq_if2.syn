@@ -1,0 +1,7 @@
+fn main():
+    print(100)
+    if 5:
+        print(200)
+    if 7:
+        print(300)
+    return 0

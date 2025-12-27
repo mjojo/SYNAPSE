@@ -1,0 +1,6 @@
+// Test simple expression
+fn main() {
+    let x = 99
+    print(x)
+    print(42)
+}

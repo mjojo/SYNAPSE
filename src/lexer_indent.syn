@@ -1,0 +1,81 @@
+// ============================================================
+// SYNAPSE PHASE 47: INDENTATION LOGIC TEST
+// Fixed & Diagnosed Version
+// ============================================================
+
+// Globals (Init in main)
+let indent_stack = 0
+let stack_top = 0
+let current_indent = 0
+let TOK_LBRACE = 123
+let TOK_RBRACE = 125
+
+fn push_indent(level) {
+    stack_top = stack_top + 1
+    indent_stack[stack_top] = level
+    print(888) // EMIT VIRTUAL '{'
+}
+
+fn pop_indent() {
+    stack_top = stack_top - 1
+    print(999) // EMIT VIRTUAL '}'
+}
+
+fn lex_line_spaces(src, idx) {
+    let spaces = 0
+    let i = idx
+    let c = get_byte(src, i)
+    
+    // 1. Count spaces
+    while c == 32 { 
+        spaces = spaces + 1
+        i = i + 1
+        c = get_byte(src, i)
+        // c = 0 // Removed bypass
+    }
+    
+    // 2. Compare with stack (FIXED ARRAY ACCESS)
+    // Old: let last_level = indent_stack[stack_top] (CRASH)
+    let idx_top = stack_top
+    let last_level = indent_stack[idx_top]
+    
+    if spaces > last_level {
+        push_indent(spaces)
+    } else {
+        while spaces < last_level {
+            pop_indent()
+            // Loop Update (FIXED)
+            let idx_loop = stack_top
+            last_level = indent_stack[idx_loop]
+        }
+        
+        let idx_check = stack_top
+        let check_level = indent_stack[idx_check]
+        if spaces != check_level {
+            print(666) // Error
+        }
+    }
+    
+    return i 
+}
+
+fn main() {
+    print(111111) // START
+    
+    // FIX: Init Globals in Main
+    indent_stack = alloc(800)
+    stack_top = 0
+    current_indent = 0
+    indent_stack[0] = 0
+    
+    print(1) 
+    lex_line_spaces("if...", 0)
+    
+    print(2)
+    lex_line_spaces("    print", 0)
+    
+    print(3)
+    lex_line_spaces("end", 0)
+    
+    print(999999) // DONE
+}

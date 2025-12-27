@@ -1,0 +1,79 @@
+// self_debug.syn - Diagnostic Script for Lexer
+let data_mem = 0
+let tok_count = 0
+
+// Constants
+let TOK_NUM = 1
+let TOK_PLUS = 2
+let TOK_RET = 3
+let TOK_EOF = 4
+
+fn lex(src) {
+    let i = 0
+    let len = strlen(src)
+    print(777777) // Lex Start
+    
+    while i < len {
+        let c = get_byte(src, i)
+        // print(c) // Debug char
+        
+        // Skip spaces
+        if c == 32 { i = i + 1 }
+        else {
+            // 'r' -> return
+            if c == 114 {
+                data_mem[tok_count] = TOK_RET
+                data_mem[tok_count + 1000] = 0
+                tok_count = tok_count + 1
+                i = i + 6 // skip "return"
+            } else {
+            // '+'
+            if c == 43 {
+                data_mem[tok_count] = TOK_PLUS
+                data_mem[tok_count + 1000] = 0
+                tok_count = tok_count + 1
+                i = i + 1
+            } else {
+            // Digits
+            if c > 47 { if c < 58 {
+                let num = c - 48
+                let next = get_byte(src, i+1)
+                if next > 47 { if next < 58 {
+                    num = num * 10
+                    num = num + (next - 48)
+                    i = i + 1
+                }}
+                
+                data_mem[tok_count] = TOK_NUM
+                data_mem[tok_count + 1000] = num
+                tok_count = tok_count + 1
+                i = i + 1
+            } else {
+                // Unknown char - Print it to confirm
+                print(999)
+                print(c)
+                i = i + 1 // Prevent infinite loop
+            }}}
+        }}}
+    }
+}
+
+fn main() {
+    data_mem = alloc(8192)
+    let src = "return 12 + 34"
+    puts(src)
+    
+    lex(src)
+    
+    print(888888) // Token Dump
+    
+    let i = 0
+    while i < tok_count {
+        let type = data_mem[i]
+        print(type)
+        if type == TOK_NUM {
+            print(data_mem[i + 1000])
+        }
+        i = i + 1
+    }
+}

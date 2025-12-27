@@ -1,0 +1,8 @@
+fn main() {
+    print(111)
+    print(0 < 8)
+    print(8 < 0)
+    print(5 < 10)
+    print(10 < 5)
+    print(5 < 5)
+}

@@ -1,0 +1,16 @@
+fn main() {
+    print(12345)
+    
+    let m = alloc_bytes(100)
+    print(m)
+    
+    set_byte(m, 0, 55)
+    let v = get_byte(m, 0)
+    print(v)
+    
+    // Check if memory was actually written?
+    // We can't dump_hex easily without string.
+    // Try check another index
+    let v2 = get_byte(m, 1)
+    print(v2)
+}

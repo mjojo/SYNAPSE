@@ -1,0 +1,13 @@
+// Test function argument passing
+fn test2(a, b) {
+    print(111)
+    print(a)
+    print(222)
+    print(b)
+}
+
+fn main() {
+    print(100)
+    test2(42, 99)
+    print(999)
+}

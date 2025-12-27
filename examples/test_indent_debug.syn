@@ -1,0 +1,16 @@
+// Debug nested if
+
+fn main():
+    print(100)
+    
+    let x = 5
+    print(x)
+    
+    if x:
+        print(200)
+    
+    if 1:
+        print(300)
+    
+    print(500)
+    return 0

@@ -1,0 +1,7 @@
+fn main() {
+    print(111222)
+    print(0x48)
+    print(0x10)
+    print(0x0A)
+    print(0xFF)
+}

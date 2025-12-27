@@ -1,0 +1,12 @@
+fn helper(p, off, val) {
+    let b = val % 256
+    set_byte(p, off, b)
+}
+
+fn main() {
+    print(111)
+    let m = alloc(100)
+    helper(m, 0, 123)
+    print(222)
+    return 0
+}

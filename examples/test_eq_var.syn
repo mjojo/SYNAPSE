@@ -1,0 +1,12 @@
+fn main() {
+    let c = 114
+    print(111)
+    print(c)
+    
+    if c == 114 {
+        print(222)
+    }
+    
+    print(333)
+    return 0
+}

@@ -1,0 +1,25 @@
+fn main() {
+    print(1000)
+    
+    // Add
+    let a = 10 + 20
+    print(a) // 30
+    
+    // Sub
+    let b = 100 - 50
+    print(b) // 50
+    
+    // Mul
+    let c = 5 * 6
+    print(c) // 30
+    
+    // Div
+    let d = 100 / 10
+    print(d) // 10
+    
+    // Mod
+    let e = 105 % 10
+    print(e) // 5
+    
+    print(2000)
+}

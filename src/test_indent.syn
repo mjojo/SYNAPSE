@@ -1,0 +1,12 @@
+fn factorial(n):
+    if n < 2:
+        return 1
+    
+    let x = n - 1
+    let r = factorial(x)
+    return n * r
+
+fn main():
+    let result = factorial(5)
+    print(result)
+    return result

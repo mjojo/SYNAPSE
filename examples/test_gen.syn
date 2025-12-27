@@ -1,0 +1,10 @@
+// Test gen function visibility
+fn dummy1() { print(1) }
+fn dummy2() { print(2) }
+fn gen(x) { 
+    print(999)
+    print(x)
+}
+fn main() {
+    gen(42)
+}

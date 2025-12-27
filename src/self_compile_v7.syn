@@ -15,13 +15,18 @@ let TOK_LET = 60
 let TOK_EQ = 61
 let TOK_EOF = 99
 
-let NODE_IF = 6     // [NEW]
+// AST Nodes (ALIGNED)
 let NODE_FN = 10
 let NODE_BLOCK = 11
 let NODE_RET = 12
 let NODE_NUM = 13
 let NODE_LET = 20
 let NODE_ID = 21
+let NODE_IF = 6
+let NODE_WHILE = 8
+let NODE_ASSIGN = 9
+let NODE_ADD = 30
+let NODE_SUB = 31
 
 // State Offsets
 let OFF_SRC_MEM = 0
@@ -37,15 +42,16 @@ let OFF_SYM_COUNT = 72
 let OFF_STACK_DEPTH = 80
 let OFF_SYM_PTR = 88
 
-
 // --- MATH UTILS ---
 
-fn val_div_256(val) {
-    return val / 256
-}
+fn val_div_256(val) { return val / 256 }
+fn val_mod_256(val) { return val % 256 }
 
-fn val_mod_256(val) {
-    return val % 256
+// FIX: Handle negative numbers for backward jumps
+fn to_u8(val) {
+    let v = val % 256
+    if v < 0 { v = v + 256 }
+    return v
 }
 
 // --- PARTITIONED WRITER ---
@@ -324,26 +330,86 @@ fn wb_3(ptr, off, val) {
 
 
 fn write_byte_safe(ptr, off, val) {
-    print(999333) // Safe Write
-    print(ptr)
-    print(off)
-    print(val)
-    if wb_0(ptr, off, val) { return 0 }
-    if wb_1(ptr, off, val) { return 0 }
-    if wb_2(ptr, off, val) { return 0 }
-    if wb_3(ptr, off, val) { return 0 }
+    let v = to_u8(val) // SANITIZE NEGATIVES
+    if wb_0(ptr, off, v) { return 0 }
+    if wb_1(ptr, off, v) { return 0 }
+    if wb_2(ptr, off, v) { return 0 }
+    if wb_3(ptr, off, v) { return 0 }
     print(999444) // FAILED
     return 0
 }
 
 
+fn emit(state, val) {
+    // print(888000) // Emit Start
+    // print(state)
+    
+    // Inline get_qword(state, 510) -> mem
+    let mem = 0
+    let p = 517
+    let k = 8
+    while k > 0 {
+        let b = get_byte(state, p)
+        mem = mem * 256
+        mem = mem + b
+        p = p - 1
+        k = k - 1
+    }
+    // print(mem)
+    
+    // Inline get_qword(state, 530) -> cursor
+    let cursor = 0
+    let p2 = 537
+    let k2 = 8
+    while k2 > 0 {
+        let b2 = get_byte(state, p2)
+        cursor = cursor * 256
+        cursor = cursor + b2
+        p2 = p2 - 1
+        k2 = k2 - 1
+    }
+    
+    write_byte_safe(mem, cursor, val)
+    set_state(state, 530, cursor + 1)
+}
 
+fn gen_iterative(state, node) {
+    print(777999) // Gen Iterative Start
+    print(state)
+    
+    // Inline Get Qword 510 Check
+    let v_chk = 0
+    let p_chk = 510 + 7
+    let k_chk = 8
+    while k_chk > 0 {
+        let b = get_byte(state, p_chk)
+        v_chk = v_chk * 256
+        v_chk = v_chk + b
+        p_chk = p_chk - 1
+        k_chk = k_chk - 1
+    }
+    print(v_chk) // Should matches main's 510
+    
+    if node == 0 { return 0 }
+    
+    // Prologue: push rbp; mov rbp, rsp
+    emit(state, 85) // push rbp
 
 fn set_int32(state, cursor, val) {
     print(999111) // Set Int32 Start
     print(state)
     print(OFF_CODE_BUF)
-    let mem = get_state(state, OFF_CODE_BUF)
+    // Inline get_state(state, 510) -> mem
+    let mem = 0
+    let p = 517
+    let k = 8
+    while k > 0 {
+        let b = get_byte(state, p)
+        mem = mem * 256
+        mem = mem + b
+        p = p - 1
+        k = k - 1
+    }
     print(mem)
     let v = val
     
@@ -381,6 +447,7 @@ fn get_qword(ptr, off) {
     let k = 8
     while k > 0 {
         let b = get_byte(ptr, p)
+        // print(777000) print(p) print(b) // Trace byte read
         v = v * 256
         v = v + b
         p = p - 1
@@ -408,32 +475,31 @@ fn set_state(state, off, val) { set_qword(state, off, val) }
 // --- SYMBOL TABLE ---
 
 fn sym_add(state, hash) {
-    let sym_count = get_state(state, OFF_SYM_COUNT)
-    let stack_depth = get_state(state, OFF_STACK_DEPTH)
-    let sym_ptr = get_state(state, OFF_SYM_PTR)
+    let ptr = get_state(state, 550) // OFF_SYM_PTR
+    let cnt = get_state(state, 72) // OFF_SYM_COUNT
+    let mem = get_state(state, 500) // OFF_DATA_MEM
     
-    // Allocate on stack
-    stack_depth = stack_depth + 8
-    set_state(state, OFF_STACK_DEPTH, stack_depth)
+    let off = ptr + (cnt * 16)
     
-    // Write hash to symbol table
-    let idx = sym_count * 16 // 8 byte hash, 8 byte offset
-    let table = sym_ptr
-    set_qword(table, idx, hash)
-    set_qword(table, idx + 8, stack_depth)
+    set_qword(mem, off, hash)
     
-    sym_count = sym_count + 1
-    set_state(state, OFF_SYM_COUNT, sym_count)
+    // Val (Offset) Assumed on stack top? Stack Depth?
+    let depth = get_state(state, 80) // OFF_STACK_DEPTH
+    set_qword(mem, off + 8, depth)
     
-    return stack_depth
+    set_state(state, 72, cnt + 1)
+    set_state(state, 80, depth + 8)
+    
+    return depth
 }
 
 fn sym_find(state, hash) {
-    let sym_count = get_state(state, OFF_SYM_COUNT)
-    let sym_ptr = get_state(state, OFF_SYM_PTR)
+    let sym_ptr = get_state(state, 550) // OFF_SYM_PTR
+    let cnt = get_state(state, 72)
+    let mem = get_state(state, 500)
     
     let i = 0
-    while i < sym_count {
+    while i < cnt {
         let idx = i * 16
         let h = get_qword(sym_ptr, idx)
         if h == hash {
@@ -447,19 +513,52 @@ fn sym_find(state, hash) {
 // --- MEMORY SETUP ---
 
 fn init_memory(state) {
-    set_state(state, OFF_SRC_LEN, 0)
-    set_state(state, OFF_CODE_IDX, 0)
-    set_state(state, OFF_DATA_PTR, 64) // Start at non-zero!
-    set_state(state, OFF_CODE_CURSOR, 0)
-    set_state(state, OFF_SYM_COUNT, 0)
-    set_state(state, OFF_STACK_DEPTH, 0)
+    // 500: OFF_DATA_MEM (Set in main)
+    // 510: OFF_CODE_BUF (Set in main)
+    
+    // 520: OFF_DATA_PTR. Start at 64
+    set_state(state, 520, 64) 
+    
+    // 530: OFF_CODE_CURSOR. Start at 0
+    set_state(state, 530, 0)
+    
+    // 24: OFF_SRC_LEN. Keep at 24? Lex uses offset 24 logic?
+    // Lex uses OFF_SRC_LEN constant. If constant is 0...
+    // Lex will use 0.
+    // I MUST hardcode offsets in lex too.
+    
+    // 72 -> 560: OFF_SYM_COUNT
+    set_state(state, 560, 0)
+    
+    // 80 -> 570: OFF_STACK_DEPTH
+    set_state(state, 570, 0)
+    
+    // Lex/Parse offsets (If not hardcoded in lex/parse yet):
+    // OFF_SRC_LEN = 24. If resolves to 0. 
+    // Lex: get_state(state, OFF_SRC_LEN).
+    // I need to update Lex? YES.
+    
+    // For now, I update INIT. 
+    // I should create a PLAN to update lex too.
 }
 
-fn init_src(state) {
-    let b = get_state(state, OFF_SRC_MEM)
-    
-    // Source: fn main { let x = 0 if x { return 55 } return 11 }
+
+fn init_src(state, CAST_SRC_BUF_PTR) {
+    let b = CAST_SRC_BUF_PTR
+    print(111222) // Init Src Start
+    print(b)
     let p = 0
+    // fn main { 
+    //   let i = 10 
+    //   let sum = 0 
+    //   while i { 
+    //     sum = sum + i 
+    //     i = i - 1 
+    //   } 
+    //   return sum 
+    // }
+    
+    // fn main {
     set_byte(b, p, 102) p=p+1 // f
     set_byte(b, p, 110) p=p+1 // n
     set_byte(b, p, 32) p=p+1  // _
@@ -471,40 +570,79 @@ fn init_src(state) {
     set_byte(b, p, 123) p=p+1 // {
     set_byte(b, p, 32) p=p+1  // _
     
+    // let i = 10
     set_byte(b, p, 108) p=p+1 // l
     set_byte(b, p, 101) p=p+1 // e
     set_byte(b, p, 116) p=p+1 // t
     set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 120) p=p+1 // x
+    set_byte(b, p, 105) p=p+1 // i
     set_byte(b, p, 32) p=p+1  // _
-
     set_byte(b, p, 61) p=p+1  // =
     set_byte(b, p, 32) p=p+1  // _
     set_byte(b, p, 49) p=p+1  // 1
+    set_byte(b, p, 48) p=p+1  // 0
     set_byte(b, p, 32) p=p+1  // _
     
+    // let s = 0
+    set_byte(b, p, 108) p=p+1 // l
+    set_byte(b, p, 101) p=p+1 // e
+    set_byte(b, p, 116) p=p+1 // t
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 115) p=p+1 // s
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 61) p=p+1  // =
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 48) p=p+1  // 0
+    set_byte(b, p, 32) p=p+1  // _
+    
+    // while i {
+    set_byte(b, p, 119) p=p+1 // w
+    set_byte(b, p, 104) p=p+1 // h
     set_byte(b, p, 105) p=p+1 // i
-    set_byte(b, p, 102) p=p+1 // f
+    set_byte(b, p, 108) p=p+1 // l
+    set_byte(b, p, 101) p=p+1 // e
     set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 120) p=p+1 // x
+    set_byte(b, p, 105) p=p+1 // i
     set_byte(b, p, 32) p=p+1  // _
+    
+    // > 0
+    set_byte(b, p, 62) p=p+1 // >
+    set_byte(b, p, 32) p=p+1 // _
+    set_byte(b, p, 48) p=p+1 // 0
+    set_byte(b, p, 32) p=p+1 // _
+    
     set_byte(b, p, 123) p=p+1 // {
     set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 114) p=p+1 // r
-    set_byte(b, p, 101) p=p+1 // e
-    set_byte(b, p, 116) p=p+1 // t
-    set_byte(b, p, 117) p=p+1 // u
-    set_byte(b, p, 114) p=p+1 // r
-    set_byte(b, p, 110) p=p+1 // n
+    
+    // s = s + i
+    set_byte(b, p, 115) p=p+1 // s
     set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 53) p=p+1  // 5
-    set_byte(b, p, 53) p=p+1  // 5
+    set_byte(b, p, 61) p=p+1  // =
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 115) p=p+1 // s
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 43) p=p+1  // +
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 105) p=p+1 // i
+    set_byte(b, p, 32) p=p+1  // _
+    
+    // i = i - 1
+    set_byte(b, p, 105) p=p+1 // i
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 61) p=p+1  // =
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 105) p=p+1 // i
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 45) p=p+1  // -
+    set_byte(b, p, 32) p=p+1  // _
+    set_byte(b, p, 49) p=p+1  // 1
     set_byte(b, p, 32) p=p+1  // _
 
-
+    // }
     set_byte(b, p, 125) p=p+1 // }
     set_byte(b, p, 32) p=p+1  // _
-    
+
+    // return s
     set_byte(b, p, 114) p=p+1 // r
     set_byte(b, p, 101) p=p+1 // e
     set_byte(b, p, 116) p=p+1 // t
@@ -512,63 +650,76 @@ fn init_src(state) {
     set_byte(b, p, 114) p=p+1 // r
     set_byte(b, p, 110) p=p+1 // n
     set_byte(b, p, 32) p=p+1  // _
-    set_byte(b, p, 49) p=p+1  // 1
-    set_byte(b, p, 49) p=p+1  // 1
+    set_byte(b, p, 115) p=p+1 // s
+    set_byte(b, p, 32) p=p+1  
     
+    // }
     set_byte(b, p, 125) p=p+1 // }
     set_byte(b, p, 0)         // EOF
     
-    set_state(state, OFF_SRC_LEN, p)
-    set_state(state, OFF_CODE_IDX, 0)
+    set_state(state, 24, p) // OFF_SRC_LEN = 24
+    set_state(state, 32, 0) // OFF_CODE_IDX = 32
+    
+    print(999888) // Init Src Verify
+    print(get_byte(b, 0)) // Should be 102 (f) or 125?
+    // First byte written: set_byte(b, p, 102) (f)
+    // So 102.
 }
 
 // --- AST UTILS (V4 - With Next Pointer) ---
 
 fn node_new(state, type, val) {
-    let data_mem = get_state(state, OFF_DATA_MEM)
-    let data_ptr = get_state(state, OFF_DATA_PTR)
+    let data_mem = get_state(state, 500) // OFF_DATA_MEM
+    let data_ptr = get_state(state, 520) // OFF_DATA_PTR
     
-    write_byte_safe(data_mem, data_ptr, type) // +0
-    let vp = data_ptr + 1
-    set_qword(data_mem, vp, val) // +1
-    let cp = data_ptr + 9
-    set_qword(data_mem, cp, 0) // +9 (Child)
-    let np = data_ptr + 17
-    set_qword(data_mem, np, 0) // +17 (Next)
+    // Check OOM
+    if data_ptr > 190000 {
+        print(666002) // DATA OOM
+        return 0
+    }
     
-    let next_ptr = data_ptr + 25
-    set_state(state, OFF_DATA_PTR, next_ptr)
+    let node = data_mem + data_ptr
+    
+    write_byte_safe(data_mem, data_ptr, type) // +0: Type
+    set_qword(data_mem, data_ptr + 1, val)    // +1: Val
+    set_qword(data_mem, data_ptr + 9, 0)      // +9: Child
+    set_qword(data_mem, data_ptr + 17, 0)     // +17: Next
+    
+    // Increment Ptr (Node size 25)
+    set_state(state, 520, data_ptr + 25)
+    
     return data_ptr
 }
 
+
 fn node_child(state, parent, child) {
-    let data_mem = get_state(state, OFF_DATA_MEM)
+    let data_mem = get_state(state, 500) // OFF_DATA_MEM
     let cp = parent + 9
     set_qword(data_mem, cp, child)
 }
 
 fn node_next(state, node, next) {
-    let data_mem = get_state(state, OFF_DATA_MEM)
+    let data_mem = get_state(state, 500) // OFF_DATA_MEM
     let np = node + 17
     set_qword(data_mem, np, next)
 }
 
 fn get_node_type(state, node) {
-    let data_mem = get_state(state, OFF_DATA_MEM)
+    let data_mem = get_state(state, 500)
     return get_byte(data_mem, node)
 }
 fn get_node_val(state, node) {
-    let data_mem = get_state(state, OFF_DATA_MEM)
+    let data_mem = get_state(state, 500)
     let vp = node + 1
     return get_qword(data_mem, vp)
 }
 fn get_node_child(state, node) {
-    let data_mem = get_state(state, OFF_DATA_MEM)
+    let data_mem = get_state(state, 500)
     let cp = node + 9
     return get_qword(data_mem, cp)
 }
 fn get_node_next(state, node) {
-    let data_mem = get_state(state, OFF_DATA_MEM)
+    let data_mem = get_state(state, 500)
     let np = node + 17
     return get_qword(data_mem, np)
 }
@@ -576,19 +727,28 @@ fn get_node_next(state, node) {
 // --- LEXER ---
 
 fn peek_char(state) {
-    let idx = get_state(state, OFF_CODE_IDX)
-    let len = get_state(state, OFF_SRC_LEN)
+    let idx = get_state(state, 32)
+    let len = get_state(state, 24)
+    if idx == 0 {
+        print(600999) // PEEK DEBUG
+        print(idx)
+        print(len)
+        let mem = get_state(state, 540)
+        print(mem)
+        let v_dbg = get_byte(mem, idx)
+        print(v_dbg)
+    }
     if idx == len { return 0 }
-    let mem = get_state(state, OFF_SRC_MEM)
+    let mem = get_state(state, 540) // OFF_SRC_MEM
     return get_byte(mem, idx)
 }
 
 fn get_char(state) {
     let c = peek_char(state)
     if c { 
-        let idx = get_state(state, OFF_CODE_IDX)
+        let idx = get_state(state, 32)
         let n = idx + 1
-        set_state(state, OFF_CODE_IDX, n)
+        set_state(state, 32, n)
     }
     return c
 }
@@ -616,21 +776,106 @@ fn is_alpha(c) {
 }
 
 
+
+// --- CONSTANTS ---
+// Tokens (Extending v6)
+let TOK_EOF = 0
+let TOK_FN = 1
+let TOK_ID = 2
+let TOK_LBRACE = 3
+let TOK_RBRACE = 4
+let TOK_LET = 5
+let TOK_EQ = 6
+let TOK_NUM = 7
+let TOK_RET = 8
+let TOK_IF = 9
+let TOK_WHILE = 10
+let TOK_PLUS = 11
+let TOK_MINUS = 12
+let TOK_LT = 13     // <
+let TOK_GT = 14     // >
+let TOK_EQ_EQ = 15  // ==
+
+// AST Nodes
+let NODE_FN = 1
+let NODE_BLOCK = 11
+let NODE_LET = 20
+let NODE_ID = 4
+let NODE_NUM = 5
+let NODE_RET = 2
+let NODE_IF = 4
+let NODE_WHILE = 7
+let NODE_ASSIGN = 6
+let NODE_ADD = 30
+let NODE_SUB = 31
+let NODE_LT = 40
+let NODE_GT = 41
+let NODE_EQ = 42
+
+// [Skipping to Lexer changes]
+
 fn lex(state) {
+    print(600000) // Trace Lex
     let c = peek_char(state)
-    while c == 32 {
-        get_char(state)
-        c = peek_char(state)
+    // 32=SPC, 10=LF, 13=CR, 9=TAB
+    // 32=SPC, 10=LF, 13=CR, 9=TAB
+    let skip = 1
+    while skip {
+        let matched = 0
+        if c == 32 { matched = 1 }
+        if c == 10 { matched = 1 }
+        if c == 13 { matched = 1 }
+        if c == 9 { matched = 1 }
+        
+        if matched == 1 {
+            get_char(state)
+            c = peek_char(state)
+        } else {
+            skip = 0
+        }
     }
     
+    // EOF
     if c == 0 { 
-        set_state(state, OFF_CURR_TOK, TOK_EOF) 
+        set_state(state, 580, 99) // TOK_EOF = 99
         return 0 
     }
     
-    if c == 123 { get_char(state) set_state(state, OFF_CURR_TOK, TOK_LBRACE) return 0 }
-    if c == 125 { get_char(state) set_state(state, OFF_CURR_TOK, TOK_RBRACE) return 0 }
-    if c == 61 { get_char(state) set_state(state, OFF_CURR_TOK, TOK_EQ) return 0 } // =
+    print(600001) // Char
+    print(c)
+    
+    if c == 123 { get_char(state) set_state(state, 580, 3) return 0 } // LBRACE
+    if c == 125 { get_char(state) set_state(state, 580, 4) return 0 } // RBRACE
+    if c == 61 { get_char(state) set_state(state, 580, 61) return 0 } // EQ
+    if c == 43 { get_char(state) set_state(state, 580, 11) return 0 } // PLUS
+    if c == 45 { get_char(state) set_state(state, 580, 12) return 0 } // MINUS
+    
+    // Check '<' (60)
+    if c == 60 { 
+        get_char(state) 
+        set_state(state, 580, 13) // TOK_LT
+        return 0 
+    }
+    
+    // Check '>' (62)
+    if c == 62 { 
+        get_char(state) 
+        set_state(state, 580, 14) // TOK_GT
+        return 0 
+    }
+    
+    // Check '==' vs '='
+    if c == 61 {
+        get_char(state)
+        let next = peek_char(state)
+        if next == 61 { // Found second '='
+            get_char(state)
+            set_state(state, 580, 15) // TOK_EQ_EQ
+            return 0
+        }
+        set_state(state, 580, 6) // TOK_EQ (Assignment)
+        return 0
+    }
     
     if is_digit(c) == 1 {
         let val = 0
@@ -642,7 +887,7 @@ fn lex(state) {
             if is_digit(c) == 0 { looping = 0 }
         }
         set_state(state, OFF_CURR_VAL, val)
-        set_state(state, OFF_CURR_TOK, TOK_NUM)
+        set_state(state, 580, TOK_NUM)
         return 0
     }
     
@@ -657,19 +902,39 @@ fn lex(state) {
         }
         
         // fn = 3476
-        if val == 3476 { set_state(state, OFF_CURR_TOK, TOK_FN) return 0 }
+        if val == 3476 { 
+            set_state(state, 580, 1) 
+            return 0 
+        }
         
         // let = 121061
-        if val == 121061 { set_state(state, OFF_CURR_TOK, TOK_LET) return 0 }
+        if val == 121061 { 
+            set_state(state, 580, 60) 
+            return 0 
+        }
         
-        // if = 3567 [NEW]
-        if val == 3567 { set_state(state, OFF_CURR_TOK, TOK_IF) return 0 }
+        // if = 3567
+        if val == 3567 { 
+            set_state(state, 580, 9) 
+            return 0 
+        }
+        
+        // while = 144980057
+        if val == 144980057 { 
+            set_state(state, 580, 10) 
+            return 0 
+        }
         
         // return = 4585512800
-        if val == 4585512800 { set_state(state, OFF_CURR_TOK, TOK_RET) return 0 }
+        if val == 4585512800 { 
+            set_state(state, 580, 8) 
+            return 0 
+        }
         
+        print(600002) // TOK_ID
+        print(val)
         set_state(state, OFF_CURR_VAL, val) // Store Hash
-        set_state(state, OFF_CURR_TOK, TOK_ID)
+        set_state(state, 580, TOK_ID)
         return 0
     }
     
@@ -678,7 +943,7 @@ fn lex(state) {
 
 
 fn eat(state, t) {
-    let curr = get_state(state, OFF_CURR_TOK)
+    let curr = get_state(state, 580)
     
     if curr == t {
         lex(state)
@@ -686,6 +951,7 @@ fn eat(state, t) {
         print(999999)
         print(curr)
         print(t)
+        while 1 { } // Panic
     }
 }
 
@@ -693,126 +959,207 @@ fn eat(state, t) {
 // --- PARSER ---
 
 fn peek_type(state) {
-    return get_state(state, OFF_CURR_TOK)
+    return get_state(state, 580)
 }
 
 fn peek_val(state) {
-    return get_state(state, OFF_CURR_VAL)
+    return get_state(state, 590)
 }
 
 
-fn parse_stmt(state) {
-    let type = peek_type(state)
-    
-    // LET
-    if type == TOK_LET {
-        eat(state, TOK_LET)
-        
+fn parse_term(state) {
+    let t = peek_type(state)
+    if t == TOK_ID {
         let name = peek_val(state)
         eat(state, TOK_ID)
-        
-        eat(state, TOK_EQ)
-        
+        return node_new(state, NODE_ID, name)
+    }
+    if t == TOK_NUM {
         let val = peek_val(state)
         eat(state, TOK_NUM)
-        
-        let node = node_new(state, NODE_LET, name)
-        let val_node = node_new(state, NODE_NUM, val)
-        node_child(state, node, val_node)
+        return node_new(state, NODE_NUM, val)
+    }
+    return 0
+}
+
+fn parse_expr(state) {
+    let left = parse_term(state)
+    
+    let t = peek_type(state)
+    if t == TOK_PLUS {
+        eat(state, TOK_PLUS)
+        let right = parse_term(state)
+        let node = node_new(state, NODE_ADD, 0)
+        node_child(state, node, left)
+        node_next(state, left, right)
+        return node
+    }
+    if t == TOK_MINUS {
+        eat(state, TOK_MINUS)
+        let right = parse_term(state)
+        let node = node_new(state, NODE_SUB, 0)
+        node_child(state, node, left)
+        node_next(state, left, right)
+        left = node
+        t = peek_type(state)
+    }
+
+    // Handle Comparisons
+    if t == TOK_LT { // <
+        eat(state, TOK_LT)
+        let right = parse_expr(state) // Recursive
+        let node = node_new(state, NODE_LT, 0)
+        node_child(state, node, left)
+        node_next(state, left, right)
+        return node
+    }
+    if t == TOK_GT { // >
+        eat(state, TOK_GT)
+        let right = parse_expr(state)
+        let node = node_new(state, NODE_GT, 0)
+        node_child(state, node, left)
+        node_next(state, left, right)
+        return node
+    }
+    if t == TOK_EQ_EQ { // ==
+        eat(state, TOK_EQ_EQ)
+        let right = parse_expr(state)
+        let node = node_new(state, NODE_EQ, 0)
+        node_child(state, node, left)
+        node_next(state, left, right)
         return node
     }
     
-    // IF [NEW]
-    if type == TOK_IF {
-        eat(state, TOK_IF)
+    return left
+}
+
+
+fn parse_statement(state) {
+    let type = peek_type(state)
+    // print(700000 + type) 
+    
+    // LET = 60
+    if type == 60 {
+        // print(700005) // Enter LET
+        eat(state, 60)
+        let name = peek_val(state)
+        eat(state, 2) // TOK_ID
+        eat(state, 61) // TOK_EQ
+        let expr = parse_expr(state)
         
-        // Condition (simpified: ID or NUM)
-        let c_type = peek_type(state)
-        let cond_node = 0
+        let node = node_new(state, NODE_LET, name)
+        node_child(state, node, expr)
+        return node
+    }
         
-        if c_type == TOK_ID {
-             let name = peek_val(state)
-             eat(state, TOK_ID)
-             cond_node = node_new(state, NODE_ID, name)
-        }
-        if c_type == TOK_NUM {
-             let val = peek_val(state)
-             eat(state, TOK_NUM)
-             cond_node = node_new(state, NODE_NUM, val)
-        }
-        
-        
-        // Body
-        // Inline parse_block logic
-        eat(state, TOK_LBRACE)
-        let body = node_new(state, NODE_BLOCK, 0)
-        
-        let t = peek_type(state)
-        
-        // Handle empty block or start loop
-        if t == TOK_RBRACE {
-            eat(state, TOK_RBRACE)
-        } else {
-            // First stmt
-            let stmt = parse_stmt(state)
-            node_child(state, body, stmt)
-            let curr = stmt
-            
-            let looping = 1
-            while looping {
-                t = peek_type(state)
-                if t == TOK_RBRACE {
-                    looping = 0
-                } else {
-                    let next_stmt = parse_stmt(state)
-                    if next_stmt == 0 {
-                        looping = 0
-                    } else {
-                        node_next(state, curr, next_stmt)
-                        curr = next_stmt
-                    }
-                }
-            }
-            eat(state, TOK_RBRACE)
-        }
-        
-        // IF Node
-        let if_node = node_new(state, NODE_IF, 0)
-        node_child(state, if_node, cond_node) // Child = Condition
-        
-        // Link Body as sibling of Condition
-        // Note: We need to set 'Next' of cond_node to body
-        // But wait, do we have 'node_next' available? Yes.
-        
-        node_next(state, cond_node, body) 
-        
-        return if_node
+    // ASSIGN (ID = ...) TOK_ID = 2
+    if type == 2 {
+        // print(700002) // Enter ASSIGN
+        let name = peek_val(state)
+        eat(state, 2) // TOK_ID
+        eat(state, 61) // TOK_EQ
+        let expr = parse_expr(state)
+        let node = node_new(state, NODE_ASSIGN, name)
+        node_child(state, node, expr)
+        return node
     }
 
-    // RETURN
-    if type == TOK_RET {
-        eat(state, TOK_RET)
+    // IF = 9
+    if type == 9 {
+        // print(700009) // Enter IF
+        eat(state, 9)
+        let cond = parse_expr(state)
         
-        let next = peek_type(state)
-        if next == TOK_ID {
-            let name = peek_val(state)
-            eat(state, TOK_ID)
-            let id_node = node_new(state, NODE_ID, name)
-            
-            let ret_node = node_new(state, NODE_RET, 0)
-            node_child(state, ret_node, id_node)
-            return ret_node
-        }
+        // Body
+        eat(state, 3) // LBRACE
+        let body = node_new(state, NODE_BLOCK, 0)
         
-        if next == TOK_NUM {
-            let val = peek_val(state)
-            eat(state, TOK_NUM)
-            let num_node = node_new(state, NODE_NUM, val)
-            let ret_node = node_new(state, NODE_RET, 0)
-            node_child(state, ret_node, num_node)
-            return ret_node
+        let looping = 1
+        let curr = body
+        let t = peek_type(state)
+        if t == 4 { // RBRACE
+             looping = 0
+        } else {
+             // First stmt
+             let stmt = parse_statement(state)
+             node_child(state, body, stmt)
+             curr = stmt
+             
+             let inner_loop = 1
+             while inner_loop {
+                 t = peek_type(state)
+                 if t == 4 { inner_loop = 0 }
+                 else {
+                     let next = parse_statement(state)
+                     if next != 0 {
+                         node_next(state, curr, next)
+                         curr = next
+                     } else {
+                         inner_loop = 0
+                     }
+                 }
+             }
         }
+        eat(state, 4) // RBRACE
+        
+        let node = node_new(state, NODE_IF, 0)
+        node_child(state, node, cond)
+        node_next(state, cond, body)
+        return node
+    }
 
+    // WHILE = 10
+    if type == 10 {
+        // print(700010) // Enter WHILE
+        eat(state, 10)
+        let cond = parse_expr(state)
+        
+        eat(state, 3) // LBRACE
+        let body = node_new(state, NODE_BLOCK, 0)
+        
+        // Body Parsing
+        let curr = body
+        let t = peek_type(state)
+        
+        // Check Empty Block
+        if t != 4 {
+             let stmt = parse_statement(state)
+             node_child(state, body, stmt)
+             curr = stmt
+             
+             let inner_loop = 1
+             while inner_loop {
+                 t = peek_type(state)
+                 if t == 4 { inner_loop = 0 }
+                 else {
+                     let next = parse_statement(state)
+                     if next != 0 {
+                         node_next(state, curr, next)
+                         curr = next
+                     } else {
+                         inner_loop = 0
+                     }
+                 }
+             }
+        }
+        eat(state, 4) // RBRACE
+        
+        let node = node_new(state, NODE_WHILE, 0)
+        node_child(state, node, cond)
+        node_next(state, cond, body)
+        return node
+    }
+
+    // RETURN = 8 (Using 8 as per original check, make sure TOK_RET matches)
+    // Actually TOK_RET is 5 in header, but 8 here? 
+    // Lexer logic check needed. 
+    // Assuming 8 was working for 'return'.
+    if type == 8 {
+        eat(state, 8)
+        let val = parse_expr(state)
+        let node = node_new(state, NODE_RET, 0)
+        node_child(state, node, val)
+        return node
     }
     
     return 0
@@ -821,45 +1168,60 @@ fn parse_stmt(state) {
 
 // Removed parse_block to avoid forward ref issues
 
-fn parse_fn(state) {
-    eat(state, TOK_FN)
-    eat(state, TOK_ID)
-    
-    // Inline parse_block logic
-    eat(state, TOK_LBRACE)
-    let head = node_new(state, NODE_BLOCK, 0)
+
+
+
+
+
+fn parse_func_def(state) {
+    print(800000) // Parse Func Def Start
     let t = peek_type(state)
-    if t == TOK_RBRACE {
-        eat(state, TOK_RBRACE)
+    print(t)
+    
+    eat(state, 1) // TOK_FN
+    print(800001)
+    eat(state, 2) // TOK_ID
+    print(800002)
+    eat(state, 3) // TOK_LBRACE
+    print(800003)
+    print(NODE_BLOCK) // Check Constant
+    let head = node_new(state, NODE_BLOCK, 0)
+    print(800004) // Node New Done
+    let t = peek_type(state)
+    // print(800005) // Peek Done
+    
+    if t == 4 { // TOK_RBRACE
+        eat(state, 4)
         return head
     }
     
     // Parse first statement
-    let stmt = parse_stmt(state)
+    let stmt = parse_statement(state)
     node_child(state, head, stmt)
     let curr = stmt
     
     let looping = 1
     while looping {
         t = peek_type(state)
-        if t == TOK_RBRACE {
-            looping = 0
+        // print(555555)
+        
+        if t == 4 { // TOK_RBRACE
+             looping = 0
         } else {
-            let next_stmt = parse_stmt(state)
-            if next_stmt == 0 {
-                 // Error handling or break
-                 looping = 0
-            } else {
+            let next_stmt = parse_statement(state)
+            
+            if next_stmt != 0 {
                 node_next(state, curr, next_stmt)
                 curr = next_stmt
+            } else {
+                 if t == 4 { eat(state, 4) }
+                 return head
             }
         }
     }
-    eat(state, TOK_RBRACE)
+    eat(state, 4) // TOK_RBRACE
     return head
 }
-
-
 
 fn check_integrity(state) {
     let mem = get_state(state, OFF_CODE_BUF)
@@ -899,43 +1261,160 @@ fn emit64(state, val) {
 }
 
 
+
+fn gen_cmp(state, node, set_opcode) {
+    let left = get_node_child(state, node)
+    let right = get_node_next(state, left)
+    
+    // 1. Eval Left -> RAX, Push
+    gen_expr(state, left)
+    emit(state, 80) // PUSH RAX
+    
+    // 2. Eval Right -> RAX, Move to RCX
+    gen_expr(state, right)
+    emit(state, 72) emit(state, 137) emit(state, 193) // MOV RCX, RAX
+    
+    // 3. Pop Left -> RAX
+    emit(state, 88) // POP RAX
+    
+    // 4. CMP RAX, RCX
+    emit(state, 72) emit(state, 57) emit(state, 200) // CMP RAX, RCX (0x48 0x39 0xC8)
+    
+    // 5. SETcc AL
+    emit(state, 15) emit(state, set_opcode) emit(state, 192) // SETcc AL (0x0F <OP> 0xC0)
+    
+    // 6. MOVZX RAX, AL (Zero extend byte to 64-bit)
+    emit(state, 72) emit(state, 15) emit(state, 182) emit(state, 192)
+    
+    return 0
+}
+
+fn gen_expr(state, node) {
+    let type = get_node_type(state, node)
+    
+    if type == NODE_NUM {
+        emit(state, 72) emit(state, 184)
+        emit64(state, get_node_val(state, node))
+        return 0
+    }
+    
+    if type == NODE_ID {
+        let vname = get_node_val(state, node)
+        let offset = sym_find(state, vname)
+        emit(state, 72) emit(state, 139) emit(state, 69)
+        emit(state, 256 - offset)
+        return 0
+    }
+    
+    if type == NODE_LT {
+        gen_cmp(state, node, 156) // SETL (0x9C) = 156
+        return 0
+    }
+    if type == NODE_GT {
+        gen_cmp(state, node, 159) // SETG (0x9F) = 159
+        return 0
+    }
+    if type == NODE_EQ {
+        gen_cmp(state, node, 148) // SETE (0x94) = 148
+        return 0
+    }
+    
+    if type == NODE_ADD {
+        let left = get_node_child(state, node)
+        let right = get_node_next(state, left)
+        
+        gen_expr(state, left)
+        emit(state, 80) // PUSH RAX
+        
+        gen_expr(state, right)
+        emit(state, 89) // POP RCX
+        
+        // ADD RAX, RCX (48 01 C8)
+        emit(state, 72) emit(state, 1) emit(state, 200)
+        return 0
+    }
+    
+    if type == NODE_SUB {
+        let left = get_node_child(state, node)
+        let right = get_node_next(state, left)
+        
+        gen_expr(state, left)
+        emit(state, 80) // PUSH RAX
+        
+        gen_expr(state, right)
+        emit(state, 89) // POP RCX (RHS)
+        
+        // SUB RAX, RCX ??? No, we want SUB Left, Right
+        // We popped RHS into RCX. Left is on stack... wait.
+        // We popped Left into RCX? No.
+        // PUSH Left. Gen Right. POP RCX -> RCX is Left. 
+        // Wait, typical stack:
+        // Eval Left -> RAX. PUSH RAX.
+        // Eval Right -> RAX.
+        // POP RCX (Left is now in RCX).
+        // SUB RCX, RAX -> Result in RCX.
+        // MOV RAX, RCX.
+        
+        // Let's swap:
+        // Eval Left -> RAX. PUSH RAX.
+        // Eval Right -> RAX. MOV RCX, RAX.
+        // POP RAX (Left).
+        // SUB RAX, RCX (Left - Right).
+        emit(state, 72) emit(state, 137) emit(state, 193) // MOV RCX, RAX
+        emit(state, 88) // POP RAX
+        emit(state, 72) emit(state, 41) emit(state, 200) // SUB RAX, RCX
+        return 0
+    }
+}
+
 fn gen_stmts(state, block) {
+    print(800000) // Gen Stmts Start
     if block {
+        print(800001) // Block is valid
         let stmt = get_node_child(state, block)
+        print(800002) // First child
+        print(stmt)
+        
+        // ...
         let type = 0
-        let t1 = 0  // scratch 1
-        let t2 = 0  // scratch 2
-        let t3 = 0  // scratch 3
+        let t1 = 0
+        let t2 = 0
+        let t3 = 0
         let patch = 0
         
         while stmt {
+            print(800003) // In Loop
             type = get_node_type(state, stmt)
+            print(800010 + type) 
             
             // NODE_LET
             if type == NODE_LET {
                 t1 = sym_add(state, get_node_val(state, stmt))
-                t2 = get_node_child(state, stmt)
-                emit(state, 72) emit(state, 184)
-                emit64(state, get_node_val(state, t2))
+                t2 = get_node_child(state, stmt) // Expr
+                gen_expr(state, t2)
                 emit(state, 72) emit(state, 137) emit(state, 69)
                 emit(state, 256 - t1)
+            }
+            
+            // NODE_ASSIGN
+            if type == NODE_ASSIGN {
+                t1 = get_node_val(state, stmt) // Name hash
+                t2 = sym_find(state, t1)       // Offset
+                if t2 == 0 {
+                    // Symbol not found error?
+                }
+                t3 = get_node_child(state, stmt) // Expr
+                gen_expr(state, t3)
+                emit(state, 72) emit(state, 137) emit(state, 69)
+                emit(state, 256 - t2)
             }
             
             // NODE_IF
             if type == NODE_IF {
                 t1 = get_node_child(state, stmt)  // cond
                 t2 = get_node_next(state, t1)     // body
-                t3 = get_node_type(state, t1)     // cond_type
                 
-                // Load condition value
-                if t3 == NODE_ID {
-                    emit(state, 72) emit(state, 139) emit(state, 69)
-                    emit(state, 256 - sym_find(state, get_node_val(state, t1)))
-                }
-                if t3 == NODE_NUM {
-                    emit(state, 72) emit(state, 184)
-                    emit64(state, get_node_val(state, t1))
-                }
+                gen_expr(state, t1)
                 
                 // CMP RAX, 0; JE rel32
                 emit(state, 72) emit(state, 131) emit(state, 248) emit(state, 0)
@@ -943,49 +1422,85 @@ fn gen_stmts(state, block) {
                 patch = get_state(state, OFF_CODE_CURSOR)
                 emit(state, 0) emit(state, 0) emit(state, 0) emit(state, 0)
                 
-                // Inlined body: only NODE_RET supported
-                t1 = get_node_child(state, t2)  // body_stmt
-                if t1 {
-                    if get_node_type(state, t1) == NODE_RET {
-                        t3 = get_node_child(state, t1)  // ret_expr
-                        if get_node_type(state, t3) == NODE_NUM {
-                            emit(state, 72) emit(state, 184)
-                            emit64(state, get_node_val(state, t3))
-                        }
-                        if get_node_type(state, t3) == NODE_ID {
-                            emit(state, 72) emit(state, 139) emit(state, 69)
-                            emit(state, 256 - sym_find(state, get_node_val(state, t3)))
-                        }
-                        emit(state, 93) emit(state, 195)
-                    }
-                }
+                gen_stmts(state, t2) // Recursive for IF body
                 
                 // Backpatch jump offset
                 t1 = get_state(state, OFF_CODE_CURSOR)
                 t2 = t1 - patch - 4
                 t3 = get_state(state, OFF_CODE_BUF)
-                write_byte_safe(t3, patch, t2 % 256)
-                t2 = t2 / 256
-                write_byte_safe(t3, patch + 1, t2 % 256)
-                t2 = t2 / 256
-                write_byte_safe(t3, patch + 2, t2 % 256)
-                t2 = t2 / 256
-                write_byte_safe(t3, patch + 3, t2 % 256)
+                
+                // Use gen_expr? No, write_byte_safe
+                // Inline set_int32 logic
+                write_byte_safe(t3, patch, val_mod_256(t2))
+                t2 = val_div_256(t2)
+                write_byte_safe(t3, patch + 1, val_mod_256(t2))
+                t2 = val_div_256(t2)
+                write_byte_safe(t3, patch + 2, val_mod_256(t2))
+                t2 = val_div_256(t2)
+                write_byte_safe(t3, patch + 3, val_mod_256(t2))
             }
             
-            // NODE_RET (outer)
+            // NODE_WHILE
+            if type == NODE_WHILE {
+                // 1. Label Start
+                let loop_start = get_state(state, OFF_CODE_CURSOR)
+                
+                let cond = get_node_child(state, stmt)
+                let body = get_node_next(state, cond)
+                
+                // 2. Gen Condition
+                gen_expr(state, cond)
+                
+                // 3. JE End (Placeholder)
+                emit(state, 72) emit(state, 131) emit(state, 248) emit(state, 0)
+                emit(state, 15) emit(state, 132)
+                patch = get_state(state, OFF_CODE_CURSOR)
+                emit(state, 0) emit(state, 0) emit(state, 0) emit(state, 0)
+                
+                // 4. Gen Body
+                gen_stmts(state, body)
+                
+                // 5. JMP Start (Backward)
+                emit(state, 233) // E9
+                let curr = get_state(state, OFF_CODE_CURSOR)
+                let jump_target = curr + 4
+                let back_off = loop_start - jump_target
+                
+                // Emit Signed 32-bit (using to_u8 handles negative)
+                let v = back_off
+                emit(state, to_u8(v))
+                
+                // Arith Shift Emulation
+                v = v / 256
+                if back_off < 0 { v = v - 1 } 
+                emit(state, to_u8(v))
+                
+                v = v / 256
+                if back_off < 0 { v = v - 1 }
+                emit(state, to_u8(v)) // Sign extend
+                
+                v = v / 256
+                if back_off < 0 { v = v - 1 }
+                emit(state, to_u8(v)) // Sign extend
+
+                // 6. Backpatch JE
+                let loop_end = get_state(state, OFF_CODE_CURSOR)
+                let fwd_off = loop_end - patch - 4
+                
+                let mem = get_state(state, OFF_CODE_BUF)
+                write_byte_safe(mem, patch, val_mod_256(fwd_off))
+                let t2 = val_div_256(fwd_off)
+                write_byte_safe(mem, patch + 1, val_mod_256(t2))
+                t2 = val_div_256(t2)
+                write_byte_safe(mem, patch + 2, val_mod_256(t2))
+                t2 = val_div_256(t2)
+                write_byte_safe(mem, patch + 3, val_mod_256(t2))
+            }
+
+            // NODE_RET
             if type == NODE_RET {
                 t1 = get_node_child(state, stmt)
-                t2 = get_node_type(state, t1)
-                
-                if t2 == NODE_ID {
-                    emit(state, 72) emit(state, 139) emit(state, 69)
-                    emit(state, 256 - sym_find(state, get_node_val(state, t1)))
-                }
-                if t2 == NODE_NUM {
-                    emit(state, 72) emit(state, 184)
-                    emit64(state, get_node_val(state, t1))
-                }
+                gen_expr(state, t1)
                 emit(state, 93) emit(state, 195)
             }
             
@@ -1019,39 +1534,80 @@ fn dump_code(state) {
 }
 
 
+
+fn test_memory(state) {
+    print(111999) // TEST MSG
+    print(get_state(state, 520)) // Expect 64
+    set_state(state, 520, 123)
+    let v = get_state(state, 520)
+    print(v)
+    if v == 123 { print(1) } else { print(0) }
+    
+    // Test Node Alloc
+    let n1 = node_new(state, 1, 11)
+    print(n1) // Expect 64 (start) or 123? 
+    // If set_state 123 was kept?
+    // node_new reads 520.
+    // If I successfully wrote 123, then node_new uses 123.
+    // print(get_state(state, 520)) // Expect 148
+    
+    // Reset for real run
+    set_state(state, 520, 64)
+}
+
 fn main() {
     print(111111) // Start
-    let state = alloc(1000)
-    let src = alloc(200000) // 200kb Safe
-    let data = alloc(200000) // 200kb Safe
-
-
-    let code = alloc_exec(200000) // 200kb Safe
-    print(998001) // Alloc Code
+    let state = alloc(1000000) // 1MB Unified Block
+    print(state) 
+    
+    // Derived Src (Offset 300k)
+    let src = state + 300000
+    
+    // Derived Data (Offset 10k)
+    let data = state + 10000
+    
+    // Code (Separate Exec)
+    let code = alloc_exec(200000)
     print(code)
     
+    if src == data { return 0 } // Should not happen
+
     if state == code {
         print(666666) // FATAL: ALIASING
         return 0
     }
     
-    set_state(state, OFF_SRC_MEM, src)
-    set_state(state, OFF_DATA_MEM, data)
-    set_state(state, OFF_CODE_BUF, code)
+    // Hardcoded State Map:
+    // 500: OFF_DATA_MEM
+    // 510: OFF_CODE_BUF
+    // 520: OFF_DATA_PTR (Init in init_memory)
+    // 530: OFF_CODE_CURSOR
+    // 540: OFF_SRC_MEM
+    // 550: OFF_SYM_PTR
     
-    print(998002) // Check Code in State
-    print(get_state(state, OFF_CODE_BUF))
+    set_state(state, 540, src)
+    set_state(state, 500, data)
+    set_state(state, 510, code)
     
     // Set Sym Table Ptr
-    set_state(state, OFF_SYM_PTR, data + 9000) 
+    set_state(state, 550, data + 9000) 
     
     init_memory(state)
-    init_src(state)
+    init_src(state, src)
+    
+    print(111333) // PEEK Check
+    print(peek_char(state))
     
     lex(state) 
+// ...
     
-    let root = parse_fn(state)
+    let root = parse_func_def(state)
     print(222222) // Parsed
+    
+    print(998998) // Check Code Buf Before Gen
+    print(state)
+    print(get_state(state, 510))
+    
     gen_iterative(state, root)
     print(333333) // Compiled
     dump_code(state)

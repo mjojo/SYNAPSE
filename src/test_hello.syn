@@ -1,0 +1,6 @@
+fn main() {
+    print(12345)
+    return 0
+}
+
+

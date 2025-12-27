@@ -1,0 +1,15 @@
+fn main() {
+    let a = 0
+    let b = 5
+    let cmp = 0
+    if a < b {
+        cmp = 1
+    }
+    print(cmp)
+    
+    let x = 3
+    if x < 10 {
+        print(999)
+    }
+    return 0
+}

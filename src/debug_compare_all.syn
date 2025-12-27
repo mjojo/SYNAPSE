@@ -1,0 +1,19 @@
+fn main() {
+    print(111)
+    let a = 100
+    let b = 200
+    
+    // a < b (expect 1)
+    if a < b { print(1) } else { print(0) }
+    
+    // a > b (expect 0)
+    if a > b { print(1) } else { print(0) }
+    
+    // a <= b (expect 1)
+    // if a <= b { print(1) } else { print(0) } // Commented in case parse error
+    
+    // a >= b (expect 0)
+    // if a >= b { print(1) } else { print(0) }
+    
+    return 0
+}

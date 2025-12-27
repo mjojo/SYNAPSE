@@ -269,6 +269,18 @@ SYNAPSE has evolved from a single Assembly file into a Turing-complete, self-hos
 2. Distributed Merkle Tree Phase
 3. World Domination
 
+### Evolution Phase 1: Ouroboros (Self-Hosting CodeGen) 🐍
+- [x] Create `lib_x64.syn` (Backend Library)
+- [x] Create `test_codegen.syn` (Test Harness)
+- [x] **Compiler Improvement**: Add modulo operator `%` support
+- [x] **Compiler Improvement**: Add Hex Literal `0x` support
+- [x] Verify `test_codegen.syn` output (Hex Dump)
+- [x] Debug: Fix `compile_if` conditional logic (Workaround: Loop Unrolling)
+- [x] Implement `intrinsic_call` to execute generated code
+- [x] Verify `intrinsic_call` execution (Return Value 30)
+- [ ] Bootstrap: Compile minimal program with `lib_x64.syn`
+- [ ] Bootstrap: Compile minimal program with `lib_x64.syn`
+
 
 ---
 

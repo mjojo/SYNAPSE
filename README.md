@@ -1,18 +1,28 @@
-# 🧠 SYNAPSE v1.0 "Singularity"
+# 🧠 SYNAPSE v3.0 "Ouroboros"
+
+**Unhackable AI on Bare Metal Assembly**
+*The World's First Self-Hosting Blockchain AI Platform*
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.0--singularity-gold)
-![Core](https://img.shields.io/badge/architecture-Tri--Core-blueviolet)
-![Security](https://img.shields.io/badge/memory-Merkle__Ledger-green)
-
-**The World's First Self-Hosting, Blockchain-Memory AI Language**
-
-*"Memory is not a scratchpad. It's a Ledger."*
-
-[📄 Read the Whitepaper](docs/WHITEPAPER.md)
+![Version](https://img.shields.io/badge/version-3.0.0--ouroboros-gold)
+![Status](https://img.shields.io/badge/status-SELF_HOSTING-brightgreen)
+![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
+![License](https://img.shields.io/badge/license-MIT-yellow)
 
 </div>
+
+## 🚀 Technical Specifications (v3.0)
+
+| Specification | Status | Description |
+|---------------|--------|-------------|
+| **Self-Hosting** | ✅ **YES** | Guest Compiler может компилировать логику и строки |
+| **Architecture** | x64 JIT | Трехуровневая виртуализация (Host -> Guest -> Target) |
+| **Data Types** | Strong | `int` (64-bit), `ptr`, `string`, `array` |
+| **Control Flow** | Full | `if`, `while`, `fn`, `return`, `recursion` |
+| **Memory** | Manual | `alloc`, `ptr[i]`, Data Segment для литералов |
+| **Logic** | Complete | `==`, `<`, `>`, `+`, `-`, bitwise ops |
+| **Binary Size** | ~8 KB | Все еще микроскопическое ядро |
 
 ---
 

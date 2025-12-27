@@ -1,0 +1,634 @@
+// ============================================================
+// SELF-COMPILE V10: ROSETTA STONE (STRINGS)
+// Goal: Compile "let s = \"ABC\"; return s[0]"
+// ============================================================
+
+// --- CONSTANTS ---
+// CONSTANTS STRIPPED
+
+// State Offsets (Standardized)
+let OFF_SRC_MEM = 0
+let OFF_DATA_MEM = 500  // Was 8 in prompt, but v9 uses 500. Keeping 500 for compat with Host V2.9.4 logic if needed? 
+                        // Wait, previous v9 had:
+                        // 500: OFF_DATA_MEM
+                        // 510: OFF_CODE_BUF
+                        // 520: OFF_DATA_PTR
+                        // 540: OFF_SRC_MEM
+                        // 550: OFF_SYM_PTR
+                        // 580: PEEK_TOK
+                        // 590: PEEK_VAL
+                        // 32: CURR_IDX (Lexer)
+                        // Let's stick to v9 layout to avoid confusion, user prompt used different constants (0, 8, 16...)
+                        // User prompt said:
+                        // let OFF_SRC_MEM = 0
+                        // let OFF_DATA_MEM = 8
+                        // But my 'main' logic (which I need to copy/adapt) uses 500/510.
+                        // I will use v9 constants to match the 'main' function I will likely copy from v9 or prompt?
+                        // User prompt provided MAIN logic at bottom, but it was just "init_src".
+                        // It ended with "// ... (Add rest of v6_fixed/v9) ...".
+                        // So I must combine prompt's new logic with v9's existing infrastructure.
+                        // I will use v9's memory map constants.
+
+// --- UTILS ---
+fn write_byte_safe(ptr, off, val) {
+    let v = val % 256
+    if v < 0 { v = v + 256 }
+    set_byte(ptr, off, v)
+    return 1
+}
+
+// WRAPPERS REMOVED
+
+fn get_qword(ptr, off) {
+    let v = get_byte(ptr, off + 7)
+    v = (v * 256) + get_byte(ptr, off + 6)
+    v = (v * 256) + get_byte(ptr, off + 5)
+    v = (v * 256) + get_byte(ptr, off + 4)
+    v = (v * 256) + get_byte(ptr, off + 3)
+    v = (v * 256) + get_byte(ptr, off + 2)
+    v = (v * 256) + get_byte(ptr, off + 1)
+    v = (v * 256) + get_byte(ptr, off)
+    return v
+}
+
+fn set_qword(ptr, off, val) {
+    let v = val
+    write_byte_safe(ptr, off, v % 256) v = v / 256
+    write_byte_safe(ptr, off + 1, v % 256) v = v / 256
+    write_byte_safe(ptr, off + 2, v % 256) v = v / 256
+    write_byte_safe(ptr, off + 3, v % 256) v = v / 256
+    write_byte_safe(ptr, off + 4, v % 256) v = v / 256
+    write_byte_safe(ptr, off + 5, v % 256) v = v / 256
+    write_byte_safe(ptr, off + 6, v % 256) v = v / 256
+    write_byte_safe(ptr, off + 7, v % 256)
+}
+
+// --- LEXER UPDATE ---
+
+fn lex(state) {
+    // 32: CURR_IDX
+    // 540: OFF_SRC_MEM
+    let mem = get_qword(state, 540)
+    let idx = 0
+    let c = 0
+    let skip = 1
+    
+    while skip {
+        idx = get_qword(state, 32)
+        c = get_byte(mem, idx)
+        
+        let matched = 0
+        if c == 32 { matched = 1 }
+        if c == 10 { matched = 1 }
+        if c == 13 { matched = 1 }
+        if c == 9 { matched = 1 }
+        
+        if matched == 1 {
+            set_qword(state, 32, idx + 1) // Next char
+        } else {
+            skip = 0
+        }
+    }
+    
+    if c == 0 { set_qword(state, 580, 0) return 0 } // EOF
+    
+    // STRING LITERAL HANDLING (NEW)
+    if c == 34 { // "
+        set_qword(state, 32, idx + 1) // Eat opening quote
+        
+        let data_mem = get_qword(state, 500) // OFF_DATA_MEM
+        let str_start = get_qword(state, 520) // OFF_DATA_PTR
+        let curr_ptr = str_start
+        
+        let looping = 1
+        while looping {
+            idx = get_qword(state, 32)
+            c = get_byte(mem, idx)
+            
+            if c == 34 { // Closing quote
+                looping = 0
+                set_qword(state, 32, idx + 1) // Eat closing
+            } else {
+                if c == 0 { looping = 0 } // EOF Safety
+                else {
+                    write_byte_safe(data_mem, curr_ptr, c)
+                    curr_ptr = curr_ptr + 1
+                    set_qword(state, 32, idx + 1)
+                }
+            }
+        }
+        
+        // Null terminator
+        write_byte_safe(data_mem, curr_ptr, 0)
+        curr_ptr = curr_ptr + 1
+        
+        // Update global data pointer to next free spot
+        set_qword(state, 520, curr_ptr)
+        
+        // Return as TOK_NUM (Pointer Value) or TOK_STRING
+        set_qword(state, 590, str_start) // Value = Pointer to start
+        set_qword(state, 580, 22)        // TOK_STRING
+        return 0
+    }
+    
+    // ARRAYS [ ]
+    if c == 91 { set_qword(state, 32, idx+1) set_qword(state, 580, 20) return 0 }
+    if c == 93 { set_qword(state, 32, idx+1) set_qword(state, 580, 21) return 0 }
+    
+    // Ops
+    if c == 61 { set_qword(state, 32, idx+1) set_qword(state, 580, 61) return 0 } // EQ
+    if c == 43 { set_qword(state, 32, idx+1) set_qword(state, 580, 11) return 0 }
+    if c == 45 { set_qword(state, 32, idx+1) set_qword(state, 580, 12) return 0 }
+    if c == 123 { set_qword(state, 32, idx+1) set_qword(state, 580, 3) return 0 }
+    if c == 125 { set_qword(state, 32, idx+1) set_qword(state, 580, 4) return 0 }
+    
+    // NUM / ID logic (Simplified)
+    // Digit 48-57
+    if c > 47 {
+        if c < 58 {
+            // It's a number
+            let val = 0
+            let looping = 1
+            while looping {
+                val = (val * 10) + (c - 48)
+                set_qword(state, 32, idx + 1)
+                idx = idx + 1
+                c = get_byte(mem, idx)
+                if c < 48 { looping = 0 }
+                if c > 57 { looping = 0 }
+            }
+            set_qword(state, 590, val)
+            set_qword(state, 580, 7) // TOK_NUM
+            return 0
+        }
+    }
+    
+    // Alpha a-z (97-122)
+    if c > 96 {
+        if c < 123 {
+            // ID
+            let val = 0
+            let looping = 1
+            while looping {
+                val = (val * 33) + c
+                set_qword(state, 32, idx + 1)
+                idx = idx + 1
+                c = get_byte(mem, idx)
+                let ok = 0
+                if c > 96 { if c < 123 { ok = 1 } }
+                if ok == 0 { looping = 0 }
+            }
+            // Check Keywords
+            if val == 3476 { set_qword(state, 580, 1) return 0 } // fn
+            if val == 121061 { set_qword(state, 580, 60) return 0 } // let
+            if val == 4585512800 { set_qword(state, 580, 8) return 0 } // return
+            
+            set_qword(state, 590, val)
+            set_qword(state, 580, 2) // TOK_ID
+            return 0
+        }
+    }
+
+    set_qword(state, 32, idx + 1) // Eat unknown
+}
+
+fn eat(state, t) {
+    let curr = get_qword(state, 580)
+    if curr == t {
+        lex(state)
+    } else {
+        // Panic
+        print(999999) 
+        print(curr)
+        print(t)
+        while 1 {}
+    }
+}
+
+
+// --- PARSER UPDATE ---
+
+// AST Utils
+fn node_new(state, type, val) {
+    let data_mem = get_qword(state, 500)
+    let data_ptr = get_qword(state, 520)
+    
+    if data_ptr > 4900000 { print(666002) return 0 } // OOM
+    
+    let node = data_mem + data_ptr
+    write_byte_safe(data_mem, data_ptr, type)
+    set_qword(data_mem, data_ptr + 1, val)
+    set_qword(data_mem, data_ptr + 9, 0)  // Child
+    set_qword(data_mem, data_ptr + 17, 0) // Next
+    
+    set_qword(state, 520, data_ptr + 25)
+    return data_ptr
+}
+
+fn node_child(state, parent, child) {
+    let mem = get_qword(state, 500)
+    set_qword(mem, parent + 9, child)
+}
+fn node_next(state, node, next) {
+    let mem = get_qword(state, 500)
+    set_qword(mem, node + 17, next)
+}
+fn get_node_type(state, node) {
+    let mem = get_qword(state, 500)
+    return get_byte(mem, node)
+}
+fn get_node_val(state, node) {
+    let mem = get_qword(state, 500)
+    return get_qword(mem, node + 1)
+}
+fn get_node_child(state, node) {
+    let mem = get_qword(state, 500)
+    return get_qword(mem, node + 9)
+}
+fn get_node_next(state, node) {
+    let mem = get_qword(state, 500)
+    return get_qword(mem, node + 17)
+}
+
+
+fn parse_term(state) {
+    let t = get_qword(state, 580) // peek_type
+    
+    // STRING -> Treat as NUM (Pointer)
+    if t == 22 { // TOK_STRING
+        let val = get_qword(state, 590)
+        lex(state) // eat
+        // Return NODE_NUM (13) because it's just a pointer value for now
+        return node_new(state, 13, val) 
+    }
+    
+    if t == 7 { // TOK_NUM
+        let val = get_qword(state, 590)
+        lex(state)
+        return node_new(state, 13, val)
+    }
+    if t == 2 { // TOK_ID
+        let val = get_qword(state, 590)
+        lex(state)
+        // Check for Call not implemented in this minimal v10
+        let node = node_new(state, 21, val)
+        return parse_term_postfix(state, node)
+    }
+    return 0
+}
+
+fn parse_term_postfix(state, left) {
+    let t = get_qword(state, 580)
+    
+    // Array Index: [ expr ]
+    if t == 20 { // TOK_LBRACKET
+        lex(state) // eat [
+        let index = parse_expr(state)
+        lex(state) // eat ] 
+        
+        let node = node_new(state, 50, 0) // NODE_INDEX
+        node_child(state, node, left)
+        node_next(state, left, index)
+        
+        return parse_term_postfix(state, node)
+    }
+    return left
+}
+
+fn parse_expr(state) {
+    let left = parse_term(state)
+    let t = get_qword(state, 580)
+    if t == 11 { // +
+        lex(state)
+        let right = parse_term(state)
+        let node = node_new(state, 30, 0) // ADD
+        node_child(state, node, left)
+        node_next(state, left, right)
+        return node
+    }
+    return left
+}
+
+fn parse_statement(state) {
+    let t = get_qword(state, 580)
+    
+    // LET
+    if t == 60 {
+        lex(state)
+        let name = get_qword(state, 590)
+        lex(state) // ID
+        lex(state) // EQ
+        let expr = parse_expr(state)
+        let node = node_new(state, 20, name) // LET
+        node_child(state, node, expr)
+        return node
+    }
+    
+    // RETURN
+    if t == 8 {
+        lex(state)
+        let expr = parse_expr(state)
+        let node = node_new(state, 12, 0) // RET
+        node_child(state, node, expr)
+        return node
+    }
+    
+    return 0
+}
+
+
+// --- CODEGEN UPDATE ---
+
+fn emit(state, val) {
+    let mem = get_qword(state, 510) // CODE_BUF
+    let cursor = get_qword(state, 530) // CODE_CURSOR
+    write_byte_safe(mem, cursor, val)
+    set_qword(state, 530, cursor + 1)
+}
+
+fn emit64(state, val) {
+    let v = val
+    emit(state, v % 256) v = v / 256
+    emit(state, v % 256) v = v / 256
+    emit(state, v % 256) v = v / 256
+    emit(state, v % 256) v = v / 256
+    emit(state, v % 256) v = v / 256
+    emit(state, v % 256) v = v / 256
+    emit(state, v % 256) v = v / 256
+    emit(state, v % 256)
+}
+
+fn gen_expr(state, node) {
+    let type = get_node_type(state, node)
+    
+    if type == 13 { // NUM (or String Ptr)
+        emit(state, 72) emit(state, 184) // MOV RAX, imm64
+        emit64(state, get_node_val(state, node))
+        return 0
+    }
+    
+    if type == 21 { // ID (Local var load)
+        let name = get_node_val(state, node)
+        let off = sym_find(state, name)
+        // MOV RAX, [RBP-off]
+        emit(state, 72) emit(state, 139) emit(state, 69)
+        emit(state, 256 - off)
+        return 0
+    }
+    
+    if type == 30 { // ADD
+        let left = get_node_child(state, node)
+        let right = get_node_next(state, left)
+        gen_expr(state, left)
+        emit(state, 80) // PUSH RAX
+        gen_expr(state, right)
+        emit(state, 89) // POP RCX
+        emit(state, 72) emit(state, 1) emit(state, 200) // ADD RAX, RCX
+        return 0
+    }
+    
+    // NODE_INDEX (Load)
+    if type == 50 {
+        let ptr = get_node_child(state, node)
+        let idx = get_node_next(state, ptr)
+        
+        gen_expr(state, ptr)
+        emit(state, 80) // PUSH RAX (Ptr)
+        
+        gen_expr(state, idx)
+        emit(state, 72) emit(state, 137) emit(state, 193) // MOV RCX, RAX (Index)
+        
+        emit(state, 88) // POP RAX (Ptr)
+        
+        // ADD RAX, RCX
+        emit(state, 72) emit(state, 1) emit(state, 200)
+        
+        // MOVZX RAX, BYTE [RAX] (Load BYTE)
+        // 48 0F B6 00
+        emit(state, 72) emit(state, 15) emit(state, 182) emit(state, 0)
+        return 0
+    }
+}
+
+fn gen_stmts(state, node) {
+    if node == 0 { return 0 }
+    
+    let type = get_node_type(state, node)
+    
+    if type == 20 { // LET
+        let name = get_node_val(state, node)
+        let off = sym_add(state, name)
+        let expr = get_node_child(state, node)
+        gen_expr(state, expr)
+        emit(state, 72) emit(state, 137) emit(state, 69)
+        emit(state, 256 - off)
+    }
+    
+    if type == 12 { // RET
+        let expr = get_node_child(state, node)
+        gen_expr(state, expr)
+        emit(state, 93) emit(state, 195) // POP RBP, RET
+    }
+
+    if type == 8 { // WHILE
+        let start = get_qword(state, 530) // CODE_CURSOR
+        let cond = get_node_child(state, node)
+        gen_expr(state, cond) // Result in RAX
+        
+        // TEST RAX, RAX
+        emit(state, 72) emit(state, 133) emit(state, 192)
+        
+        // JZ (skip body) - placeholder
+        emit(state, 15) emit(state, 132) 
+        let jmp_loc = get_qword(state, 530)
+        emit(state, 0) emit(state, 0) emit(state, 0) emit(state, 0)
+        
+        let body = get_node_next(state, cond) // Child->Next is Body
+        gen_stmts(state, body)
+        
+        // JMP start
+        emit(state, 233)
+        let curr = get_qword(state, 530)
+        let dist = start - curr - 4
+        emit(state, dist % 256) 
+        if dist < 0 { dist = dist / 256 } else { dist = dist / 256 } // signed shift hack?
+        emit(state, dist % 256)
+        emit(state, dist % 256)
+        emit(state, dist % 256)
+        
+        // Fix JZ
+        let curr2 = get_qword(state, 530)
+        let diff = curr2 - jmp_loc - 4
+        let mem = get_qword(state, 510)
+        write_byte_safe(mem, jmp_loc, diff % 256)
+        write_byte_safe(mem, jmp_loc+1, (diff/256)%256)
+        write_byte_safe(mem, jmp_loc+2, 0)
+        write_byte_safe(mem, jmp_loc+3, 0)
+    }
+
+    if type == 6 { // IF
+        let cond = get_node_child(state, node)
+        gen_expr(state, cond)
+        
+        emit(state, 72) emit(state, 133) emit(state, 192) // TEST RAX, RAX
+        emit(state, 15) emit(state, 132) // JZ
+        let jmp_loc = get_qword(state, 530)
+        emit(state, 0) emit(state, 0) emit(state, 0) emit(state, 0)
+        
+        let body = get_node_next(state, cond)
+        gen_stmts(state, body)
+        
+        let curr = get_qword(state, 530)
+        let diff = curr - jmp_loc - 4
+        let mem = get_qword(state, 510)
+        write_byte_safe(mem, jmp_loc, diff % 256)
+        write_byte_safe(mem, jmp_loc+1, (diff/256)%256)
+        write_byte_safe(mem, jmp_loc+2, 0)
+        write_byte_safe(mem, jmp_loc+3, 0)
+    }
+    
+    let next = get_node_next(state, node)
+    gen_stmts(state, next)
+}
+
+
+// --- SYMBOL TABLE ---
+fn sym_add(state, hash) {
+    let ptr = get_qword(state, 550) // OFF_SYM_PTR
+    let cnt = get_qword(state, 72)  // OFF_SYM_COUNT
+    let mem = get_qword(state, 500)
+    let off = ptr + (cnt * 16)
+    set_qword(mem, off, hash)
+    
+    let depth = get_qword(state, 80) // OFF_STACK_DEPTH
+    set_qword(mem, off + 8, depth) // Store Local OFF
+    
+    set_qword(state, 72, cnt + 1)
+    set_qword(state, 80, depth + 8) // Inc Depth
+    return depth
+}
+
+fn sym_find(state, hash) {
+    let ptr = get_qword(state, 550)
+    let cnt = get_qword(state, 72)
+    let mem = get_qword(state, 500)
+    let i = 0
+    while i < cnt {
+        let slot = ptr + (i * 16)
+        let h = get_qword(mem, slot)
+        if h == hash { return get_qword(mem, slot + 8) }
+        i = i + 1
+    }
+    return 0
+}
+
+// --- MAIN TEST ---
+fn init_src(state, buf) {
+    let b = buf
+    let p = 0
+    
+    // fn len(s) {
+    // 102(f) 110(n) 32 108(l) 101(e) 110(n) 40(() 115(s) 41()) 32 123({) 32
+    write_byte_safe(b, p, 102) p=p+1 write_byte_safe(b, p, 110) p=p+1 write_byte_safe(b, p, 32) p=p+1
+    write_byte_safe(b, p, 108) p=p+1 write_byte_safe(b, p, 101) p=p+1 write_byte_safe(b, p, 110) p=p+1
+    write_byte_safe(b, p, 40) p=p+1 write_byte_safe(b, p, 115) p=p+1 write_byte_safe(b, p, 41) p=p+1
+    write_byte_safe(b, p, 32) p=p+1 write_byte_safe(b, p, 123) p=p+1 write_byte_safe(b, p, 32) p=p+1
+
+    // let n = 0
+    // 108(l) 101(e) 116(t) 32 110(n) 32 61(=) 32 48(0) 32
+    write_byte_safe(b, p, 108) p=p+1 write_byte_safe(b, p, 101) p=p+1 write_byte_safe(b, p, 116) p=p+1 write_byte_safe(b, p, 32) p=p+1
+    write_byte_safe(b, p, 110) p=p+1 write_byte_safe(b, p, 32) p=p+1 write_byte_safe(b, p, 61) p=p+1 write_byte_safe(b, p, 32) p=p+1
+    write_byte_safe(b, p, 48) p=p+1 write_byte_safe(b, p, 32) p=p+1
+
+    // while s[n] {
+    // 119(w) 104(h) 105(i) 108(l) 101(e) 32 115(s) 91([) 110(n) 93(]) 32 123({) 32
+    write_byte_safe(b, p, 119) p=p+1 write_byte_safe(b, p, 104) p=p+1 write_byte_safe(b, p, 105) p=p+1 write_byte_safe(b, p, 108) p=p+1 write_byte_safe(b, p, 101) p=p+1 write_byte_safe(b, p, 32) p=p+1
+    write_byte_safe(b, p, 115) p=p+1 write_byte_safe(b, p, 91) p=p+1 write_byte_safe(b, p, 110) p=p+1 write_byte_safe(b, p, 93) p=p+1
+    write_byte_safe(b, p, 32) p=p+1 write_byte_safe(b, p, 123) p=p+1 write_byte_safe(b, p, 32) p=p+1
+
+    // n = n + 1
+    // 110(n) 32 61(=) 32 110(n) 32 43(+) 32 49(1) 32
+    write_byte_safe(b, p, 110) p=p+1 write_byte_safe(b, p, 32) p=p+1 write_byte_safe(b, p, 61) p=p+1 write_byte_safe(b, p, 32) p=p+1
+    write_byte_safe(b, p, 110) p=p+1 write_byte_safe(b, p, 32) p=p+1 write_byte_safe(b, p, 43) p=p+1 write_byte_safe(b, p, 32) p=p+1
+    write_byte_safe(b, p, 49) p=p+1 write_byte_safe(b, p, 32) p=p+1
+
+    // }
+    write_byte_safe(b, p, 125) p=p+1 write_byte_safe(b, p, 32) p=p+1
+
+    // return n
+    // 114(r) 101(e) 116(t) 117(u) 114(r) 110(n) 32 110(n) 32
+    write_byte_safe(b, p, 114) p=p+1 write_byte_safe(b, p, 101) p=p+1 write_byte_safe(b, p, 116) p=p+1 write_byte_safe(b, p, 117) p=p+1
+    write_byte_safe(b, p, 114) p=p+1 write_byte_safe(b, p, 110) p=p+1 write_byte_safe(b, p, 32) p=p+1 write_byte_safe(b, p, 110) p=p+1 write_byte_safe(b, p, 32) p=p+1
+
+    // }
+    write_byte_safe(b, p, 125) p=p+1 write_byte_safe(b, p, 32) p=p+1
+
+    // fn main {
+    // 102 110 32 109 97 105 110 32 123 32
+    write_byte_safe(b, p, 102) p=p+1 write_byte_safe(b, p, 110) p=p+1 write_byte_safe(b, p, 32) p=p+1
+    write_byte_safe(b, p, 109) p=p+1 write_byte_safe(b, p, 97) p=p+1 write_byte_safe(b, p, 105) p=p+1 write_byte_safe(b, p, 110) p=p+1
+    write_byte_safe(b, p, 32) p=p+1 write_byte_safe(b, p, 123) p=p+1 write_byte_safe(b, p, 32) p=p+1
+
+    // return len("ABC")
+    // 114 101 116 117 114 110 32 108 101 110 40 34(quote) 65(A) 66(B) 67(C) 34(quote) 41 32
+    write_byte_safe(b, p, 114) p=p+1 write_byte_safe(b, p, 101) p=p+1 write_byte_safe(b, p, 116) p=p+1 write_byte_safe(b, p, 117) p=p+1
+    write_byte_safe(b, p, 114) p=p+1 write_byte_safe(b, p, 110) p=p+1 write_byte_safe(b, p, 32) p=p+1
+    write_byte_safe(b, p, 108) p=p+1 write_byte_safe(b, p, 101) p=p+1 write_byte_safe(b, p, 110) p=p+1
+    write_byte_safe(b, p, 40) p=p+1
+    write_byte_safe(b, p, 34) p=p+1 write_byte_safe(b, p, 65) p=p+1 write_byte_safe(b, p, 66) p=p+1 write_byte_safe(b, p, 67) p=p+1 write_byte_safe(b, p, 34) p=p+1
+    write_byte_safe(b, p, 41) p=p+1 write_byte_safe(b, p, 32) p=p+1
+
+    // }
+    write_byte_safe(b, p, 125) p=p+1 write_byte_safe(b, p, 0)
+    
+    set_qword(state, 24, p)
+}
+
+fn init_memory(state) {
+    set_qword(state, 520, 64) // DATA_PTR
+    set_qword(state, 530, 0)  // CODE_CURSOR
+    set_qword(state, 550, 90000) // SYM_PTR
+    set_qword(state, 72, 0) // SYM_CNT
+    set_qword(state, 80, 0) // STACK_DEPTH
+}
+
+fn main() {
+    let state = alloc(5000000)
+    let src = state + 1000000
+    let data = state + 10000
+    let code = alloc_exec(1000000)
+    
+    set_qword(state, 540, src)
+    set_qword(state, 500, data)
+    set_qword(state, 510, code)
+    
+    init_memory(state)
+    init_src(state, src)
+    
+    // Lex
+    lex(state)
+    
+    // Parse Fn Main (assume always fn main)
+    eat(state, 1) // fn
+    eat(state, 2) // main (hash ignore)
+    eat(state, 3) // {
+    
+    // Code Gen Start
+    // Prologue
+    emit(state, 85) emit(state, 72) emit(state, 137) emit(state, 229)
+    
+    let looping = 1
+    while looping {
+        let stmt = parse_statement(state)
+        gen_stmts(state, stmt)
+        
+        let t = get_qword(state, 580)
+        if t == 4 { looping = 0 } // }
+    }
+    
+    // Exec
+    let f = code
+    let res = f()
+    print(res)
+    return 0
+}

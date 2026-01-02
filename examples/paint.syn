@@ -1,0 +1,86 @@
+// ============================================================
+// TITAN PAINT v1.0
+// Controls: WASD to Move, SPACE to Draw, C to Clear, Q to Quit
+// Colors: 1=Red, 2=Green, 3=Blue
+// ============================================================
+
+fn main() { // Corrected syntax: added parentheses
+    // 1. Initialization (800x600)
+    window(800, 600)
+    
+    let running = 1
+    let x = 400
+    let y = 300
+    let color = 0x00FF00 // Default: Green (Cyberpunk)
+    let frame_count = 0
+    
+    // UI Info
+    draw_text(10, 10, 0xFFFFFF, "TITAN PAINT: [WASD] Move, [SPACE] Draw")
+    draw_text(10, 20, 0xFFFFFF, "Colors: [1] Red [2] Green [3] Blue")
+    draw_text(10, 30, 0xFFFFFF, "[C] Clear  [Q] Quit")
+    
+    update_window()
+    
+    // 2. Main Loop
+    while running {
+        // --- INPUT HANDLING ---
+        
+        // Exit (Q = 81 or ESC = 27)
+        if get_key(81) { running = 0 }
+        if get_key(27) { running = 0 }
+        
+        // Colors
+        if get_key(49) { color = 0xFF0000 } // 1
+        if get_key(50) { color = 0x00FF00 } // 2
+        if get_key(51) { color = 0x0000FF } // 3
+        
+        // Clear (C = 67)
+        if get_key(67) { 
+            clear_screen(0) 
+            draw_text(10, 10, 0xFFFFFF, "TITAN PAINT")
+        }
+        
+        // Movement (WASD)
+        if get_key(87) { y = y - 2 } // W
+        if get_key(83) { y = y + 2 } // S
+        if get_key(65) { x = x - 2 } // A
+        if get_key(68) { x = x + 2 } // D
+        
+        // Bounds Check
+        if x < 2 { x = 2 }
+        if x > 795 { x = 795 }
+        if y < 2 { y = 2 }
+        if y > 595 { y = 595 }
+        
+        // --- DRAWING ---
+        
+        if get_key(32) { // SPACE
+            // Brush 4x4
+            pixel(x, y, color)
+            pixel(x+1, y, color)
+            pixel(x, y+1, color)
+            pixel(x+1, y+1, color)
+        }
+        
+        // Draw Cursor (Simple dot, transient)
+        // Note: In a single buffer system, this leaves a trail unless we restore background.
+        // For Paint, leaving a trail is fine given we don't have layers yet.
+        // We just draw the cursor pixel last.
+        pixel(x, y, 0xFFFFFF)
+        
+        // --- RENDER ---
+        update_window()
+        
+        // Safety Auto-exit for automated verification
+        let next_frame = frame_count + 1
+        frame_count = next_frame
+        if frame_count > 500 {
+            running = 0
+        }
+        
+        // Small delay to prevent 100% CPU usage
+        sleep(10)
+    }
+    
+    return 0
+}

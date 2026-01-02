@@ -1,0 +1,109 @@
+// ============================================
+// Synapse Paint App v3.0 - Simplified
+// Draw with mouse, S=Save, L=Load, ESC=Exit
+// ============================================
+
+fn main() {
+    let w = window(800, 600)
+    if w == 0 {
+        print_str("WINDOW FAILED")
+        return 1
+    }
+    
+    let running = 1
+    let drawing = 0
+    let current_color = 0xFFFFFF
+    
+    // Clear to dark blue once
+    clear_screen(0x000022)
+    
+    while running {
+        let mx = mouse_x()
+        let my = mouse_y()
+        let mb = mouse_btn(0)
+        
+        // ESC to exit
+        if get_key(27) { running = 0 }
+        
+        // Color picker (number keys 1-5)
+        if get_key(49) { current_color = 0xFF0000 }  // 1 = Red
+        if get_key(50) { current_color = 0x00FF00 }  // 2 = Green
+        if get_key(51) { current_color = 0x0000FF }  // 3 = Blue
+        if get_key(52) { current_color = 0xFFFFFF }  // 4 = White
+        if get_key(53) { current_color = 0xFFFF00 }  // 5 = Yellow
+        
+        // C = Clear screen
+        if get_key(67) {
+            clear_screen(0x000022)
+        }
+        
+        // Drawing with mouse
+        if mb {
+            // Draw brush (3x3 square)
+            pixel(mx - 1, my - 1, current_color)
+            pixel(mx, my - 1, current_color)
+            pixel(mx + 1, my - 1, current_color)
+            pixel(mx - 1, my, current_color)
+            pixel(mx, my, current_color)
+            pixel(mx + 1, my, current_color)
+            pixel(mx - 1, my + 1, current_color)
+            pixel(mx, my + 1, current_color)
+            pixel(mx + 1, my + 1, current_color)
+        }
+        
+        // Draw toolbar background
+        draw_bar(0, 0, 800, 50, 0x333333)
+        
+        // Color buttons
+        draw_box(10, 10, 30, 30, 0xFF0000)   // Red
+        draw_box(50, 10, 30, 30, 0x00FF00)   // Green
+        draw_box(90, 10, 30, 30, 0x0000FF)   // Blue
+        draw_box(130, 10, 30, 30, 0xFFFFFF)  // White
+        draw_box(170, 10, 30, 30, 0xFFFF00)  // Yellow
+        
+        // Current color indicator
+        draw_box(220, 10, 30, 30, current_color)
+        
+        // Mouse click on toolbar colors
+        if my < 50 {
+            if mb {
+                if mx >= 10 { if mx < 40 { current_color = 0xFF0000 }}
+                if mx >= 50 { if mx < 80 { current_color = 0x00FF00 }}
+                if mx >= 90 { if mx < 120 { current_color = 0x0000FF }}
+                if mx >= 130 { if mx < 160 { current_color = 0xFFFFFF }}
+                if mx >= 170 { if mx < 200 { current_color = 0xFFFF00 }}
+            }
+        }
+        
+        update_window()
+        sleep(1)
+    }
+    
+    return 0
+}
+
+fn draw_box(x, y, w, h, col) {
+    let cy = 0
+    while cy < h {
+        let cx = 0
+        while cx < w {
+            pixel(x + cx, y + cy, col)
+            cx = cx + 1
+        }
+        cy = cy + 1
+    }
+    return 0
+}
+
+fn draw_bar(x, y, w, h, col) {
+    let cy = 0
+    while cy < h {
+        let cx = 0
+        while cx < w {
+            pixel(x + cx, y + cy, col)
+            cx = cx + 1
+        }
+        cy = cy + 1
+    }
+    return 0
+}

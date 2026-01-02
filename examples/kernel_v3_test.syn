@@ -1,0 +1,72 @@
+fn main() {
+    // 1. Initialize Window (800x600)
+    print(1) 
+    window(800, 600)
+    print(2)
+
+    // 2. Get direct access to VRAM
+    let screen = get_vram()
+    print(3)
+    
+    // 3. Clear screen to Dark Blue
+    clear_screen(0x00200020)
+    print(4)
+
+    // 4. Draw text
+    draw_text(10, 10, 0x00FFFFFF, "SYNAPSE KERNEL v3.0 TITAN")
+    draw_text(10, 25, 0x0000FF00, "GPU: SOFTWARE DIB SECTION")
+    draw_text(10, 40, 0x00FFFF00, "INPUT: ASYNC KEYBOARD")
+    draw_text(10, 55, 0x00FF00FF, "FONT: EMBEDDED BIOS 8x8")
+    
+    // 5. Gradient loop
+    let y = 100
+    while y < 500 {
+        let x = 100
+        while x < 700 {
+            // R = x % 255, G = y % 255, B = 100
+            let r = x % 255
+            let g = y % 255
+            let b = 100
+            
+            // Compose ARGB: (r << 16) | (g << 8) | b
+            let color = b
+            let g_shift = g * 256
+            let r_shift = r * 65536
+            color = color + g_shift
+            color = color + r_shift
+            
+            // Direct write using pixel() intrinsic
+            pixel(x, y, color)
+            
+            x = x + 1
+        }
+        y = y + 1
+    }
+    
+    // 6. Main Loop
+    let running = 1
+    let frame_count = 0
+    
+    while running {
+        update_window()
+        
+        // Check ESC
+        if get_key(27) {
+            running = 0
+            print(27)
+        }
+        
+        // Auto-exit
+        let next_frame = frame_count + 1
+        frame_count = next_frame
+        
+        if frame_count > 100 {
+            running = 0
+            print(999) 
+        }
+        
+        sleep(10)
+    }
+    
+    return 0
+}

@@ -1,0 +1,238 @@
+// ============================================================
+// TITAN VECTOR v1.0
+// Goal: Vector drawing tool with History
+// ============================================================
+
+// --- MATH HELPERS ---
+
+fn abs(v) {
+    if v < 0 { return 0 - v }
+    return v
+}
+
+// --- GRAPHICS LIBRARY ---
+
+// Bresenham's Line Algorithm
+fn line(x0, y0, x1, y1, color) {
+    let dx = abs(x1 - x0)
+    let dy = abs(y1 - y0)
+    
+    let sx = 0
+    if x0 < x1 { sx = 1 } else { sx = -1 }
+    
+    let sy = 0
+    if y0 < y1 { sy = 1 } else { sy = -1 }
+    
+    let err = dx - dy
+    
+    let looping = 1
+    while looping {
+        pixel(x0, y0, color)
+        
+        if x0 == x1 {
+            if y0 == y1 { looping = 0 }
+        }
+        
+        if looping {
+            let e2 = 2 * err
+            if e2 > (0 - dy) {
+                err = err - dy
+                x0 = x0 + sx
+            }
+            if e2 < dx {
+                err = err + dx
+                y0 = y0 + sy
+            }
+        }
+    }
+    return 0
+}
+
+fn draw_rect_fill(x, y, w, h, col) {
+    let j = 0
+    while j < h {
+        let i = 0
+        while i < w {
+            pixel(x+i, y+j, col)
+            i = i + 1
+        }
+        j = j + 1
+    }
+    return 0
+}
+
+// --- UI WIDGETS ---
+
+fn button(bx, by, w, h, col, mx, my, mclick) {
+    if mx > bx {
+        if mx < (bx + w) {
+            if my > by {
+                if my < (by + h) {
+                    if mclick { return 1 }
+                }
+            }
+        }
+    }
+    draw_rect_fill(bx, by, w, h, col)
+    return 0
+}
+
+// --- APP ---
+
+fn main() { // Corrected syntax: added parentheses
+    let w = window(1024, 768)
+    if w == 0 {
+        print_str("WINDOW FAILED")
+        return 1
+    }
+    print(w)
+    
+    // STORAGE: Max 1000 lines. Each line needs 5 ints (x1,y1,x2,y2,col)
+    // Size = 5000 * 8 bytes
+    let history = alloc(40000)
+    let line_count = 0
+    
+    // STATE
+    let current_color = 0xFFFFFF // White
+    let state = 0 // 0=Idle, 1=Dragging
+    let start_x = 0
+    let start_y = 0
+    let frame_count = 0
+    
+    let running = 1
+    
+    while running {
+        // --- INPUT ---
+        let mx = mouse_x()
+        let my = mouse_y()
+        let mbtn = mouse_btn(0) // Left Click
+        
+        // if get_key(27) { running = 0 } // ESC (TEST: Disabled)
+
+        // --- RENDER START ---
+        clear_screen(0x000022) // Dark Blue BG
+
+        // --- UI & LOGIC ---
+        
+        // Toolbar Logic (Simple Color Picker on the left)
+        if button(10, 10, 30, 30, 0xFF0000, mx, my, mbtn) { current_color = 0xFF0000 }
+        if button(50, 10, 30, 30, 0x00FF00, mx, my, mbtn) { current_color = 0x00FF00 }
+        if button(90, 10, 30, 30, 0x0000FF, mx, my, mbtn) { current_color = 0x0000FF }
+        if button(130, 10, 30, 30, 0xFFFFFF, mx, my, mbtn) { current_color = 0xFFFFFF }
+        
+        // Clear Button
+        if button(10, 50, 150, 30, 0x333333, mx, my, mbtn) { line_count = 0 }
+        draw_text(10, 60, 0xFFFFFF, "CLEAR ALL")
+        
+        draw_rect_fill(10, 98, 1000, 2, 0x888888) // UI Separator
+
+        // Drawing Logic
+        // Ignore UI zone clicks (top 100px)
+        if my > 100 {
+            if state == 0 { // IDLE
+                if mbtn {
+                    start_x = mx
+                    start_y = my
+                    state = 1 // Start Dragging
+                }
+            }
+            
+            if state == 1 { // DRAGGING
+                if mbtn == 0 { // Released!
+                    // Save to History
+                    let idx = line_count * 5 // Stride 5
+                    history[idx] = start_x
+                    history[idx+1] = start_y
+                    history[idx+2] = mx
+                    history[idx+3] = my
+                    history[idx+4] = current_color
+                    
+                    line_count = line_count + 1
+                    state = 0 // Back to Idle
+                }
+            }
+        }
+
+        // --- FILE I/O ---
+        
+        // SAVE (S = 83)
+        // Simple debounce: only if state is idle to avoid spam
+        if get_key(83) {
+            let fname = "drawing.vec"
+            let h = file_create(fname)
+            if h != -1 {
+                // Header (8 bytes): [LineCount]
+                let header = alloc(8)
+                header[0] = line_count
+                file_write(h, header, 8)
+                
+                // Body: History Array
+                // Size in bytes = count * 5 ints * 8 bytes/int = count * 40
+                let size = line_count * 40
+                file_write(h, history, size)
+                
+                file_close(h)
+                draw_text(10, 500, 0x00FF00, "SAVED!")
+                update_window()
+                sleep(500) // Debounce
+            }
+        }
+        
+        // LOAD (L = 76)
+        if get_key(76) {
+            let fname = "drawing.vec"
+            let h = file_open(fname)
+            if h != -1 {
+                let header = alloc(8)
+                file_read(h, header, 8)
+                line_count = header[0]
+                
+                let size = line_count * 40
+                file_read(h, history, size)
+                
+                file_close(h)
+                draw_text(10, 500, 0x00FF00, "LOADED!")
+                update_window()
+                sleep(500) // Debounce
+            }
+        }
+        
+        // --- VECTOR RENDER ---
+        
+        // 2. Draw History (All saved lines)
+        let i = 0
+        while i < line_count {
+            let idx = i * 5
+            line(history[idx], history[idx+1], history[idx+2], history[idx+3], history[idx+4])
+            i = i + 1
+        }
+        
+        // 3. Draw Preview (Rubber Band)
+        if state == 1 {
+            line(start_x, start_y, mx, my, current_color)
+        }
+        
+        // 4. Cursor
+        pixel(mx, my, 0xFFFFFF)
+        
+        update_window()
+        
+        // Yield CPU to prevent hanging
+        sleep(1)
+        
+        // Heartbeat log
+        frame_count = frame_count + 1
+        let mod = frame_count % 100
+        if mod == 0 {
+            print(frame_count)
+            // print_str("MX:")
+            print(mx)
+            // print_str("MY:")
+            print(my)
+            // print_str("BTN:")
+            print(mbtn)
+        }
+    }
+    
+    return 0
+}

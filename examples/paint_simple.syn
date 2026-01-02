@@ -1,0 +1,165 @@
+// ============================================
+// Synapse Vector Drawing App v1.0
+// Mouse drawing with color picker
+// ============================================
+
+fn main() {
+    let w = window(800, 600)
+    if w == 0 {
+        print_str("WINDOW FAILED")
+        return 1
+    }
+    
+    let running = 1
+    let prev_x = 0
+    let prev_y = 0
+    let drawing = 0
+    let current_color = 0xFFFFFF
+    
+    while running {
+        let mx = mouse_x()
+        let my = mouse_y()
+        let mb = mouse_btn(0)
+        
+        // ESC to exit
+        if get_key(27) { 
+            running = 0 
+        }
+        
+        // Clear screen with dark blue
+        clear_screen(0x000022)
+        
+        // Color picker buttons (top row)
+        // Red button
+        draw_rect(10, 10, 30, 30, 0xFF0000)
+        if mx >= 10 {
+            if mx < 40 {
+                if my >= 10 {
+                    if my < 40 {
+                        if mb { current_color = 0xFF0000 }
+                    }
+                }
+            }
+        }
+        
+        // Green button
+        draw_rect(50, 10, 30, 30, 0x00FF00)
+        if mx >= 50 {
+            if mx < 80 {
+                if my >= 10 {
+                    if my < 40 {
+                        if mb { current_color = 0x00FF00 }
+                    }
+                }
+            }
+        }
+        
+        // Blue button
+        draw_rect(90, 10, 30, 30, 0x0000FF)
+        if mx >= 90 {
+            if mx < 120 {
+                if my >= 10 {
+                    if my < 40 {
+                        if mb { current_color = 0x0000FF }
+                    }
+                }
+            }
+        }
+        
+        // White button
+        draw_rect(130, 10, 30, 30, 0xFFFFFF)
+        if mx >= 130 {
+            if mx < 160 {
+                if my >= 10 {
+                    if my < 40 {
+                        if mb { current_color = 0xFFFFFF }
+                    }
+                }
+            }
+        }
+        
+        // Drawing logic
+        if mb {
+            if drawing == 0 {
+                prev_x = mx
+                prev_y = my
+                drawing = 1
+            }
+            // Draw line from prev to current
+            draw_line(prev_x, prev_y, mx, my, current_color)
+            prev_x = mx
+            prev_y = my
+        } else {
+            drawing = 0
+        }
+        
+        // Draw cursor indicator
+        pixel(mx, my, current_color)
+        pixel(mx + 1, my, current_color)
+        pixel(mx - 1, my, current_color)
+        pixel(mx, my + 1, current_color)
+        pixel(mx, my - 1, current_color)
+        
+        update_window()
+        sleep(1)
+    }
+    
+    return 0
+}
+
+// Draw filled rectangle
+fn draw_rect(x, y, w, h, col) {
+    let cy = 0
+    while cy < h {
+        let cx = 0
+        while cx < w {
+            pixel(x + cx, y + cy, col)
+            cx = cx + 1
+        }
+        cy = cy + 1
+    }
+    return 0
+}
+
+// Draw line using Bresenham algorithm (simplified)
+fn draw_line(x0, y0, x1, y1, col) {
+    let dx = x1 - x0
+    let dy = y1 - y0
+    
+    // Make dx positive
+    if dx < 0 { dx = 0 - dx }
+    // Make dy positive  
+    if dy < 0 { dy = 0 - dy }
+    
+    let sx = 1
+    if x0 > x1 { sx = 0 - 1 }
+    
+    let sy = 1
+    if y0 > y1 { sy = 0 - 1 }
+    
+    let err = dx - dy
+    
+    let cont = 1
+    while cont {
+        pixel(x0, y0, col)
+        
+        if x0 == x1 {
+            if y0 == y1 {
+                cont = 0
+            }
+        }
+        
+        if cont {
+            let e2 = err + err
+            if e2 > 0 - dy {
+                err = err - dy
+                x0 = x0 + sx
+            }
+            if e2 < dx {
+                err = err + dx
+                y0 = y0 + sy
+            }
+        }
+    }
+    return 0
+}

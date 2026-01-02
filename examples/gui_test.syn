@@ -1,0 +1,111 @@
+// ============================================================
+// TITAN GUI DEMO
+// Goal: Create a clickable button
+// ============================================================
+
+// --- GUI LIBRARY (Future: gui.lib) ---
+
+fn draw_rect(x, y, w, h, color) {
+    let j = 0
+    while j < h {
+        let i = 0
+        while i < w {
+            pixel(x + i, y + j, color)
+            i = i + 1
+        }
+        j = j + 1
+    }
+    return 0
+}
+
+fn button(bx, by, w, h, text, mx, my, mdown) {
+    // 1. Check Collision
+    let hover = 0
+    let right = bx + w
+    let bottom = by + h
+    
+    if mx > bx {
+        if mx < right {
+            if my > by {
+                if my < bottom {
+                    hover = 1
+                }
+            }
+        }
+    }
+
+    // 2. Determine Color
+    let bg = 0x444444 // Default Grey
+    if hover {
+        bg = 0x666666 // Hover Light Grey
+        if mdown {
+            bg = 0xFFFFFF // Click White
+            // Draw before return so we see the visual feedback even on click
+            draw_rect(bx, by, w, h, bg)
+            draw_text(bx + 10, by + 10, 0x000000, text) // Black text on white
+            return 1      // EVENT: CLICKED!
+        }
+    }
+
+    // 3. Draw Body
+    draw_rect(bx, by, w, h, bg)
+    
+    // 4. Draw Border (Simple)
+    let bottom_line = by + h
+    draw_rect(bx, by, w, 1, 0xFFFFFF)          // Top
+    draw_rect(bx, bottom_line, w, 1, 0x000000) // Bottom
+    
+    // 5. Draw Text
+    draw_text(bx + 10, by + 10, 0xFFFFFF, text)
+    
+    return 0
+}
+
+// --- APP ---
+
+fn main() {
+    window(800, 600)
+    
+    let running = 1
+    let bg_color = 0x000022 // Dark Blue
+    let frame_count = 0
+    
+    while running {
+        // 1. Input
+        if get_key(27) { running = 0 } // ESC
+        
+        // Safety Auto-exit
+        let next_frame = frame_count + 1
+        frame_count = next_frame
+        if frame_count > 300 { running = 0 }
+        
+        let mx = mouse_x()
+        let my = mouse_y()
+        let click = mouse_btn(0) // Left Click
+        
+        // 2. Logic & Render
+        clear_screen(bg_color)
+        
+        draw_text(10, 10, 0xAAAAAA, "TITAN GUI v1.0")
+        
+        // BUTTON 1: Change Background
+        if button(100, 100, 150, 40, "Red Theme", mx, my, click) {
+            bg_color = 0x440000
+        }
+        
+        // BUTTON 2: Reset
+        if button(100, 160, 150, 40, "Reset", mx, my, click) {
+            bg_color = 0x000022
+        }
+        
+        // BUTTON 3: Quit
+        if button(100, 220, 150, 40, "EXIT APP", mx, my, click) {
+            running = 0
+        }
+        
+        update_window()
+        // sleep(10)
+    }
+    
+    return 0
+}

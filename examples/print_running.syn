@@ -1,0 +1,9 @@
+fn main() {
+    let running = 1
+    print(running)
+    while running {
+        print(running)
+        running = 0
+    }
+    return 0
+}

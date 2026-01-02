@@ -1,0 +1,22 @@
+fn main() {
+    window(800, 600)
+    let running = 1
+    while running {
+        // Draw red square in center
+        let y = 250
+        while y < 350 {
+            let x = 350
+            while x < 450 {
+                pixel(x, y, 0xFF0000)
+                x = x + 1
+            }
+            y = y + 1
+        }
+        
+        update_window()
+        sleep(16)
+        
+        if get_key(27) { running = 0 }
+    }
+    return 0
+}

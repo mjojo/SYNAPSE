@@ -1,0 +1,19 @@
+fn main() {
+    print_str("Starting Hello Input...")
+    let win = window(800, 600)
+    
+    print_str("Window Result:")
+    print(win)
+    
+    let running = 1
+    while running {
+        let mx = mouse_x()
+        let my = mouse_y()
+        
+        print_str("X:")
+        print(mx)
+        
+        running = win_update()
+        sleep(100)
+    }
+}

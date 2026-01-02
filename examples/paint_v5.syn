@@ -1,0 +1,112 @@
+// ============================================
+// Synapse Paint v5 - With Save/Load
+// S = Save, L = Load, C = Clear, ESC = Exit
+// ============================================
+
+fn main() {
+    window(800, 600)
+    
+    let running = 1
+    let current_color = 0xFFFFFF
+    
+    while running {
+        let mx = mouse_x()
+        let my = mouse_y()
+        let mb = mouse_btn(0)
+        
+        // ESC to exit
+        if get_key(27) { running = 0 }
+        
+        // Color keys
+        if get_key(49) { current_color = 0xFF0000 }  // 1 = Red
+        if get_key(50) { current_color = 0x00FF00 }  // 2 = Green
+        if get_key(51) { current_color = 0x0000FF }  // 3 = Blue
+        if get_key(52) { current_color = 0xFFFFFF }  // 4 = White
+        if get_key(53) { current_color = 0xFFFF00 }  // 5 = Yellow
+        
+        // C = Clear
+        if get_key(67) { clear_screen(0x000000) }
+        
+        // S = Save
+        if get_key(83) {
+            save_screen()
+            print_str("Saved to drawing.raw")
+        }
+        
+        // L = Load
+        if get_key(76) {
+            load_screen()
+            print_str("Loaded from drawing.raw")
+        }
+        
+        // Draw when mouse pressed
+        if mb {
+            // 5x5 brush
+            pixel(mx - 2, my - 2, current_color)
+            pixel(mx - 1, my - 2, current_color)
+            pixel(mx, my - 2, current_color)
+            pixel(mx + 1, my - 2, current_color)
+            pixel(mx + 2, my - 2, current_color)
+            
+            pixel(mx - 2, my - 1, current_color)
+            pixel(mx - 1, my - 1, current_color)
+            pixel(mx, my - 1, current_color)
+            pixel(mx + 1, my - 1, current_color)
+            pixel(mx + 2, my - 1, current_color)
+            
+            pixel(mx - 2, my, current_color)
+            pixel(mx - 1, my, current_color)
+            pixel(mx, my, current_color)
+            pixel(mx + 1, my, current_color)
+            pixel(mx + 2, my, current_color)
+            
+            pixel(mx - 2, my + 1, current_color)
+            pixel(mx - 1, my + 1, current_color)
+            pixel(mx, my + 1, current_color)
+            pixel(mx + 1, my + 1, current_color)
+            pixel(mx + 2, my + 1, current_color)
+            
+            pixel(mx - 2, my + 2, current_color)
+            pixel(mx - 1, my + 2, current_color)
+            pixel(mx, my + 2, current_color)
+            pixel(mx + 1, my + 2, current_color)
+            pixel(mx + 2, my + 2, current_color)
+        }
+        
+        // Cursor crosshair
+        pixel(mx, my - 3, 0x888888)
+        pixel(mx, my + 3, 0x888888)
+        pixel(mx - 3, my, 0x888888)
+        pixel(mx + 3, my, 0x888888)
+        
+        update_window()
+        sleep(1)
+    }
+    
+    return 0
+}
+
+fn save_screen() {
+    // Get VRAM pointer and save directly
+    let vram = get_vram()
+    let size = 800 * 600 * 4  // 1920000 bytes
+    
+    let f = fopen("drawing.raw", 1)  // 1 = write mode
+    if f == 0 { return 0 }
+    
+    fwrite(f, vram, size)
+    fclose(f)
+    return 1
+}
+
+fn load_screen() {
+    let vram = get_vram()
+    let size = 800 * 600 * 4
+    
+    let f = fopen("drawing.raw", 0)  // 0 = read mode
+    if f == 0 { return 0 }
+    
+    fread(f, vram, size)
+    fclose(f)
+    return 1
+}

@@ -1,0 +1,28 @@
+fn main() {
+    window(800, 600)
+    let running = 1
+    while running {
+        // Clear screen each frame
+        clear_screen(0x000000)
+        
+        let mx = mouse_x()
+        let my = mouse_y()
+        
+        // Draw 20x20 white square at mouse position
+        let dy = 0
+        while dy < 20 {
+            let dx = 0
+            while dx < 20 {
+                pixel(mx + dx, my + dy, 0xFFFFFF)
+                dx = dx + 1
+            }
+            dy = dy + 1
+        }
+        
+        update_window()
+        sleep(16)
+        
+        if get_key(27) { running = 0 }
+    }
+    return 0
+}

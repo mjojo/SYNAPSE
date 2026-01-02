@@ -1,0 +1,222 @@
+// ============================================
+// Synapse Paint App v2.0
+// Features: Draw, Save, Load
+// ============================================
+
+fn main() {
+    let w = window(800, 600)
+    if w == 0 {
+        print_str("WINDOW FAILED")
+        return 1
+    }
+    
+    // Canvas buffer (separate from screen for persistence)
+    let canvas = alloc(800 * 600)  // 480000 pixels
+    
+    // Initialize canvas to dark blue
+    let i = 0
+    while i < 480000 {
+        set_byte(canvas, i * 4, 0x22)      // B
+        set_byte(canvas, i * 4 + 1, 0x00)  // G
+        set_byte(canvas, i * 4 + 2, 0x00)  // R
+        set_byte(canvas, i * 4 + 3, 0xFF)  // A
+        i = i + 1
+    }
+    
+    let running = 1
+    let prev_x = 0
+    let prev_y = 0
+    let drawing = 0
+    let current_color = 0xFFFFFF
+    let brush_size = 3
+    
+    while running {
+        let mx = mouse_x()
+        let my = mouse_y()
+        let mb = mouse_btn(0)
+        
+        // ESC to exit
+        if get_key(27) { running = 0 }
+        
+        // S key to save (key code 83)
+        if get_key(83) {
+            save_canvas(canvas, 800, 600)
+            print_str("Saved!")
+        }
+        
+        // L key to load (key code 76)
+        if get_key(76) {
+            load_canvas(canvas, 800, 600)
+            print_str("Loaded!")
+        }
+        
+        // C key to clear (key code 67)
+        if get_key(67) {
+            clear_canvas(canvas, 0x000022)
+        }
+        
+        // Color picker (top row)
+        // Red
+        if mx >= 10 { if mx < 40 { if my >= 10 { if my < 40 {
+            draw_rect_to_canvas(canvas, 10, 10, 30, 30, 0xFF0000)
+            if mb { current_color = 0xFF0000 }
+        }}}}
+        // Green
+        if mx >= 50 { if mx < 80 { if my >= 10 { if my < 40 {
+            draw_rect_to_canvas(canvas, 50, 10, 30, 30, 0x00FF00)
+            if mb { current_color = 0x00FF00 }
+        }}}}
+        // Blue
+        if mx >= 90 { if mx < 120 { if my >= 10 { if my < 40 {
+            draw_rect_to_canvas(canvas, 90, 10, 30, 30, 0x0000FF)
+            if mb { current_color = 0x0000FF }
+        }}}}
+        // White
+        if mx >= 130 { if mx < 160 { if my >= 10 { if my < 40 {
+            draw_rect_to_canvas(canvas, 130, 10, 30, 30, 0xFFFFFF)
+            if mb { current_color = 0xFFFFFF }
+        }}}}
+        // Yellow
+        if mx >= 170 { if mx < 200 { if my >= 10 { if my < 40 {
+            draw_rect_to_canvas(canvas, 170, 10, 30, 30, 0xFFFF00)
+            if mb { current_color = 0xFFFF00 }
+        }}}}
+        
+        // Drawing logic (below toolbar area y > 50)
+        if my > 50 {
+            if mb {
+                if drawing == 0 {
+                    prev_x = mx
+                    prev_y = my
+                    drawing = 1
+                }
+                // Draw brush stroke
+                draw_brush(canvas, mx, my, brush_size, current_color)
+                prev_x = mx
+                prev_y = my
+            } else {
+                drawing = 0
+            }
+        }
+        
+        // Copy canvas to screen
+        copy_canvas_to_screen(canvas)
+        
+        // Draw UI elements on top (toolbar background)
+        draw_rect(5, 5, 200, 45, 0x333333)
+        draw_rect(10, 10, 30, 30, 0xFF0000)
+        draw_rect(50, 10, 30, 30, 0x00FF00)
+        draw_rect(90, 10, 30, 30, 0x0000FF)
+        draw_rect(130, 10, 30, 30, 0xFFFFFF)
+        draw_rect(170, 10, 30, 30, 0xFFFF00)
+        
+        // Cursor crosshair
+        pixel(mx, my, 0xFFFFFF)
+        pixel(mx + 1, my, 0xFFFFFF)
+        pixel(mx - 1, my, 0xFFFFFF)
+        pixel(mx, my + 1, 0xFFFFFF)
+        pixel(mx, my - 1, 0xFFFFFF)
+        
+        update_window()
+        sleep(1)
+    }
+    
+    return 0
+}
+
+fn draw_rect(x, y, w, h, col) {
+    let cy = 0
+    while cy < h {
+        let cx = 0
+        while cx < w {
+            pixel(x + cx, y + cy, col)
+            cx = cx + 1
+        }
+        cy = cy + 1
+    }
+    return 0
+}
+
+fn draw_rect_to_canvas(canvas, x, y, w, h, col) {
+    let cy = 0
+    while cy < h {
+        let cx = 0
+        while cx < w {
+            set_canvas_pixel(canvas, x + cx, y + cy, col)
+            cx = cx + 1
+        }
+        cy = cy + 1
+    }
+    return 0
+}
+
+fn set_canvas_pixel(canvas, x, y, col) {
+    if x >= 0 { if x < 800 { if y >= 0 { if y < 600 {
+        let offset = (y * 800 + x) * 4
+        set_byte(canvas, offset, col % 256)           // B
+        set_byte(canvas, offset + 1, (col / 256) % 256)  // G
+        set_byte(canvas, offset + 2, (col / 65536) % 256) // R
+        set_byte(canvas, offset + 3, 255)             // A
+    }}}}
+    return 0
+}
+
+fn draw_brush(canvas, cx, cy, size, col) {
+    let dy = 0 - size
+    while dy <= size {
+        let dx = 0 - size
+        while dx <= size {
+            set_canvas_pixel(canvas, cx + dx, cy + dy, col)
+            dx = dx + 1
+        }
+        dy = dy + 1
+    }
+    return 0
+}
+
+fn copy_canvas_to_screen(canvas) {
+    let y = 0
+    while y < 600 {
+        let x = 0
+        while x < 800 {
+            let offset = (y * 800 + x) * 4
+            let b = get_byte(canvas, offset)
+            let g = get_byte(canvas, offset + 1)
+            let r = get_byte(canvas, offset + 2)
+            let col = r * 65536 + g * 256 + b
+            pixel(x, y, col)
+            x = x + 1
+        }
+        y = y + 1
+    }
+    return 0
+}
+
+fn clear_canvas(canvas, col) {
+    let i = 0
+    while i < 480000 {
+        let offset = i * 4
+        set_byte(canvas, offset, col % 256)
+        set_byte(canvas, offset + 1, (col / 256) % 256)
+        set_byte(canvas, offset + 2, (col / 65536) % 256)
+        set_byte(canvas, offset + 3, 255)
+        i = i + 1
+    }
+    return 0
+}
+
+fn save_canvas(canvas, w, h) {
+    let f = fopen("drawing.raw", 1)  // 1 = write mode
+    if f == 0 { return 0 }
+    fwrite(f, canvas, w * h * 4)
+    fclose(f)
+    return 1
+}
+
+fn load_canvas(canvas, w, h) {
+    let f = fopen("drawing.raw", 0)  // 0 = read mode
+    if f == 0 { return 0 }
+    fread(f, canvas, w * h * 4)
+    fclose(f)
+    return 1
+}

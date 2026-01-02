@@ -3,11 +3,8 @@ fn main() {
     let running = 1
     let counter = 0
     while running {
-        clear_screen(0x0000FF)
-        update_window()
-        sleep(16)
         counter = counter + 1
-        if counter == 100 {
+        if counter == 10000000 {
             running = 0
         }
     }

@@ -3,6 +3,12 @@ fn main() {
     let running = 1
     let counter = 0
     while running {
+        let mx = mouse_x()
+        let my = mouse_y()
+        let mb = mouse_btn(0)
+        
+        if get_key(27) { running = 0 }  // ESC
+        
         clear_screen(0x0000FF)
         update_window()
         sleep(16)

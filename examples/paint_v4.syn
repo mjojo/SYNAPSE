@@ -1,0 +1,75 @@
+// ============================================
+// Synapse Paint v4 - Optimized
+// Hold mouse to draw, 1-5 colors, ESC exit
+// ============================================
+
+fn main() {
+    window(800, 600)
+    
+    let running = 1
+    let current_color = 0xFFFFFF
+    
+    while running {
+        let mx = mouse_x()
+        let my = mouse_y()
+        let mb = mouse_btn(0)
+        
+        // ESC to exit
+        if get_key(27) { running = 0 }
+        
+        // Color keys
+        if get_key(49) { current_color = 0xFF0000 }
+        if get_key(50) { current_color = 0x00FF00 }
+        if get_key(51) { current_color = 0x0000FF }
+        if get_key(52) { current_color = 0xFFFFFF }
+        if get_key(53) { current_color = 0xFFFF00 }
+        
+        // C = Clear
+        if get_key(67) { clear_screen(0x000000) }
+        
+        // Draw when mouse pressed
+        if mb {
+            // Simple 5x5 brush
+            pixel(mx - 2, my - 2, current_color)
+            pixel(mx - 1, my - 2, current_color)
+            pixel(mx, my - 2, current_color)
+            pixel(mx + 1, my - 2, current_color)
+            pixel(mx + 2, my - 2, current_color)
+            
+            pixel(mx - 2, my - 1, current_color)
+            pixel(mx - 1, my - 1, current_color)
+            pixel(mx, my - 1, current_color)
+            pixel(mx + 1, my - 1, current_color)
+            pixel(mx + 2, my - 1, current_color)
+            
+            pixel(mx - 2, my, current_color)
+            pixel(mx - 1, my, current_color)
+            pixel(mx, my, current_color)
+            pixel(mx + 1, my, current_color)
+            pixel(mx + 2, my, current_color)
+            
+            pixel(mx - 2, my + 1, current_color)
+            pixel(mx - 1, my + 1, current_color)
+            pixel(mx, my + 1, current_color)
+            pixel(mx + 1, my + 1, current_color)
+            pixel(mx + 2, my + 1, current_color)
+            
+            pixel(mx - 2, my + 2, current_color)
+            pixel(mx - 1, my + 2, current_color)
+            pixel(mx, my + 2, current_color)
+            pixel(mx + 1, my + 2, current_color)
+            pixel(mx + 2, my + 2, current_color)
+        }
+        
+        // Cursor crosshair
+        pixel(mx, my - 3, 0x888888)
+        pixel(mx, my + 3, 0x888888)
+        pixel(mx - 3, my, 0x888888)
+        pixel(mx + 3, my, 0x888888)
+        
+        update_window()
+        sleep(1)
+    }
+    
+    return 0
+}

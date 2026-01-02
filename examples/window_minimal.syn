@@ -1,0 +1,9 @@
+fn main() {
+    window(800, 600)
+    let running = 1
+    while running {
+        update_window()
+        sleep(16)
+    }
+    return 0
+}

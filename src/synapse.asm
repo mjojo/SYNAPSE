@@ -283,6 +283,91 @@ section '.data' data readable writeable
     kw_return   db 'return',0
     kw_else     db 'else',0
     str_factorial db 'factorial',0
+    
+    ; =========================================================================
+    ; PE32+ EXE HEADER DATA (for compile-to-exe mode) - FIXED VERSION
+    ; =========================================================================
+    align 16
+    pe_header_stub:
+        ; --- DOS HEADER ---
+        db 'MZ'                     ; Magic
+        dw 0                        ; e_cblp
+        dw 0                        ; e_cp
+        dw 0                        ; e_crlc
+        dw 0                        ; e_cparhdr
+        dw 0                        ; e_minalloc
+        dw 0                        ; e_maxalloc
+        dw 0                        ; e_ss
+        dw 0                        ; e_sp
+        dw 0                        ; e_csum
+        dw 0                        ; e_ip
+        dw 0                        ; e_cs
+        dw 0                        ; e_lfarlc
+        dw 0                        ; e_ovno
+        times 4 dw 0                ; e_res
+        dw 0                        ; e_oemid
+        dw 0                        ; e_oeminfo
+        times 10 dw 0               ; e_res2
+        dd 0x00000040               ; e_lfanew (Pointer to PE Header)
+
+        ; --- PE HEADER (Start at 0x40) ---
+        db 'PE',0,0                 ; Signature
+        dw 0x8664                   ; Machine (AMD64)
+        dw 1                        ; NumberOfSections
+        dd 0                        ; TimeDateStamp
+        dd 0                        ; PointerToSymbolTable
+        dd 0                        ; NumberOfSymbols
+        dw 0x00F0                   ; SizeOfOptionalHeader
+        dw 0x022F                   ; Characteristics (Exec, LargeAddr, NoReloc, NoLineNums)
+
+        ; --- OPTIONAL HEADER (PE32+) ---
+        dw 0x020B                   ; Magic
+        db 0,0                      ; Linker
+        dd 0x00001000               ; SizeOfCode
+        dd 0                        ; SizeOfInitializedData
+        dd 0                        ; SizeOfUninitializedData
+        dd 0x00001000               ; AddressOfEntryPoint (RVA)
+        dd 0x00001000               ; BaseOfCode
+        dq 0x00400000               ; ImageBase
+        dd 0x00001000               ; SectionAlignment
+        dd 0x00000200               ; FileAlignment
+        dw 4,0                      ; OS Version
+        dw 0,0                      ; Image Version
+        dw 4,0                      ; Subsystem Version
+        dd 0                        ; Win32VersionValue
+        dd 0x00002000               ; SizeOfImage (Headers + Section aligned to 0x1000)
+        dd 0x00000200               ; SizeOfHeaders
+        dd 0                        ; CheckSum
+        dw 3                        ; Subsystem (3=Console, 2=GUI)
+        dw 0                        ; DllCharacteristics
+        dq 0x100000, 0x1000         ; Stack
+        dq 0x100000, 0x1000         ; Heap
+        dd 0                        ; LoaderFlags
+        dd 16                       ; NumberOfRvaAndSizes
+        
+        ; Data Directories (16 * 8 = 128 bytes) - All Empty
+        times 128 db 0
+        
+        ; --- SECTION HEADER ---
+        db '.text',0,0,0            ; Name
+        dd 0x00001000               ; VirtualSize
+        dd 0x00001000               ; VirtualAddress
+        dd 0x00000200               ; SizeOfRawData (512 bytes on disk)
+        dd 0x00000200               ; PointerToRawData (Offset 512 in file)
+        dd 0,0,0                    ; Relocs/Lines
+        dd 0x60000020               ; Characteristics (Code + Exec + Read)
+        
+    pe_header_size = $ - pe_header_stub
+    
+    out_filename db 'synapse_new.exe',0
+    hOutFile     dq 0
+    out_bytes_written dq 0
+    pad_buffer   rb 512
+    
+    compile_mode_msg db '[COMPILE] Generating synapse_new.exe...',13,10,0
+    compile_done_msg db '[SUCCESS] synapse_new.exe created!',13,10,0
+    compile_size_msg db '[INFO] Code size: ',0
+    compile_err_msg  db '[ERROR] Failed to write EXE file',13,10,0
 
 section '.bss' data readable writeable
 
@@ -528,37 +613,117 @@ start:
     call print_string
     
     ; =========================================================================
-    ; PHASE 3: EXECUTE main()
+    ; PHASE 3: COMPILE TO EXE (Instead of Execute)
     ; =========================================================================
-    lea rcx, [exec_msg]
+    lea rcx, [compile_mode_msg]
     call print_string
     
-    ; Check if main was found
-    mov rax, [main_addr]
-    test rax, rax
-    jz .no_main
-    
-    ; Execute main() - it has its own prologue/epilogue now
-    call rax
-    
-    mov [exec_result], rax
-    
-    ; =========================================================================
-    ; OUTPUT RESULT
-    ; =========================================================================
-    lea rcx, [done_msg]
+    ; Show code size
+    lea rcx, [compile_size_msg]
     call print_string
-    
-    lea rcx, [result_msg]
-    call print_string
-    
-    mov rax, [exec_result]
+    mov rax, [jit_cursor]
+    sub rax, [jit_buffer]
+    mov [out_bytes_written], rax  ; Save for later
     call print_number
-    
     lea rcx, [newline]
     call print_string
     
-    jmp .exit
+    ; -------------------------------------------------------------------------
+    ; PHASE 3: CREATE VALID PE32+ EXE WITH PROPER ALIGNMENT
+    ; -------------------------------------------------------------------------
+    sub rsp, 64
+    
+    ; 1. Create File
+    lea rcx, [out_filename]
+    mov rdx, 0x40000000             ; GENERIC_WRITE
+    xor r8, r8                      ; No sharing
+    xor r9, r9                      ; No security
+    mov qword [rsp+32], 2           ; CREATE_ALWAYS
+    mov qword [rsp+40], 0x80        ; FILE_ATTRIBUTE_NORMAL
+    mov qword [rsp+48], 0           ; No template
+    call [CreateFileA]
+    
+    cmp rax, INVALID_HANDLE_VALUE
+    je .compile_error
+    
+    mov [hOutFile], rax
+    
+    ; 2. Write PE Header (Variable size)
+    mov rcx, [hOutFile]
+    lea rdx, [pe_header_stub]
+    mov r8, pe_header_size
+    lea r9, [bytes_written]
+    mov qword [rsp+32], 0
+    call [WriteFile]
+    
+    test eax, eax
+    jz .compile_error
+    
+    ; 3. PADDING HEADER TO 512 BYTES
+    ; FileAlignment = 0x200. We must pad until offset 512.
+    mov rax, 512
+    sub rax, pe_header_size
+    
+    mov rcx, [hOutFile]
+    lea rdx, [pad_buffer]           ; Buffer full of zeros
+    mov r8, rax                     ; Remaining bytes
+    lea r9, [bytes_written]
+    mov qword [rsp+32], 0
+    call [WriteFile]
+    
+    test eax, eax
+    jz .compile_error
+    
+    ; 4. Write Code Section
+    ; ВАЖНО: пишем из jit_buffer, НЕ из jit_mem!
+    mov rcx, [hOutFile]
+    mov rdx, [jit_buffer]
+    mov r8, [out_bytes_written]     ; Actual code size
+    lea r9, [bytes_written]
+    mov qword [rsp+32], 0
+    call [WriteFile]
+    
+    test eax, eax
+    jz .compile_error
+    
+    ; 5. PADDING CODE SECTION TO 512 BYTES (ALIGNMENT)
+    ; Секция кода на диске должна быть кратна 512.
+    mov rax, 512
+    sub rax, [out_bytes_written]
+    cmp rax, 0
+    jle .close_file                 ; Если код >= 512, пропускаем padding
+    
+    mov rcx, [hOutFile]
+    lea rdx, [pad_buffer]
+    mov r8, rax
+    lea r9, [bytes_written]
+    mov qword [rsp+32], 0
+    call [WriteFile]
+    
+    test eax, eax
+    jz .compile_error
+    
+.close_file:
+    mov rcx, [hOutFile]
+    call [CloseHandle]
+    
+    add rsp, 64
+    
+    ; SUCCESS!
+    lea rcx, [compile_done_msg]
+    call print_string
+    
+    ; Exit cleanly
+    xor rcx, rcx
+    call [ExitProcess]
+
+.compile_error:
+    add rsp, 64
+    lea rcx, [compile_err_msg]
+    call print_string
+    
+    mov rcx, 1
+    call [ExitProcess]
 
 .err_file:
     lea rcx, [err_file]
@@ -5287,7 +5452,7 @@ ast_init:
 mem_init:
     sub rsp, 40
     xor ecx, ecx
-    mov edx, 1024*1024
+    mov edx, 16*1024*1024          ; 16 MB heap (was 1 MB)
     mov r8d, MEM_COMMIT or MEM_RESERVE
     mov r9d, PAGE_READWRITE
     call [VirtualAlloc]

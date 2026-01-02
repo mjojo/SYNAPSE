@@ -1,9 +1,0 @@
-fn main() {
-    print(111)
-    let x = 515 // 256*2 + 3
-    let s = x >> 8
-    print(s) // Expect 2
-    let m = x & 255
-    print(m) // Expect 3
-    return 0
-}

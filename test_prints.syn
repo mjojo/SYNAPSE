@@ -1,8 +1,0 @@
-// Test multiple prints  
-fn main() {
-    puts("A")
-    puts("B")
-    puts("C")
-    print(9999)
-    return 0
-}

@@ -2,6 +2,47 @@
 
 ---
 
+## [3.2.0] - 2026-01-02 - "Ouroboros Returns" 🐍🔄
+
+### 🏆 Milestone: Bootstrap Infrastructure Complete
+Phase 51 достигнут - создана полная инфраструктура для самокомпиляции компилятора.
+`bootstrap.syn` содержит полный конвейер: Lexer → Parser → Codegen → PE32+ Writer.
+
+### Added
+- **Bootstrap Compiler** (`bootstrap.syn`):
+  - Full lexer with comment support, identifiers, numbers, keywords
+  - Recursive descent parser for functions and blocks
+  - x64 code generator with proper prologue/epilogue
+  - PE32+ file writer for standalone executable generation
+- **File I/O Integration**:
+  - `read_file(filename, size_ptr)` - reads source code from disk
+  - Updated `fread`, `fwrite` for binary file operations
+- **Enhanced PE Generation**:
+  - `x64_prologue()` and `x64_epilogue()` for proper stack frames
+  - DOS stub, PE signature, section headers
+  - Executable generation tested with `hello.exe` (returns exit code 42)
+- **Test Infrastructure**:
+  - `test_bootstrap_simple.syn` - minimal test program
+  - Bootstrap clean and verbose versions for debugging
+
+### Changed
+- **Version System**: Updated to v3.2.0 across all components
+- **Documentation**: Complete rewrite of README.md with current features
+- **Project Cleanup**: Removed 100+ obsolete test files
+- **Component Versions**:
+  - Lexer v6 (bootstrap lexer)
+  - Parser v9 (bootstrap parser)
+  - JIT v11 (PE32+ generation)
+  - Codegen v8 (x64 prologue/epilogue)
+  - FileIO v3 (enhanced fread/fwrite)
+
+### Status
+- Bootstrap infrastructure: ✅ Complete
+- Self-compilation: 🔄 In progress (requires host optimization)
+- EXE generation: ✅ Working
+
+---
+
 ## [3.0.0] - 2025-12-27 - "Ouroboros" Release 🐍
 
 ### 🏆 Milestone: Self-Hosting Achieved

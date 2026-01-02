@@ -1,0 +1,24 @@
+// repro_hang.syn - Тест глобальных переменных в цикле
+// Диагностика проблемы зависания в while с глобальными переменными
+
+let global_counter = 0
+
+fn main() {
+    puts("=== REPRO HANG TEST ===")
+    puts("Testing global variable in while loop...")
+    
+    // Тест 1: Глобальная переменная в условии
+    puts("Starting loop (should print 0-4)...")
+    while global_counter < 5 {
+        puts("Counter:")
+        print(global_counter)
+        global_counter = global_counter + 1
+    }
+    
+    puts("Loop complete!")
+    puts("Final counter:")
+    print(global_counter)
+    
+    puts("=== TEST PASSED ===")
+    return 0
+}

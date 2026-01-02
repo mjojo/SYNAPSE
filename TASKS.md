@@ -1,14 +1,23 @@
 # SYNAPSE Development Tasks
 
-## 🏆 Current Status: v3.1.0 "Titan" (Phase 50 Complete)
+## 🏆 Current Status: v3.2.0 "Ouroboros Returns" (Phase 51 In Progress)
 
-**Achievement:** Graphics Engine + GUI + Mouse + Self-Hosting JIT + **Standalone EXE Generation!**
+**Achievement:** Graphics Engine + GUI + Mouse + Self-Hosting JIT + **Standalone EXE Generation** + **Phase 51 Infrastructure Ready!**
 
 ---
 
-## 🚀 LATEST ACHIEVEMENTS (The Titan Era)
+## 🚀 LATEST ACHIEVEMENTS (The Ouroboros Era)
 
-### Phase 45: Kernel v3 "Titan" (Graphics Core) ✅
+### Phase 51: The Great Decoupling (Bootstrap Infrastructure) 🔄
+- [x] **Bootstrap Compiler Created**: `bootstrap.syn` with full compiler pipeline.
+- [x] **File I/O Integration**: `read_file()` function for loading source code from disk.
+- [x] **PE32+ Generation**: `x64_prologue()` and `x64_epilogue()` for proper function frames.
+- [x] **Test Infrastructure**: `test_bootstrap_simple.syn` for validation.
+- [ ] **Self-Compilation**: Currently blocked by JIT complexity limits in v2.9.4 host.
+- [ ] **Next Step**: Simplify bootstrap or upgrade host to v3.0+ architecture.
+- **STATUS**: Infrastructure ready, optimization needed for full self-hosting.
+
+### Phase 50: The Exporter (PE Header Generation) ✅
 - [x] **Direct VRAM Access**: `get_vram()` pointer returns address of pixel buffer.
 - [x] **GDI Integration**: `window(w, h)`, `update_window()` via Kernel Intrinsics.
 - [x] **Embedded Font**: 8x8 System Font baked into kernel data segment.
@@ -477,4 +486,4 @@ demos/
 
 ---
 
-*Last updated: 2026-01-02 v3.1.0 "Titan"*
+*Last updated: 2026-01-02 v3.2.0 "Ouroboros Returns" - Phase 51 Bootstrap Infrastructure Complete*

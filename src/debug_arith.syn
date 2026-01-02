@@ -1,9 +1,0 @@
-fn main() {
-    print(111)
-    let x = 12345
-    let y = x % 256
-    print(y)
-    let z = x / 256
-    print(z)
-    return 0
-}

@@ -1,9 +1,0 @@
-let src_mem = 0
-
-fn main() {
-    print(111)
-    src_mem = alloc(1000)
-    print(222)
-    print(src_mem)
-    return 0
-}

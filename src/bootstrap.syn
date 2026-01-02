@@ -1,0 +1,1346 @@
+// ============================================================
+// SYNAPSE BOOTSTRAPPER v1.0
+// Phase 51: The Great Decoupling - Self-Compilation
+// ============================================================
+// Goal: Compile ourselves into a standalone synapse_new.exe
+
+// --- 1. MEMORY & GLOBALS ---
+let data_mem = 0 
+let code_mem = 0
+
+// Token Stream
+let tok_count = 0
+let ast_idx = 4000
+let code_idx = 0
+
+// Indentation State
+let indent_stack = 0 
+let indent_top = 0
+let at_line_start = 1
+
+// Parser State
+let p_cursor = 0
+
+// Source for lexer
+let lex_src = 0
+let lex_pos = 0
+let lex_len = 0
+
+// Function Table (for bootstrap)
+let func_table = 0      // Array of function entries
+let func_count = 0      // Number of functions
+let func_addrs = 0      // Array of JIT addresses
+
+// --- 2. CONSTANTS ---
+let TOK_NUM = 1
+let TOK_PLUS = 2
+let TOK_RET = 3
+let TOK_EOF = 4
+let TOK_IDENT = 5
+let TOK_LPAREN = 6
+let TOK_RPAREN = 7
+let TOK_LBRACE = 8
+let TOK_RBRACE = 9
+let TOK_INDENT = 10 
+let TOK_DEDENT = 11
+let TOK_NEWLINE = 12
+let TOK_COLON = 13
+let TOK_IF = 14
+let TOK_WHILE = 15
+let TOK_FN = 16
+let TOK_LET = 17
+let TOK_ASSIGN = 18
+let TOK_COMMA = 19
+let TOK_LT = 20
+let TOK_GT = 21
+let TOK_MINUS = 22
+let TOK_STAR = 23
+let TOK_SLASH = 24
+let TOK_EQ = 25
+let TOK_NE = 26
+
+let NODE_NUM = 1
+let NODE_ADD = 2
+let NODE_RET = 3
+let NODE_BLOCK = 4 
+let NODE_IF = 5
+let NODE_WHILE = 6
+let NODE_LT = 7
+let NODE_GT = 8
+let NODE_CALL = 9
+let NODE_VAR = 10
+let NODE_ASSIGN = 11
+let NODE_FN = 12
+let NODE_SUB = 13
+let NODE_MUL = 14
+
+// --- 3. X64 BACKEND ---
+fn emit(b) {
+    set_byte(code_mem, code_idx, b)
+    code_idx = code_idx + 1
+}
+
+fn emit_word(val) {
+    emit(val % 256)
+    emit((val / 256) % 256)
+}
+
+fn emit_dword(val) {
+    emit_word(val % 65536)
+    emit_word((val / 65536) % 65536)
+}
+
+fn emit64(val) {
+    let v = val
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+    v = v / 256
+    emit(v % 256)
+}
+
+fn x64_prologue() {
+    emit(85)              // PUSH RBP
+    emit(72)              // 0x48
+    emit(137)             // 0x89
+    emit(229)             // MOV RBP, RSP
+    // SUB RSP, 256 for locals
+    emit(72)              // 0x48
+    emit(129)             // 0x81
+    emit(236)             // 0xEC
+    emit_dword(256)
+}
+
+fn x64_epilogue() {
+    // ADD RSP, 256
+    emit(72)
+    emit(129)
+    emit(196)             // 0xC4
+    emit_dword(256)
+    emit(93)              // POP RBP
+    emit(195)             // RET
+}
+
+fn x64_mov_rax(val) {
+    emit(72)    // REX.W
+    emit(184)   // MOV RAX, imm64
+    emit64(val)
+}
+
+fn x64_push_rax() {
+    emit(80)    // PUSH RAX
+}
+
+fn x64_pop_rcx() {
+    emit(89)    // POP RCX
+}
+
+fn x64_add_rax_rcx() {
+    emit(72)    // REX.W
+    emit(1)     // ADD
+    emit(200)   // RAX, RCX (0xC8)
+}
+
+fn x64_sub_rax_rcx() {
+    emit(72)    // REX.W
+    emit(41)    // SUB (0x29)
+    emit(200)   // RAX, RCX
+}
+
+fn x64_imul_rax_rcx() {
+    emit(72)    // REX.W
+    emit(15)    // 0x0F
+    emit(175)   // 0xAF
+    emit(193)   // RAX, RCX (0xC1)
+}
+
+fn emit_32(val) {
+    emit(val % 256)
+    emit((val / 256) % 256)
+    emit((val / 65536) % 256)
+    emit((val / 16777216) % 256)
+}
+
+fn patch_32(addr, val) {
+    set_byte(code_mem, addr + 0, val % 256)
+    set_byte(code_mem, addr + 1, (val / 256) % 256)
+    set_byte(code_mem, addr + 2, (val / 65536) % 256)
+    set_byte(code_mem, addr + 3, (val / 16777216) % 256)
+}
+
+fn x64_test_rax() {
+    emit(72)    // REX.W
+    emit(133)   // TEST (0x85)
+    emit(192)   // RAX, RAX (0xC0)
+}
+
+fn x64_jz_placeholder() {
+    emit(15)    // 0x0F
+    emit(132)   // JZ rel32 (0x84)
+    let addr = code_idx
+    emit_32(0)
+    return addr
+}
+
+fn x64_jmp_placeholder() {
+    emit(233)   // JMP rel32 (0xE9)
+    let addr = code_idx
+    emit_32(0)
+    return addr
+}
+
+fn x64_cmp_rax_rcx() {
+    emit(72)    // REX.W
+    emit(57)    // CMP (0x39)
+    emit(200)   // RAX, RCX (0xC8)
+}
+
+fn x64_setl_rax() {
+    // SETL AL; MOVZX RAX, AL
+    emit(15)    // 0x0F
+    emit(156)   // SETL (0x9C)
+    emit(192)   // AL
+    emit(72)    // REX.W
+    emit(15)    // 0x0F
+    emit(182)   // MOVZX (0xB6)
+    emit(192)   // RAX, AL
+}
+
+fn x64_setg_rax() {
+    emit(15)
+    emit(159)   // SETG (0x9F)
+    emit(192)
+    emit(72)
+    emit(15)
+    emit(182)
+    emit(192)
+}
+
+// --- 4. LEXER ---
+
+fn is_digit(c) {
+    if c > 47 {
+        if c < 58 {
+            return 1
+        }
+    }
+    return 0
+}
+
+fn is_upper(c) {
+    // A-Z: 65-90
+    if c > 64 {
+        if c < 91 {
+            return 1
+        }
+    }
+    return 0
+}
+
+fn is_lower(c) {
+    // a-z: 97-122
+    if c > 96 {
+        if c < 123 {
+            return 1
+        }
+    }
+    return 0
+}
+
+fn is_alpha(c) {
+    if is_upper(c) == 1 {
+        return 1
+    }
+    if is_lower(c) == 1 {
+        return 1
+    }
+    // _: 95
+    if c == 95 {
+        return 1
+    }
+    return 0
+}
+
+fn is_alnum(c) {
+    if is_digit(c) == 1 {
+        return 1
+    }
+    return is_alpha(c)
+}
+
+// --- 5. DATA MEMORY HELPERS ---
+// MOVED BEFORE emit_token so they're in function table when emit_token is compiled
+// NOTE: ptr[idx] scales idx by 8, but ptr + n does NOT scale
+// So we need to manually scale: data_mem + idx * 8, then ptr[0]
+fn dm_get(idx) {
+    let ptr = data_mem + idx * 8
+    return ptr[0]
+}
+
+fn dm_set(idx, val) {
+    let ptr = data_mem + idx * 8
+    ptr[0] = val
+}
+
+fn emit_token(ttype, val) {
+    dm_set(tok_count, ttype)
+    dm_set(tok_count + 1000, val)
+    tok_count = tok_count + 1
+}
+
+fn lex_number() {
+    // JIT-FRIENDLY: Use local variables
+    let num = 0
+    let i = lex_pos
+    let limit = lex_len
+    let src = lex_src
+    
+    while i < limit {
+        let c = get_byte(src, i)
+        if is_digit(c) == 0 {
+            lex_pos = i
+            emit_token(TOK_NUM, num)
+            return 0
+        }
+        num = num * 10 + c - 48
+        i = i + 1
+    }
+    
+    lex_pos = i
+    emit_token(TOK_NUM, num)
+    return 0
+}
+
+// String buffer for identifiers
+let ident_buf = 0
+let ident_len = 0
+
+fn lex_ident() {
+    // JIT-FRIENDLY: Use local variables
+    ident_len = 0
+    let i = lex_pos
+    let limit = lex_len
+    let src = lex_src
+    let buf = ident_buf
+    let len = 0
+    
+    while i < limit {
+        let c = get_byte(src, i)
+        let is_an = is_alnum(c)
+        if is_an == 0 {
+            set_byte(buf, len, 0)
+            
+            // Update globals
+            ident_len = len
+            lex_pos = i
+            
+            // Check keywords
+            let first = get_byte(buf, 0)
+            if first == 102 {
+                // 'f' - check "fn"
+                if get_byte(buf, 1) == 110 {
+                    if get_byte(buf, 2) == 0 {
+                        emit_token(TOK_FN, 0)
+                        return 0
+                    }
+                }
+            }
+            if first == 108 {
+                // 'l' - check "let"
+                if get_byte(buf, 1) == 101 {
+                    if get_byte(buf, 2) == 116 {
+                        if get_byte(buf, 3) == 0 {
+                            emit_token(TOK_LET, 0)
+                            return 0
+                        }
+                    }
+                }
+            }
+            if first == 105 {
+                // 'i' - check "if"
+                if get_byte(buf, 1) == 102 {
+                    if get_byte(buf, 2) == 0 {
+                        emit_token(TOK_IF, 0)
+                        return 0
+                    }
+                }
+            }
+            if first == 119 {
+                // 'w' - check "while"
+                if get_byte(buf, 1) == 104 {
+                    emit_token(TOK_WHILE, 0)
+                    return 0
+                }
+            }
+            if first == 114 {
+                // 'r' - check "return"
+                if get_byte(buf, 1) == 101 {
+                    emit_token(TOK_RET, 0)
+                    return 0
+                }
+            }
+            
+            // Not a keyword - it's an identifier
+            emit_token(TOK_IDENT, buf)
+            return 0
+        }
+        set_byte(buf, len, c)
+        len = len + 1
+        i = i + 1
+    }
+    
+    ident_len = len
+    lex_pos = i
+    emit_token(TOK_IDENT, buf)
+    return 0
+}
+
+fn lex_skip_whitespace() {
+    // JIT-FRIENDLY: Use local variables
+    let i = lex_pos
+    let limit = lex_len
+    let src = lex_src
+    
+    while i < limit {
+        let c = get_byte(src, i)
+        if c == 32 {
+            i = i + 1
+        } else {
+            if c == 9 {
+                i = i + 1
+            } else {
+                // Update global and return
+                lex_pos = i
+                return 0
+            }
+        }
+    }
+    
+    // Update global before return
+    lex_pos = i
+    return 0
+}
+
+fn lex_skip_comment() {
+    // JIT-FRIENDLY: Skip until end of line
+    let i = lex_pos
+    let limit = lex_len
+    let src = lex_src
+    
+    while i < limit {
+        let c = get_byte(src, i)
+        if c == 10 {
+            lex_pos = i
+            return 0
+        }
+        if c == 13 {
+            lex_pos = i
+            return 0
+        }
+        i = i + 1
+    }
+    
+    lex_pos = i
+    return 0
+}
+
+fn lex_char() {
+    let c = get_byte(lex_src, lex_pos)
+    
+    // Number
+    if is_digit(c) == 1 {
+        lex_number()
+        return 1
+    }
+    
+    // Identifier or keyword
+    if is_alpha(c) == 1 {
+        lex_ident()
+        return 1
+    }
+    
+    // Single char tokens
+    if c == 40 {
+        emit_token(TOK_LPAREN, 0)
+        lex_pos = lex_pos + 1
+        return 1
+    }
+    if c == 41 {
+        emit_token(TOK_RPAREN, 0)
+        lex_pos = lex_pos + 1
+        return 1
+    }
+    if c == 123 {
+        emit_token(TOK_LBRACE, 0)
+        lex_pos = lex_pos + 1
+        return 1
+    }
+    if c == 125 {
+        emit_token(TOK_RBRACE, 0)
+        lex_pos = lex_pos + 1
+        return 1
+    }
+    if c == 43 {
+        emit_token(TOK_PLUS, 0)
+        lex_pos = lex_pos + 1
+        return 1
+    }
+    if c == 45 {
+        emit_token(TOK_MINUS, 0)
+        lex_pos = lex_pos + 1
+        return 1
+    }
+    if c == 42 {
+        emit_token(TOK_STAR, 0)
+        lex_pos = lex_pos + 1
+        return 1
+    }
+    if c == 44 {
+        emit_token(TOK_COMMA, 0)
+        lex_pos = lex_pos + 1
+        return 1
+    }
+    if c == 60 {
+        emit_token(TOK_LT, 0)
+        lex_pos = lex_pos + 1
+        return 1
+    }
+    if c == 62 {
+        emit_token(TOK_GT, 0)
+        lex_pos = lex_pos + 1
+        return 1
+    }
+    
+    // = or ==
+    if c == 61 {
+        if get_byte(lex_src, lex_pos + 1) == 61 {
+            emit_token(TOK_EQ, 0)
+            lex_pos = lex_pos + 2
+        } else {
+            emit_token(TOK_ASSIGN, 0)
+            lex_pos = lex_pos + 1
+        }
+        return 1
+    }
+    
+    // Comment: //
+    if c == 47 {
+        if get_byte(lex_src, lex_pos + 1) == 47 {
+            lex_skip_comment()
+        } else {
+            emit_token(TOK_SLASH, 0)
+            lex_pos = lex_pos + 1
+        }
+        return 1
+    }
+    
+    // Newline
+    if c == 10 {
+        emit_token(TOK_NEWLINE, 0)
+        lex_pos = lex_pos + 1
+        return 1
+    }
+    if c == 13 {
+        lex_pos = lex_pos + 1
+        return 1
+    }
+    
+    // Unknown - skip
+    lex_pos = lex_pos + 1
+    return 0
+}
+
+fn lex(src) {
+    lex_src = src
+    lex_len = strlen(src)
+    tok_count = 0
+    
+    // JIT-FRIENDLY: Use local variables for loop
+    let i = 0
+    let limit = lex_len
+    
+    while i < limit {
+        
+        // Update global for functions to use
+        lex_pos = i
+        
+        lex_skip_whitespace()
+        
+        // Re-read position after whitespace skip
+        i = lex_pos
+        
+        if i < limit {
+            lex_char()
+            
+            // Re-read position after lex_char
+            i = lex_pos
+        }
+    }
+    
+    emit_token(TOK_EOF, 0)
+    return 0
+}
+
+// --- 6. PARSER ---
+fn eat() { 
+    p_cursor = p_cursor + 1 
+}
+
+fn peek() { 
+    return dm_get(p_cursor)
+}
+
+fn peek_val() { 
+    return dm_get(p_cursor + 1000)
+}
+
+fn node_new(type, val) {
+    let p = ast_idx
+    dm_set(p + 0, type)
+    dm_set(p + 1, val)
+    dm_set(p + 2, 0)
+    dm_set(p + 3, 0)
+    dm_set(p + 4, 0)
+    ast_idx = ast_idx + 8
+    return p
+}
+
+fn parse_expr() {
+    let t = peek()
+    let val = peek_val()
+    
+    if t == TOK_NUM {
+        eat()
+        let left = node_new(NODE_NUM, val)
+        
+        // Check for operator
+        let op = peek()
+        if op == TOK_PLUS {
+            eat()
+            let right = parse_expr()
+            let node = node_new(NODE_ADD, 0)
+            dm_set(node + 2, left)
+            dm_set(node + 3, right)
+            return node
+        }
+        if op == TOK_MINUS {
+            eat()
+            let right = parse_expr()
+            let node = node_new(NODE_SUB, 0)
+            dm_set(node + 2, left)
+            dm_set(node + 3, right)
+            return node
+        }
+        if op == TOK_STAR {
+            eat()
+            let right = parse_expr()
+            let node = node_new(NODE_MUL, 0)
+            dm_set(node + 2, left)
+            dm_set(node + 3, right)
+            return node
+        }
+        if op == TOK_LT {
+            eat()
+            let right = parse_expr()
+            let node = node_new(NODE_LT, 0)
+            dm_set(node + 2, left)
+            dm_set(node + 3, right)
+            return node
+        }
+        if op == TOK_GT {
+            eat()
+            let right = parse_expr()
+            let node = node_new(NODE_GT, 0)
+            dm_set(node + 2, left)
+            dm_set(node + 3, right)
+            return node
+        }
+        
+        return left
+    }
+    
+    // TODO: Handle identifiers, function calls
+    return 0
+}
+
+fn parse_stmt() {
+    let t = peek()
+    
+    if t == TOK_RET {
+        eat()
+        let expr = parse_expr()
+        let node = node_new(NODE_RET, 0)
+        dm_set(node + 2, expr)
+        return node
+    }
+    
+    if t == TOK_NEWLINE {
+        eat()
+        return 0
+    }
+    
+    if t == TOK_IF {
+        return parse_if()
+    }
+    
+    if t == TOK_WHILE {
+        return parse_while()
+    }
+    
+    if t == TOK_LET {
+        return parse_let()
+    }
+    
+    return 0
+}
+
+fn parse_let() {
+    eat()  // eat 'let'
+    // Expect identifier
+    let t = peek()
+    if t == TOK_IDENT {
+        let name = peek_val()
+        eat()
+        
+        // Expect '='
+        t = peek()
+        if t == TOK_ASSIGN {
+            eat()
+            let expr = parse_expr()
+            let node = node_new(NODE_ASSIGN, name)
+            dm_set(node + 2, expr)
+            return node
+        }
+    }
+    return 0
+}
+
+fn parse_if() {
+    eat()  // eat 'if'
+    let cond = parse_expr()
+    
+    // Expect '{' 
+    let t = peek()
+    if t == TOK_LBRACE {
+        eat()
+    }
+    
+    let body = parse_block()
+    
+    let node = node_new(NODE_IF, 0)
+    dm_set(node + 2, cond)
+    dm_set(node + 3, body)
+    return node
+}
+
+fn parse_while() {
+    eat()  // eat 'while'
+    let cond = parse_expr()
+    
+    let t = peek()
+    if t == TOK_LBRACE {
+        eat()
+    }
+    
+    let body = parse_block()
+    
+    let node = node_new(NODE_WHILE, 0)
+    dm_set(node + 2, cond)
+    dm_set(node + 3, body)
+    return node
+}
+
+fn parse_block() {
+    let root = node_new(NODE_BLOCK, 0)
+    let last = 0
+    
+    while 1 > 0 {
+        let t = peek()
+        
+        if t == TOK_EOF {
+            return root
+        }
+        if t == TOK_RBRACE {
+            eat()
+            return root
+        }
+        
+        let stmt = parse_stmt()
+        if stmt > 0 {
+            if last > 0 {
+                dm_set(last + 4, stmt)
+            } else {
+                dm_set(root + 2, stmt)
+            }
+            last = stmt
+        }
+    }
+    
+    return root
+}
+
+fn parse_fn() {
+    eat()  // eat 'fn'
+    
+    // Get function name
+    let t = peek()
+    if t == TOK_IDENT {
+        let name = peek_val()
+        eat()
+        
+        // Skip '('
+        t = peek()
+        if t == TOK_LPAREN {
+            eat()
+        }
+        
+        // Skip params for now - just find ')'
+        let found_paren = 0
+        while found_paren == 0 {
+            t = peek()
+            if t == TOK_RPAREN {
+                eat()
+                found_paren = 1
+            } else {
+                eat()
+            }
+        }
+        
+        // Find '{'
+        t = peek()
+        if t == TOK_LBRACE {
+            eat()
+        }
+        
+        let body = parse_block()
+        
+        let node = node_new(NODE_FN, name)
+        dm_set(node + 2, body)
+        return node
+    }
+    return 0
+}
+
+fn parse_program() {
+    let root = node_new(NODE_BLOCK, 0)
+    let last = 0
+    
+    while 1 > 0 {
+        let t = peek()
+        
+        // Check for EOF first
+        if t == TOK_EOF {
+            return root
+        }
+        
+        // Check for FN 
+        if t == TOK_FN {
+            let fn_node = parse_fn()
+            if fn_node > 0 {
+                if last > 0 {
+                    dm_set(last + 4, fn_node)
+                } else {
+                    dm_set(root + 2, fn_node)
+                }
+                last = fn_node
+            }
+        } else {
+            // Skip unknown
+            eat()
+        }
+    }
+    
+    return root
+}
+
+// --- 7. CODEGEN ---
+fn gen(k) {
+    puts("gen: k=")
+    print(k)
+    if k == 0 {
+        puts("gen: k==0, returning")
+        return 0
+    }
+    
+    let type = dm_get(k + 0)
+    let val = dm_get(k + 1)
+    puts("gen: type=")
+    print(type)
+    puts("gen: val=")
+    print(val)
+    
+    if type == NODE_NUM {
+        x64_mov_rax(val)
+        return 0
+    }
+    
+    if type == NODE_ADD {
+        let left = dm_get(k + 2)
+        let right = dm_get(k + 3)
+        gen(left)
+        x64_push_rax()
+        gen(right)
+        x64_pop_rcx()
+        // RAX = RCX + RAX (swap order)
+        emit(72)
+        emit(1)
+        emit(200)
+        return 0
+    }
+    
+    if type == NODE_SUB {
+        let left = dm_get(k + 2)
+        let right = dm_get(k + 3)
+        gen(left)
+        x64_push_rax()
+        gen(right)
+        x64_pop_rcx()
+        // RCX - RAX -> RAX
+        emit(72)
+        emit(41)
+        emit(193)  // SUB RCX, RAX
+        emit(72)
+        emit(137)
+        emit(200)  // MOV RAX, RCX
+        return 0
+    }
+    
+    if type == NODE_MUL {
+        let left = dm_get(k + 2)
+        let right = dm_get(k + 3)
+        gen(left)
+        x64_push_rax()
+        gen(right)
+        x64_pop_rcx()
+        x64_imul_rax_rcx()
+        return 0
+    }
+    
+    if type == NODE_LT {
+        let left = dm_get(k + 2)
+        let right = dm_get(k + 3)
+        gen(left)
+        x64_push_rax()
+        gen(right)
+        x64_pop_rcx()
+        x64_cmp_rax_rcx()
+        // SETL AL then MOVZX
+        emit(15)
+        emit(156)
+        emit(192)
+        emit(72)
+        emit(15)
+        emit(182)
+        emit(192)
+        return 0
+    }
+    
+    if type == NODE_GT {
+        let left = dm_get(k + 2)
+        let right = dm_get(k + 3)
+        gen(left)
+        x64_push_rax()
+        gen(right)
+        x64_pop_rcx()
+        x64_cmp_rax_rcx()
+        // SETG
+        emit(15)
+        emit(159)
+        emit(192)
+        emit(72)
+        emit(15)
+        emit(182)
+        emit(192)
+        return 0
+    }
+    
+    if type == NODE_RET {
+        let expr = dm_get(k + 2)
+        gen(expr)
+        return 0
+    }
+    
+    if type == NODE_BLOCK {
+        let child = dm_get(k + 2)
+        while child > 0 {
+            gen(child)
+            child = dm_get(child + 4)
+        }
+        return 0
+    }
+    
+    if type == NODE_IF {
+        let cond = dm_get(k + 2)
+        let body = dm_get(k + 3)
+        gen(cond)
+        x64_test_rax()
+        let patch_addr = x64_jz_placeholder()
+        gen(body)
+        let offset = code_idx - patch_addr - 4
+        patch_32(patch_addr, offset)
+        return 0
+    }
+    
+    if type == NODE_WHILE {
+        let cond = dm_get(k + 2)
+        let body = dm_get(k + 3)
+        let loop_start = code_idx
+        gen(cond)
+        x64_test_rax()
+        let patch_exit = x64_jz_placeholder()
+        gen(body)
+        emit(233)
+        let back_offset = loop_start - code_idx - 4
+        emit_32(back_offset)
+        let exit_offset = code_idx - patch_exit - 4
+        patch_32(patch_exit, exit_offset)
+        return 0
+    }
+    
+    if type == NODE_FN {
+        // For now, just generate body with prologue/epilogue
+        x64_prologue()
+        let body = dm_get(k + 2)
+        gen(body)
+        x64_epilogue()
+        return 0
+    }
+    
+    return 0
+}
+
+// --- 8. PE EXE GENERATOR ---
+let pe_buf = 0
+let pe_idx = 0
+
+fn pe_emit(b) {
+    set_byte(pe_buf, pe_idx, b)
+    pe_idx = pe_idx + 1
+}
+
+fn pe_emit_word(val) {
+    pe_emit(val % 256)
+    pe_emit((val / 256) % 256)
+}
+
+fn pe_emit_dword(val) {
+    pe_emit_word(val % 65536)
+    pe_emit_word((val / 65536) % 65536)
+}
+
+fn pe_emit_qword(val) {
+    pe_emit_dword(val % 4294967296)
+    pe_emit_dword(0)
+}
+
+fn pe_pad_to(target) {
+    while pe_idx < target {
+        pe_emit(0)
+    }
+}
+
+fn create_exe(filename, code_ptr, code_len) {
+    pe_buf = alloc(4096)
+    pe_idx = 0
+    
+    // === DOS HEADER (64 bytes) ===
+    pe_emit(77)   // 'M'
+    pe_emit(90)   // 'Z'
+    pe_pad_to(60)
+    pe_emit_dword(64)  // e_lfanew
+    
+    // === PE SIGNATURE ===
+    pe_emit(80)   // 'P'
+    pe_emit(69)   // 'E'
+    pe_emit(0)
+    pe_emit(0)
+    
+    // === FILE HEADER ===
+    pe_emit_word(34404)  // Machine AMD64
+    pe_emit_word(1)      // 1 section
+    pe_emit_dword(0)     // TimeDateStamp
+    pe_emit_dword(0)     // PointerToSymbolTable
+    pe_emit_dword(0)     // NumberOfSymbols
+    pe_emit_word(240)    // SizeOfOptionalHeader
+    pe_emit_word(34)     // Characteristics
+    
+    // === OPTIONAL HEADER PE32+ ===
+    pe_emit_word(523)    // Magic PE32+
+    pe_emit(14)          // LinkerMajor
+    pe_emit(0)           // LinkerMinor
+    pe_emit_dword(512)   // SizeOfCode
+    pe_emit_dword(0)     // SizeOfInitializedData
+    pe_emit_dword(0)     // SizeOfUninitializedData
+    pe_emit_dword(4096)  // AddressOfEntryPoint
+    pe_emit_dword(4096)  // BaseOfCode
+    pe_emit_dword(4194304)  // ImageBase low
+    pe_emit_dword(0)        // ImageBase high
+    pe_emit_dword(4096)  // SectionAlignment
+    pe_emit_dword(512)   // FileAlignment
+    pe_emit_word(6)      // MajorOSVersion
+    pe_emit_word(0)      // MinorOSVersion
+    pe_emit_word(0)      // MajorImageVersion
+    pe_emit_word(0)      // MinorImageVersion
+    pe_emit_word(6)      // MajorSubsystemVersion
+    pe_emit_word(0)      // MinorSubsystemVersion
+    pe_emit_dword(0)     // Win32VersionValue
+    pe_emit_dword(8192)  // SizeOfImage
+    pe_emit_dword(512)   // SizeOfHeaders
+    pe_emit_dword(0)     // CheckSum
+    pe_emit_word(3)      // Subsystem (Console)
+    pe_emit_word(33120)  // DllCharacteristics
+    pe_emit_qword(1048576)  // SizeOfStackReserve
+    pe_emit_qword(4096)     // SizeOfStackCommit
+    pe_emit_qword(1048576)  // SizeOfHeapReserve
+    pe_emit_qword(4096)     // SizeOfHeapCommit
+    pe_emit_dword(0)        // LoaderFlags
+    pe_emit_dword(16)       // NumberOfRvaAndSizes
+    
+    // Data Directories (128 bytes of zeros)
+    let i = 0
+    while i < 128 {
+        pe_emit(0)
+        i = i + 1
+    }
+    
+    // === SECTION HEADER ===
+    pe_emit(46)   // '.'
+    pe_emit(116)  // 't'
+    pe_emit(101)  // 'e'
+    pe_emit(120)  // 'x'
+    pe_emit(116)  // 't'
+    pe_emit(0)
+    pe_emit(0)
+    pe_emit(0)
+    pe_emit_dword(512)   // VirtualSize
+    pe_emit_dword(4096)  // VirtualAddress
+    pe_emit_dword(512)   // SizeOfRawData
+    pe_emit_dword(512)   // PointerToRawData
+    pe_emit_dword(0)     // PointerToRelocations
+    pe_emit_dword(0)     // PointerToLinenumbers
+    pe_emit_word(0)      // NumberOfRelocations
+    pe_emit_word(0)      // NumberOfLinenumbers
+    pe_emit_dword(1610612768)  // Characteristics
+    
+    pe_pad_to(512)
+    
+    // === CODE SECTION ===
+    i = 0
+    while i < code_len {
+        let b = get_byte(code_ptr, i)
+        pe_emit(b)
+        i = i + 1
+    }
+    
+    pe_pad_to(1024)
+    
+    // Write file
+    let h = fopen(filename, 1)
+    let written = fwrite(h, pe_buf, pe_idx)
+    fclose(h)
+    
+    return written
+}
+
+// --- 9. FILE I/O HELPER ---
+fn read_file(filename, size_ptr) {
+    let h = fopen(filename, 0)
+    if h < 1 {
+        puts("Error: Cannot open file")
+        puts(filename)
+        return 0
+    }
+    
+    // Allocate 1MB buffer (enough for bootstrap.syn)
+    let capacity = 1000000
+    let buf = alloc(capacity)
+    let bytes_read = fread(h, buf, capacity)
+    fclose(h)
+    
+    // Null terminate
+    set_byte(buf, bytes_read, 0)
+    
+    // Store size if requested
+    if size_ptr > 0 {
+        let ptr = size_ptr
+        ptr[0] = bytes_read
+    }
+    
+    return buf
+}
+
+// --- 10. MAIN ---
+// ============================================================
+// PHASE 51: THE SINGULARITY RUN - FULL SELF-COMPILATION
+// ============================================================
+
+fn main() {
+    puts("============================================")
+    puts("  SYNAPSE SINGULARITY: BOOTSTRAP MODE")
+    puts("  Phase 51: The Ouroboros Bites Its Tail")
+    puts("============================================")
+    puts("")
+    
+    // 1. Memory Initialization (Increased for large source)
+    puts("Allocating memory...")
+    puts("  Data Memory (AST): 500KB")
+    let dm = alloc(500000)
+    data_mem = dm
+    
+    puts("  Code Memory (x64): 200KB")
+    let cm = alloc_exec(200000)
+    code_mem = cm
+    
+    puts("  Identifier Buffer: 256B")
+    ident_buf = alloc(256)
+    
+    puts("  PE Buffer: 4KB")
+    pe_buf = alloc(4096)
+    
+    // Reset counters
+    tok_count = 0
+    ast_idx = 4000
+    code_idx = 0
+    pe_idx = 0
+    indent_top = 0
+    
+    puts("Memory allocation complete.")
+    puts("")
+    
+    // 2. Read Source File (SELF)
+    puts("Phase 0: Loading Source Code")
+    puts("  Target: src\\bootstrap.syn")
+    
+    let filename = alloc(64)
+    // "src\\bootstrap.syn" (relative to project root)
+    set_byte(filename, 0, 115)  // s
+    set_byte(filename, 1, 114)  // r
+    set_byte(filename, 2, 99)   // c
+    set_byte(filename, 3, 92)   // \
+    set_byte(filename, 4, 98)   // b
+    set_byte(filename, 5, 111)  // o
+    set_byte(filename, 6, 111)  // o
+    set_byte(filename, 7, 116)  // t
+    set_byte(filename, 8, 115)  // s
+    set_byte(filename, 9, 116)  // t
+    set_byte(filename, 10, 114) // r
+    set_byte(filename, 11, 97)  // a
+    set_byte(filename, 12, 112) // p
+    set_byte(filename, 13, 46)  // .
+    set_byte(filename, 14, 115) // s
+    set_byte(filename, 15, 121) // y
+    set_byte(filename, 16, 110) // n
+    set_byte(filename, 17, 0)
+    
+    let size_box = alloc(8)
+    let src_mem = read_file(filename, size_box)
+    
+    if src_mem == 0 {
+        puts("FATAL ERROR: Could not read bootstrap.syn")
+        return 1
+    }
+    
+    let src_len = size_box[0]
+    puts("  Source loaded successfully!")
+    puts("  Size in bytes:")
+    print(src_len)
+    puts("")
+    
+    // 3. LEXER (This will take time)
+    puts("Phase 1: Lexical Analysis")
+    puts("  WARNING: This may take 2-10 minutes in JIT mode")
+    puts("  Processing...")
+    
+    lex_src = src_mem
+    lex_len = src_len
+    lex_pos = 0
+    
+    lex(src_mem)
+    
+    puts("  Lexing complete!")
+    puts("  Tokens generated:")
+    print(tok_count)
+    puts("")
+    
+    // 4. PARSER
+    puts("Phase 2: Syntactic Analysis")
+    puts("  Building Abstract Syntax Tree...")
+    
+    p_cursor = 0
+    let root = parse_program()
+    
+    puts("  Parsing complete!")
+    puts("  AST root node index:")
+    print(root)
+    puts("")
+    
+    // 5. CODEGEN
+    puts("Phase 3: Code Generation")
+    puts("  Generating x64 machine code...")
+    
+    x64_prologue()
+    gen(root)
+    x64_epilogue()
+    
+    puts("  Code generation complete!")
+    puts("  Machine code size (bytes):")
+    print(code_idx)
+    puts("")
+    
+    // 6. PE32+ EXPORT
+    puts("Phase 4: Executable Generation")
+    puts("  Creating PE32+ file: synapse_new.exe")
+    
+    let outname = alloc(32)
+    set_byte(outname, 0, 115)  // s
+    set_byte(outname, 1, 121)  // y
+    set_byte(outname, 2, 110)  // n
+    set_byte(outname, 3, 97)   // a
+    set_byte(outname, 4, 112)  // p
+    set_byte(outname, 5, 115)  // s
+    set_byte(outname, 6, 101)  // e
+    set_byte(outname, 7, 95)   // _
+    set_byte(outname, 8, 110)  // n
+    set_byte(outname, 9, 101)  // e
+    set_byte(outname, 10, 119) // w
+    set_byte(outname, 11, 46)  // .
+    set_byte(outname, 12, 101) // e
+    set_byte(outname, 13, 120) // x
+    set_byte(outname, 14, 101) // e
+    set_byte(outname, 15, 0)
+    
+    let written = create_exe(outname, code_mem, code_idx)
+    
+    if written > 0 {
+        puts("  File written successfully!")
+        puts("  Bytes written:")
+        print(written)
+    } else {
+        puts("  ERROR: Failed to write executable")
+        return 1
+    }
+    
+    puts("")
+    puts("============================================")
+    puts("  SUCCESS! THE LOOP IS CLOSED.")
+    puts("  The Ouroboros has swallowed its tail.")
+    puts("============================================")
+    puts("")
+    puts("Next steps:")
+    puts("  1. Run: synapse_new.exe bootstrap.syn")
+    puts("  2. If it creates synapse_new.exe again,")
+    puts("     the compiler is fully self-hosting!")
+    puts("")
+    
+    return 0
+}

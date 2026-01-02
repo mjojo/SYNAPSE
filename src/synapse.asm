@@ -48,6 +48,7 @@ section '.idata' import data readable
         dq RVA _GetModuleHandleA
         dq RVA _Sleep
         dq RVA _GetLastError
+        dq RVA _SetFilePointer
         dq 0
 
     kernel32_table:
@@ -65,6 +66,7 @@ section '.idata' import data readable
         GetModuleHandleA dq RVA _GetModuleHandleA
         Sleep           dq RVA _Sleep
         GetLastError    dq RVA _GetLastError
+        SetFilePointer  dq RVA _SetFilePointer
                         dq 0
 
     _GetStdHandle   db 0,0,'GetStdHandle',0
@@ -81,6 +83,7 @@ section '.idata' import data readable
     _GetModuleHandleA db 0,0,'GetModuleHandleA',0
     _Sleep          db 0,0,'Sleep',0
     _GetLastError   db 0,0,'GetLastError',0
+    _SetFilePointer db 0,0,'SetFilePointer',0
 
     ; =========================================================================
     ; USER32
@@ -308,12 +311,15 @@ section '.data' data readable writeable
         dw 0                        ; e_oemid
         dw 0                        ; e_oeminfo
         times 10 dw 0               ; e_res2
-        dd 0x00000040               ; e_lfanew (Pointer to PE Header)
+        dd 0x00000080               ; e_lfanew (Pointer to PE Header at 0x80)
 
-        ; --- PE HEADER (Start at 0x40) ---
+        ; Padding to align PE header at 0x80
+        times (0x80 - ($ - pe_header_stub)) db 0
+
+        ; --- PE HEADER (Start at 0x80) ---
         db 'PE',0,0                 ; Signature
         dw 0x8664                   ; Machine (AMD64)
-        dw 1                        ; NumberOfSections
+        dw 2                        ; NumberOfSections (Code + Import)
         dd 0                        ; TimeDateStamp
         dd 0                        ; PointerToSymbolTable
         dd 0                        ; NumberOfSymbols
@@ -335,7 +341,7 @@ section '.data' data readable writeable
         dw 0,0                      ; Image Version
         dw 4,0                      ; Subsystem Version
         dd 0                        ; Win32VersionValue
-        dd 0x00002000               ; SizeOfImage (Headers + Section aligned to 0x1000)
+        dd 0x00003000               ; SizeOfImage (Headers + Code + Import = 3 sections)
         dd 0x00000200               ; SizeOfHeaders
         dd 0                        ; CheckSum
         dw 3                        ; Subsystem (3=Console, 2=GUI)
@@ -345,8 +351,10 @@ section '.data' data readable writeable
         dd 0                        ; LoaderFlags
         dd 16                       ; NumberOfRvaAndSizes
         
-        ; Data Directories (16 * 8 = 128 bytes) - All Empty
-        times 128 db 0
+        ; --- DATA DIRECTORIES (16 entries) ---
+        dd 0,0                      ; 1. Export (Empty)
+        dd 0x2000, 256              ; 2. IMPORT TABLE (RVA, Size - hardcoded)
+        times 14 dd 0,0             ; 3-16. Rest Empty
         
         ; --- SECTION HEADER ---
         db '.text',0,0,0            ; Name
@@ -357,10 +365,20 @@ section '.data' data readable writeable
         dd 0,0,0                    ; Relocs/Lines
         dd 0x60000020               ; Characteristics (Code + Exec + Read)
         
+        ; --- SECTION HEADER 2: Import Data ---
+        db '.idata',0,0              ; Name
+        dd 256                       ; VirtualSize (hardcoded - must match import_data_size)
+        dd 0x00002000                ; VirtualAddress (RVA 0x2000)
+        dd 0x00000200                ; SizeOfRawData (512 bytes on disk)
+        dd 0x00000400                ; PointerToRawData (Offset 1024 in file)
+        dd 0,0,0                     ; Relocs/Lines
+        dd 0xC0000040                ; Characteristics (Read + Write + Initialized Data)
+        
     pe_header_size = $ - pe_header_stub
     
     out_filename db 'synapse_new.exe',0
     hOutFile     dq 0
+    temp_buffer  rb 16              ; Temporary buffer for patching
     out_bytes_written dq 0
     pad_buffer   rb 512
     
@@ -368,6 +386,105 @@ section '.data' data readable writeable
     compile_done_msg db '[SUCCESS] synapse_new.exe created!',13,10,0
     compile_size_msg db '[INFO] Code size: ',0
     compile_err_msg  db '[ERROR] Failed to write EXE file',13,10,0
+    
+    ; ============================================================================
+    ; ENTRY POINT STUB (Call main() then ExitProcess)
+    ; Total size: 21 bytes
+    ; Offsets calculated relative to NEXT instruction (x86-64 convention)
+    ; IAT starts at RVA 0x2070 (not 0x2000!), first entry is ExitProcess
+    ; ============================================================================
+    align 16
+    entry_stub:
+        db 0x48, 0x83, 0xEC, 0x28          ; [0-3] sub rsp, 40
+        db 0xE8, 0x0C, 0x00, 0x00, 0x00    ; [4-8] call +12 (next instr at 9, target at 21)
+        db 0x48, 0x89, 0xC1                ; [9-11] mov rcx, rax
+        db 0x48, 0x8B, 0x05                ; [12-14] mov rax, [rip + offset]
+        dd (0x2070 - 0x1000 - 19)          ; [15-18] Offset: next at RVA 0x1013, IAT at 0x2070
+        db 0xFF, 0xD0                      ; [19-20] call rax
+        
+    entry_stub_size = $ - entry_stub
+    
+    ; ============================================================================
+    ; IMPORT TABLE TEMPLATE (KERNEL32.DLL Only)
+    ; RVA Base: 0x2000 (We assume Code is at 0x1000 and < 4KB)
+    ; ============================================================================
+    
+    IMPORT_RVA_BASE = 0x2000
+    
+    align 16
+    import_data_start:
+        ; --- Import Directory Table (20 bytes) ---
+        dd import_lookup_table - import_data_start + IMPORT_RVA_BASE  ; OriginalFirstThunk (ILT RVA)
+        dd 0                    ; TimeDateStamp
+        dd 0                    ; ForwarderChain
+        dd sz_kernel32 - import_data_start + IMPORT_RVA_BASE          ; Name (RVA)
+        dd import_address_table - import_data_start + IMPORT_RVA_BASE ; FirstThunk (IAT RVA)
+        
+        ; Null Entry (End of Table)
+        times 5 dd 0
+
+        ; --- Import Lookup Table (ILT) ---
+    import_lookup_table:
+        dq hint_exit - import_data_start + IMPORT_RVA_BASE
+        dq hint_alloc - import_data_start + IMPORT_RVA_BASE
+        dq hint_free - import_data_start + IMPORT_RVA_BASE
+        dq hint_write - import_data_start + IMPORT_RVA_BASE
+        dq hint_read - import_data_start + IMPORT_RVA_BASE
+        dq hint_create - import_data_start + IMPORT_RVA_BASE
+        dq hint_close - import_data_start + IMPORT_RVA_BASE
+        dq hint_std - import_data_start + IMPORT_RVA_BASE
+        dq 0                    ; End of List
+
+        ; --- Import Address Table (IAT) ---
+    import_address_table:
+        dq hint_exit - import_data_start + IMPORT_RVA_BASE
+        dq hint_alloc - import_data_start + IMPORT_RVA_BASE
+        dq hint_free - import_data_start + IMPORT_RVA_BASE
+        dq hint_write - import_data_start + IMPORT_RVA_BASE
+        dq hint_read - import_data_start + IMPORT_RVA_BASE
+        dq hint_create - import_data_start + IMPORT_RVA_BASE
+        dq hint_close - import_data_start + IMPORT_RVA_BASE
+        dq hint_std - import_data_start + IMPORT_RVA_BASE
+        dq 0
+
+        ; --- Names & Hints ---
+    sz_kernel32 db 'KERNEL32.DLL',0
+
+        align 2
+    hint_exit:
+        dw 0
+        db 'ExitProcess',0
+        align 2
+    hint_alloc:
+        dw 0
+        db 'VirtualAlloc',0
+        align 2
+    hint_free:
+        dw 0
+        db 'VirtualFree',0
+        align 2
+    hint_write:
+        dw 0
+        db 'WriteFile',0
+        align 2
+    hint_read:
+        dw 0
+        db 'ReadFile',0
+        align 2
+    hint_create:
+        dw 0
+        db 'CreateFileA',0
+        align 2
+    hint_close:
+        dw 0
+        db 'CloseHandle',0
+        align 2
+    hint_std:
+        dw 0
+        db 'GetStdHandle',0
+        align 2
+
+    import_data_size = $ - import_data_start
 
 section '.bss' data readable writeable
 
@@ -618,6 +735,12 @@ start:
     lea rcx, [compile_mode_msg]
     call print_string
     
+    ; DEBUG: Show entry stub size
+    mov rax, entry_stub_size
+    call print_number
+    lea rcx, [newline]
+    call print_string
+    
     ; Show code size
     lea rcx, [compile_size_msg]
     call print_string
@@ -659,6 +782,31 @@ start:
     test eax, eax
     jz .compile_error
     
+    ; 2b. PATCH Import Directory in header (at offset 0x148 = 0x80+0xC8)
+    ; SetFilePointer(hFile, 0x148, NULL, FILE_BEGIN)
+    mov rcx, [hOutFile]
+    mov edx, 0x148              ; Distance to move
+    xor r8, r8                  ; lpDistanceToMoveHigh = NULL
+    xor r9, r9                  ; dwMoveMethod = FILE_BEGIN
+    call [SetFilePointer]
+    
+    ; Write Import RVA and Size
+    mov dword [temp_buffer], 0x2000      ; RVA
+    mov dword [temp_buffer+4], 256       ; Size
+    mov rcx, [hOutFile]
+    lea rdx, [temp_buffer]
+    mov r8, 8
+    lea r9, [bytes_written]
+    mov qword [rsp+32], 0
+    call [WriteFile]
+    
+    ; Seek back to end of header for padding
+    mov rcx, [hOutFile]
+    mov edx, pe_header_size     ; Distance
+    xor r8, r8
+    xor r9, r9
+    call [SetFilePointer]
+    
     ; 3. PADDING HEADER TO 512 BYTES
     ; FileAlignment = 0x200. We must pad until offset 512.
     mov rax, 512
@@ -674,7 +822,18 @@ start:
     test eax, eax
     jz .compile_error
     
-    ; 4. Write Code Section
+    ; 4. Write Entry Stub (startup code that calls main + ExitProcess)
+    mov rcx, [hOutFile]
+    lea rdx, [entry_stub]
+    mov r8, entry_stub_size
+    lea r9, [bytes_written]
+    mov qword [rsp+32], 0
+    call [WriteFile]
+    
+    test eax, eax
+    jz .compile_error
+    
+    ; 5. Write Code Section (JIT-generated code)
     ; ВАЖНО: пишем из jit_buffer, НЕ из jit_mem!
     mov rcx, [hOutFile]
     mov rdx, [jit_buffer]
@@ -686,12 +845,45 @@ start:
     test eax, eax
     jz .compile_error
     
-    ; 5. PADDING CODE SECTION TO 512 BYTES (ALIGNMENT)
+    ; 6. PADDING CODE SECTION TO 512 BYTES (ALIGNMENT)
     ; Секция кода на диске должна быть кратна 512.
+    ; Total = entry_stub_size + code_size
+    mov rax, entry_stub_size
+    add rax, [out_bytes_written]
+    mov rbx, 512
+    sub rbx, rax
+    cmp rbx, 0
+    jle .write_import               ; Skip padding if >= 512
+    
+    mov rcx, [hOutFile]
+    lea rdx, [pad_buffer]
+    mov r8, rbx
+    lea r9, [bytes_written]
+    mov qword [rsp+32], 0
+    call [WriteFile]
+    
+    test eax, eax
+    jz .compile_error
+    
+.write_import:
+    ; 6. WRITE IMPORT SECTION
+    ; We assume file is now at offset 0x400 (1024 bytes)
+    ; This corresponds to RVA 0x2000
+    mov rcx, [hOutFile]
+    lea rdx, [import_data_start]
+    mov r8, import_data_size
+    lea r9, [bytes_written]
+    mov qword [rsp+32], 0
+    call [WriteFile]
+    
+    test eax, eax
+    jz .compile_error
+    
+    ; 7. PADDING IMPORT SECTION (to 512 bytes for alignment)
     mov rax, 512
-    sub rax, [out_bytes_written]
+    sub rax, import_data_size
     cmp rax, 0
-    jle .close_file                 ; Если код >= 512, пропускаем padding
+    jle .close_file
     
     mov rcx, [hOutFile]
     lea rdx, [pad_buffer]

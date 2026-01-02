@@ -1,0 +1,17 @@
+File size: 1536 bytes
+
+PE Header at: 0x80
+Number of sections: 2
+Entry Point RVA: 0x1000
+Import Directory: RVA=0x2000, Size=256
+
+=== Code Section (offset 512) ===
+First 32 bytes (entry stub):
+48 83 EC 28 E8 0C 00 00 00 48 89 C1 48 8B 05 ED 0F 00 00 FF D0 55 48 89 E5 48 81 EC 20 01 00 00
+
+=== Import Section (offset 1024) ===
+Import Directory Table:
+28 20 00 00 00 00 00 00 00 00 00 00 B8 20 00 00 70 20 00 00
+
+IAT (offset 1024+96):
+26 21 00 00 00 00 00 00 00 00 00 00 00 00 00 00 C6 20 00 00 00 00 00 00 D4 20 00 00 00 00 00 00 E4 20 00 00 00 00 00 00 F2 20 00 00 00 00 00 00 FE 20 00 00 00 00 00 00 0A 21 00 00 00 00 00 00

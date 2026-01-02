@@ -1,0 +1,4 @@
+fn main() {
+    alloc(10)
+    return 99
+}

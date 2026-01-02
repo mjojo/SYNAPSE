@@ -6,6 +6,8 @@
 ; Usage: synapse.exe [filename.syn]
 ; =============================================================================
 
+include '..\include\version.inc'
+
 format PE64 console
 entry start
 
@@ -151,7 +153,7 @@ section '.idata' import data readable
 section '.data' data readable writeable
 
     banner      db '============================================',13,10
-                db '  SYNAPSE v2.9.4 Compiler - Self-Hosting',13,10
+                db '  ',SYNAPSE_FULL_NAME,13,10
                 db '  Full Pipeline: Lex -> Parse -> JIT -> Run',13,10
                 db '============================================',13,10,13,10,0
     
@@ -485,6 +487,45 @@ section '.data' data readable writeable
         align 2
 
     import_data_size = $ - import_data_start
+
+; =============================================================================
+; str_equals - Compare two null-terminated strings
+; Input: RCX = string1, RDX = string2
+; Output: RAX = 1 if equal, 0 if not
+; =============================================================================
+str_equals:
+    push rbx
+    push rsi
+    push rdi
+    
+    mov rsi, rcx
+    mov rdi, rdx
+    
+.compare_loop:
+    mov al, [rsi]
+    mov bl, [rdi]
+    cmp al, bl
+    jne .not_equal
+    
+    test al, al             ; Check for null terminator
+    jz .equal
+    
+    inc rsi
+    inc rdi
+    jmp .compare_loop
+    
+.equal:
+    mov rax, 1
+    jmp .done
+    
+.not_equal:
+    xor rax, rax
+    
+.done:
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
 
 section '.bss' data readable writeable
 
@@ -1512,6 +1553,30 @@ parse_block:
     ; DON'T skip '(' - compile_expr will read first token itself!
     ; The current token is '('
     
+    ; === [SAFE INLINE CHECK] Is it 'alloc'? ===
+    push rsi
+    lea rsi, [func_call_name]
+    
+    cmp byte [rsi], 'a'
+    jne .not_alloc_stmt
+    cmp byte [rsi+1], 'l'
+    jne .not_alloc_stmt
+    cmp byte [rsi+2], 'l'
+    jne .not_alloc_stmt
+    cmp byte [rsi+3], 'o'
+    jne .not_alloc_stmt
+    cmp byte [rsi+4], 'c'
+    jne .not_alloc_stmt
+    cmp byte [rsi+5], 0
+    jne .not_alloc_stmt
+    
+    pop rsi
+    jmp .stmt_handle_alloc_intrinsic
+    
+.not_alloc_stmt:
+    pop rsi
+    ; --- End Inline Check ---
+    
     ; Find function first (save address)
     lea rcx, [func_call_name]
     call func_find
@@ -1570,6 +1635,27 @@ parse_block:
     call generate_call_common
     
     mov [jit_cursor], rdi
+    jmp .stmt_loop
+
+; === STATEMENT INTRINSIC HANDLERS ===
+.stmt_handle_alloc_intrinsic:
+    ; Current token is '(', need to read first argument
+    call next_token         ; Now cur_tok = first argument
+    
+    ; Parse single argument for alloc(size)
+    call compile_expr
+    
+    ; Generate: PUSH RAX
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate IAT-based VirtualAlloc call
+    call generate_alloc_iat
+    
     jmp .stmt_loop
     
 .skip_call:
@@ -2183,6 +2269,30 @@ compile_while:
     
     ; DON'T skip '(' - compile_expr will read first token!
     
+    ; === [SAFE INLINE CHECK] Is it 'alloc'? ===
+    push rsi
+    lea rsi, [func_call_name]
+    
+    cmp byte [rsi], 'a'
+    jne .not_alloc_while
+    cmp byte [rsi+1], 'l'
+    jne .not_alloc_while
+    cmp byte [rsi+2], 'l'
+    jne .not_alloc_while
+    cmp byte [rsi+3], 'o'
+    jne .not_alloc_while
+    cmp byte [rsi+4], 'c'
+    jne .not_alloc_while
+    cmp byte [rsi+5], 0
+    jne .not_alloc_while
+    
+    pop rsi
+    jmp .while_handle_alloc_intrinsic
+    
+.not_alloc_while:
+    pop rsi
+    ; --- End Inline Check ---
+    
     ; Find function (save address in R14)
     lea rcx, [func_call_name]
     call func_find
@@ -2253,6 +2363,31 @@ compile_while:
     cmp qword [cur_tok_value], OP_RPAREN
     jne .body_loop
     call next_token
+    jmp .body_loop
+
+.while_handle_alloc_intrinsic:
+    ; Parse single argument for alloc(size)
+    push r12
+    push r13
+    call compile_expr
+    pop r13
+    pop r12
+    
+    ; Generate: PUSH RAX
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate IAT-based VirtualAlloc call
+    push r12
+    push r13
+    call generate_alloc_iat
+    pop r13
+    pop r12
+    
     jmp .body_loop
 
 .skip_unknown:
@@ -2767,6 +2902,31 @@ compile_if:
 
 .if_func_call:
     ; name(args) - with multi-arg support
+    
+    ; === [SAFE INLINE CHECK] Is it 'alloc'? ===
+    push rsi
+    lea rsi, [func_call_name]
+    
+    cmp byte [rsi], 'a'
+    jne .not_alloc_if
+    cmp byte [rsi+1], 'l'
+    jne .not_alloc_if
+    cmp byte [rsi+2], 'l'
+    jne .not_alloc_if
+    cmp byte [rsi+3], 'o'
+    jne .not_alloc_if
+    cmp byte [rsi+4], 'c'
+    jne .not_alloc_if
+    cmp byte [rsi+5], 0
+    jne .not_alloc_if
+    
+    pop rsi
+    jmp .if_handle_alloc_intrinsic
+    
+.not_alloc_if:
+    pop rsi
+    ; --- End Inline Check ---
+    
     lea rcx, [func_call_name]
     call func_find
     mov r14, rax
@@ -2829,6 +2989,27 @@ compile_if:
 
 .if_skip_call:
     call next_token ; skip )
+    jmp .if_body
+
+.if_handle_alloc_intrinsic:
+    ; Parse single argument for alloc(size)
+    push r12
+    call compile_expr
+    pop r12
+    
+    ; Generate: PUSH RAX
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate IAT-based VirtualAlloc call
+    push r12
+    call generate_alloc_iat
+    pop r12
+    
     jmp .if_body
 
 .if_body_done:
@@ -3081,6 +3262,30 @@ compile_if:
     jmp .else_body
 
 .else_func_call:
+    ; === [SAFE INLINE CHECK] Is it 'alloc'? ===
+    push rsi
+    lea rsi, [func_call_name]
+    
+    cmp byte [rsi], 'a'
+    jne .not_alloc_else
+    cmp byte [rsi+1], 'l'
+    jne .not_alloc_else
+    cmp byte [rsi+2], 'l'
+    jne .not_alloc_else
+    cmp byte [rsi+3], 'o'
+    jne .not_alloc_else
+    cmp byte [rsi+4], 'c'
+    jne .not_alloc_else
+    cmp byte [rsi+5], 0
+    jne .not_alloc_else
+    
+    pop rsi
+    jmp .else_handle_alloc_intrinsic
+    
+.not_alloc_else:
+    pop rsi
+    ; --- End Inline Check ---
+    
     lea rcx, [func_call_name]
     call func_find
     mov r14, rax
@@ -3136,6 +3341,31 @@ compile_if:
     jmp .else_body
 .else_skip_call:
     call next_token
+    jmp .else_body
+
+.else_handle_alloc_intrinsic:
+    ; Parse single argument for alloc(size)
+    push r12
+    push r13
+    call compile_expr
+    pop r13
+    pop r12
+    
+    ; Generate: PUSH RAX
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate IAT-based VirtualAlloc call
+    push r12
+    push r13
+    call generate_alloc_iat
+    pop r13
+    pop r12
+    
     jmp .else_body
 
 .else_body_done:
@@ -3693,6 +3923,31 @@ compile_term:
     ; Consume the IDENT so we move to '('
     call next_token     ; Current becomes '('
     
+    ; === [SAFE INLINE CHECK] Is it 'alloc'? ===
+    push rsi                        ; Сохраняем RSI
+    lea rsi, [func_call_name]       ; Берем текущее имя функции
+    
+    cmp byte [rsi], 'a'
+    jne .not_alloc_intrinsic
+    cmp byte [rsi+1], 'l'
+    jne .not_alloc_intrinsic
+    cmp byte [rsi+2], 'l'
+    jne .not_alloc_intrinsic
+    cmp byte [rsi+3], 'o'
+    jne .not_alloc_intrinsic
+    cmp byte [rsi+4], 'c'
+    jne .not_alloc_intrinsic
+    cmp byte [rsi+5], 0             ; Проверяем конец строки!
+    jne .not_alloc_intrinsic
+    
+    ; --- MATCH FOUND! ---
+    pop rsi                         ; Восстанавливаем RSI
+    jmp .handle_alloc_intrinsic     ; Прыгаем на IAT генератор
+    
+.not_alloc_intrinsic:
+    pop rsi                         ; Восстанавливаем RSI
+    ; --- End Inline Check ---
+    
     ; Find the function
     lea rcx, [func_call_name]
     call func_find
@@ -3754,6 +4009,34 @@ compile_term:
     ; Note: generate_call_common leaves result in RAX, which is what we want (expression return value)
     
     mov [jit_cursor], rdi
+    ret
+
+; === INTRINSIC HANDLERS ===
+.handle_alloc_intrinsic:
+    ; Current token is '('
+    ; We need to skip '(' and parse the argument
+    ; But compile_expr calls next_token first, so it will read the argument!
+    ; Solution: Call next_token to skip '(', then cur_tok will be on argument,
+    ; then compile_expr will call next_token again and read NEXT token...
+    ; NO! That's wrong!
+    
+    ; Alternative: Don't call compile_expr, call compile_term directly
+    ; after next_token
+    call next_token         ; Skip '(', now cur_tok = first argument (e.g., 10)
+    call compile_term       ; Parse just the term (number 10)
+    
+    ; Generate: PUSH RAX
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    ; Skip ')' - cur_tok should now be on ')'
+    call next_token
+    
+    ; Generate IAT-based VirtualAlloc call
+    call generate_alloc_iat
+    
+    ; Return with RAX as result
     ret
     
 .func_not_found:
@@ -5242,6 +5525,131 @@ intrinsic_alloc_bytes:
     ; RCX = count
     mov rax, [heap_ptr]
     add [heap_ptr], rcx
+    ret
+
+; =============================================================================
+; emit_iat_call - Generate indirect CALL through Import Address Table
+; Input: RCX = IAT Index (0=ExitProcess, 1=VirtualAlloc, 2=VirtualFree, 
+;                          3=WriteFile, 4=ReadFile, 5=CreateFileA,
+;                          6=CloseHandle, 7=GetStdHandle)
+; Generates: FF 15 [disp32] - CALL [RIP + disp32]
+; =============================================================================
+emit_iat_call:
+    push rbx
+    push rdx
+    push r12
+    
+    mov r12, rcx            ; Save IAT index
+    mov rdi, [jit_cursor]
+    
+    ; Emit opcode: FF 15 (CALL [RIP+disp32])
+    mov word [rdi], 0x15FF
+    add rdi, 2
+    
+    ; Calculate displacement
+    ; Target RVA = 0x2070 + (Index * 8)   ; IAT starts at 0x2070
+    ; Current RVA = 0x1000 + (jit_cursor - jit_buffer)
+    ; Disp = Target - (Current + 4)       ; +4 because disp is relative to END of instruction
+    
+    mov rbx, 0x2070         ; IAT base RVA (first entry at 0x2070)
+    mov rax, r12
+    shl rax, 3              ; Index * 8
+    add rbx, rax            ; Target RVA
+    
+    ; Current position = 0x1000 + offset
+    mov rax, rdi
+    sub rax, [jit_buffer]   ; Offset in code section
+    add rax, 0x1000         ; Add base RVA
+    add rax, 4              ; Account for disp32 size
+    
+    ; Calculate displacement
+    sub rbx, rax            ; Disp = Target - (Current + 4)
+    
+    ; Emit 32-bit displacement (little-endian)
+    mov [rdi], ebx
+    add rdi, 4
+    
+    ; Update cursor
+    mov [jit_cursor], rdi
+    
+    pop r12
+    pop rdx
+    pop rbx
+    ret
+
+; =============================================================================
+; generate_alloc_iat - Generate VirtualAlloc call through IAT
+; Expects: 1 argument (size) already pushed on stack
+; Generates: Call to VirtualAlloc(NULL, size*8, MEM_COMMIT|RESERVE, PAGE_READWRITE)
+; Returns: Address in RAX
+; =============================================================================
+generate_alloc_iat:
+    push rbx
+    push r12
+    
+    mov rdi, [jit_cursor]
+    
+    ; POP argument into RAX (size in qwords)
+    mov byte [rdi], 0x58        ; POP RAX
+    inc rdi
+    
+    ; Convert to bytes: SHL RAX, 3 (48 C1 E0 03)
+    mov dword [rdi], 0x03E0C148
+    add rdi, 4
+    
+    ; Move size to RDX (2nd param)
+    ; MOV RDX, RAX (48 89 C2)
+    mov byte [rdi], 0x48
+    inc rdi
+    mov byte [rdi], 0x89
+    inc rdi
+    mov byte [rdi], 0xC2
+    inc rdi
+    
+    ; Set RCX = 0 (NULL for lpAddress)
+    ; XOR ECX, ECX (31 C9)
+    mov word [rdi], 0xC931
+    add rdi, 2
+    
+    ; Set R8 = 0x3000 (MEM_COMMIT | MEM_RESERVE)
+    ; MOV R8D, 0x3000 (41 B8 00 30 00 00)
+    mov byte [rdi], 0x41
+    inc rdi
+    mov byte [rdi], 0xB8
+    inc rdi
+    mov dword [rdi], 0x00003000
+    add rdi, 4
+    
+    ; Set R9 = 0x04 (PAGE_READWRITE)
+    ; MOV R9D, 4 (41 B9 04 00 00 00)
+    mov byte [rdi], 0x41
+    inc rdi
+    mov byte [rdi], 0xB9
+    inc rdi
+    mov dword [rdi], 0x00000004
+    add rdi, 4
+    
+    ; Allocate shadow space: SUB RSP, 32 (48 83 EC 20)
+    mov dword [rdi], 0x20EC8348
+    add rdi, 4
+    
+    ; Update cursor before IAT call
+    mov [jit_cursor], rdi
+    
+    ; Call VirtualAlloc through IAT (index 1)
+    mov rcx, 1
+    call emit_iat_call
+    
+    ; Restore stack: ADD RSP, 32 (48 83 C4 20)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0x20C48348
+    add rdi, 4
+    
+    ; Update cursor
+    mov [jit_cursor], rdi
+    
+    pop r12
+    pop rbx
     ret
 
 ; =============================================================================

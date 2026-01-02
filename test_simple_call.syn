@@ -1,0 +1,7 @@
+fn test_str() {
+    return 42
+}
+
+fn main() {
+    return test_str()
+}

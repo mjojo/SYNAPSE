@@ -1,0 +1,10 @@
+// Test multiple prints after puts
+fn main() {
+    puts("A")
+    puts("B")
+    puts("C")
+    print(111)
+    print(222)
+    print(333)
+    return 0
+}

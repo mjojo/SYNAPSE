@@ -54,6 +54,16 @@ fn emit(b) {
     code_idx = code_idx + 1
 }
 
+fn emit_word(val) {
+    emit(val % 256)
+    emit((val / 256) % 256)
+}
+
+fn emit_dword(val) {
+    emit_word(val % 65536)
+    emit_word((val / 65536) % 65536)
+}
+
 fn emit64(val) {
     // Emit 8 bytes of val (little-endian)
     let v = val
@@ -152,14 +162,30 @@ fn x64_jmp_placeholder() {
 // --- 4. HELPER FUNCTIONS ---
 fn emit_token(type, val) {
     let k = tok_count
-    data_mem[k] = type
-    data_mem[k + 1000] = val
+    // Workaround: arr[idx] bug - use (arr+idx)[0] instead
+    let z = 0
+    let p1 = data_mem + k
+    p1[z] = type
+    let p2 = data_mem + k + 1000
+    p2[z] = val
     tok_count = tok_count + 1
 }
 
 // --- 5. LEXER (Full with Indentation Support) ---
 
-// Helper: skip whitespace (not at line start)
+// Helper: count leading spaces at line start
+fn lex_count_indent() {
+    let count = 0
+    let c = get_byte(lex_src, lex_pos)
+    while c == 32 {
+        count = count + 1
+        lex_pos = lex_pos + 1
+        c = get_byte(lex_src, lex_pos)
+    }
+    return count
+}
+
+// Helper: skip inline whitespace (spaces, not newlines)
 fn lex_skip_space() {
     let c = get_byte(lex_src, lex_pos)
     while c == 32 {
@@ -188,75 +214,205 @@ fn lex_number() {
     emit_token(TOK_NUM, num)
 }
 
-// Main lexer function - SIMPLIFIED for debug
+// Helper: check if char is letter (a-z, A-Z)
+fn is_alpha(c) {
+    // a-z: 97-122, A-Z: 65-90
+    if c > 96 {
+        if c < 123 {
+            return 1
+        }
+    }
+    if c > 64 {
+        if c < 91 {
+            return 1
+        }
+    }
+    return 0
+}
+
+// Helper: check if digit
+fn is_digit(c) {
+    if c > 47 {
+        if c < 58 {
+            return 1
+        }
+    }
+    return 0
+}
+
+// Helper: parse identifier/keyword
+fn lex_ident() {
+    // Read identifier into temp buffer at data_mem[8000..8100]
+    let buf_start = 8000
+    let buf_idx = 0
+    let c = get_byte(lex_src, lex_pos)
+    
+    // While alphanumeric or underscore (95)
+    let cont = 1
+    while cont == 1 {
+        let ok = is_alpha(c)
+        if ok == 0 {
+            ok = is_digit(c)
+        }
+        if c == 95 {
+            ok = 1
+        }
+        
+        if ok == 1 {
+            data_mem[buf_start + buf_idx] = c
+            buf_idx = buf_idx + 1
+            lex_pos = lex_pos + 1
+            c = get_byte(lex_src, lex_pos)
+        } else {
+            cont = 0
+        }
+    }
+    
+    // Null terminate
+    data_mem[buf_start + buf_idx] = 0
+    
+    // Check keywords: if, while, return
+    // "if" = 105, 102
+    // "while" = 119, 104, 105, 108, 101
+    // "return" = 114, 101, 116, 117, 114, 110
+    
+    let c0 = data_mem[buf_start]
+    let c1 = data_mem[buf_start + 1]
+    let c2 = data_mem[buf_start + 2]
+    
+    // Check "if" (length 2)
+    if buf_idx == 2 {
+        if c0 == 105 {
+            if c1 == 102 {
+                emit_token(TOK_IF, 0)
+                return 0
+            }
+        }
+    }
+    
+    // Check "while" (length 5)
+    if buf_idx == 5 {
+        if c0 == 119 {
+            let c3 = data_mem[buf_start + 3]
+            let c4 = data_mem[buf_start + 4]
+            if c1 == 104 {
+                if c2 == 105 {
+                    if c3 == 108 {
+                        if c4 == 101 {
+                            emit_token(TOK_WHILE, 0)
+                            return 0
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Check "return" (length 6)
+    if buf_idx == 6 {
+        if c0 == 114 {
+            let c3 = data_mem[buf_start + 3]
+            let c4 = data_mem[buf_start + 4]
+            let c5 = data_mem[buf_start + 5]
+            if c1 == 101 {
+                if c2 == 116 {
+                    if c3 == 117 {
+                        if c4 == 114 {
+                            if c5 == 110 {
+                                emit_token(TOK_RET, 0)
+                                return 0
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Unknown identifier - skip for now (could add TOK_IDENT later)
+    return 0
+}
+
+// Push indent level onto stack
+fn indent_push(level) {
+    let idx = indent_stack + indent_top
+    data_mem[idx] = level
+    indent_top = indent_top + 1
+}
+
+// Pop indent level from stack
+fn indent_pop() {
+    if indent_top > 0 {
+        indent_top = indent_top - 1
+    }
+    let idx = indent_stack + indent_top
+    return data_mem[idx]
+}
+
+// Get current indent level
+fn indent_current() {
+    if indent_top == 0 {
+        return 0
+    }
+    let idx = indent_stack + indent_top - 1
+    return data_mem[idx]
+}
+
+// Main lexer function
+// MINIMAL lexer for testing
 fn lex(src) {
     lex_src = src
     lex_pos = 0
     lex_len = strlen(src)
     
-    print(7001)
-    print(lex_len)
+    // Just emit one number token for "42"
+    let c = get_byte(lex_src, 0)
+    // c should be 52 ('4')
     
-    while lex_pos < lex_len {
-        let c = get_byte(lex_src, lex_pos)
-        print(7002)
-        print(c)
-        
-        // SIMPLE: Just check if digit
-        // '0' = 48, '9' = 57
-        // c > 47 and c < 58
-        let is_digit = 0
-        if c > 47 {
-            if c < 58 {
-                is_digit = 1
-            }
-        }
-        
-        print(7003)
-        print(is_digit)
-        
-        if is_digit == 1 {
-            print(7004)
-            lex_number()
-        } else {
-            // Skip non-digit
-            lex_pos = lex_pos + 1
-        }
-    }
+    // Parse number manually
+    let num = 0
+    num = (c - 48) * 10  // '4' -> 4 * 10 = 40
+    c = get_byte(lex_src, 1)
+    num = num + (c - 48)  // '2' -> 40 + 2 = 42
     
+    emit_token(TOK_NUM, num)
     emit_token(TOK_EOF, 0)
+}
+
+// Helper functions for array access (workaround for arr[idx] bug)
+fn dm_get(idx) {
+    let z = 0
+    let offset = idx * 8
+    let p = data_mem + offset
+    return p[z]
+}
+
+fn dm_set(idx, val) {
+    let z = 0
+    let offset = idx * 8
+    let p = data_mem + offset
+    p[z] = val
 }
 
 // --- 6. PARSER (Indentation Support) ---
 fn eat() { p_cursor = p_cursor + 1 }
 fn peek() { 
-    // Handle Global[Local] access explicitly if needed, but p_cursor is global
-    // And data_mem is global. Global[Global] crash risk?
-    // In emit_token we fixed it.
-    // data_mem[p_cursor] -> Global[Global].
-    // FIX: use local.
-    let k = p_cursor
-    return data_mem[k] 
+    // Use dm_get which handles *8 internally
+    return dm_get(p_cursor)
 }
 fn peek_val() { 
-    let k = p_cursor
-    return data_mem[k + 1000] 
+    // Use dm_get which handles *8 internally
+    return dm_get(p_cursor + 1000)
 }
 
 fn node_new(type, val) {
     let p = ast_idx
-    // Use local copy of data_mem for indexing
-    let dm = data_mem
-    let k = p
-    dm[k] = type
-    let k1 = k + 1
-    dm[k1] = val
-    let k2 = k + 2
-    dm[k2] = 0
-    let k3 = k + 3
-    dm[k3] = 0
-    let k4 = k + 4
-    dm[k4] = 0 // Next ptr
+    // Use dm_set which handles *8 internally
+    dm_set(p + 0, type)
+    dm_set(p + 1, val)
+    dm_set(p + 2, 0)
+    dm_set(p + 3, 0)
+    dm_set(p + 4, 0) // Next ptr
     ast_idx = ast_idx + 8
     return p
 }
@@ -273,13 +429,9 @@ fn parse_expr() {
         let right = parse_expr() // Recurse
         
         let node = node_new(NODE_ADD, 0)
-        // Access fields
-        let dm = data_mem
-        let k = node
-        let k2 = k + 2
-        let k3 = k + 3
-        dm[k2] = left
-        dm[k3] = right
+        // Use dm_set helper for array access
+        dm_set(node + 2, left)
+        dm_set(node + 3, right)
         return node
     }
     
@@ -288,12 +440,8 @@ fn parse_expr() {
         let right = parse_expr() // Recurse
         
         let node = node_new(NODE_LT, 0)
-        let dm = data_mem
-        let k = node
-        let k2 = k + 2
-        let k3 = k + 3
-        dm[k2] = left
-        dm[k3] = right
+        dm_set(node + 2, left)
+        dm_set(node + 3, right)
         return node
     }
     
@@ -302,12 +450,8 @@ fn parse_expr() {
         let right = parse_expr() // Recurse
         
         let node = node_new(NODE_GT, 0)
-        let dm = data_mem
-        let k = node
-        let k2 = k + 2
-        let k3 = k + 3
-        dm[k2] = left
-        dm[k3] = right
+        dm_set(node + 2, left)
+        dm_set(node + 3, right)
         return node
     }
     
@@ -323,8 +467,7 @@ fn parse_expr() {
 // Synapse JIT handles this if names are visible.
 
 fn parse_stmt() {
-    let k = p_cursor
-    let t = data_mem[k]
+    let t = dm_get(p_cursor)
     
     // Check if it's return
     if t == 3 {
@@ -332,8 +475,7 @@ fn parse_stmt() {
         let expr = parse_expr()
         
         let node = node_new(NODE_RET, 0)
-        let kn = node
-        data_mem[kn+2] = expr
+        dm_set(node + 2, expr)
         return node
     }
     
@@ -358,21 +500,29 @@ fn parse_while() {
     eat() // eat WHILE
     let cond = parse_expr()
     
-    // Temporarily skip block parsing
-    // if peek() == TOK_COLON { eat() }
-    // if peek() == TOK_NEWLINE { eat() }
-    // let body = parse_block()
-    let body = 0
+    // Expect colon
+    let t = peek()
+    if t == TOK_COLON {
+        eat()
+    }
+    
+    // Expect newline
+    t = peek()
+    if t == TOK_NEWLINE {
+        eat()
+    }
+    
+    // Parse indented body
+    let body = parse_block()
     
     let node = node_new(NODE_WHILE, 0)
-    let k = node
-    data_mem[k+2] = cond
-    data_mem[k+3] = body
+    dm_set(node + 2, cond)
+    dm_set(node + 3, body)
     return node
 }
 
 fn parse_block() {
-    // Simplified: just eat INDENT, parse one stmt, eat DEDENT
+    // Eat INDENT token
     let t = peek()
     if t == TOK_INDENT {
         eat()
@@ -380,15 +530,42 @@ fn parse_block() {
 
     let block_node = node_new(NODE_BLOCK, 0)
     
-    // Parse single statement for now
-    let stmt = parse_stmt()
+    // Parse statements until DEDENT or EOF
+    let first_stmt = 0
+    let last_stmt = 0
     
-    let k_blk = block_node
-    data_mem[k_blk + 2] = stmt
+    t = peek()
+    while t != TOK_DEDENT {
+        if t == TOK_EOF {
+            t = TOK_DEDENT // break
+        } else {
+            // Skip stray newlines
+            if t == TOK_NEWLINE {
+                eat()
+            } else {
+                let stmt = parse_stmt()
+                
+                if stmt > 0 {
+                    if first_stmt == 0 {
+                        first_stmt = stmt
+                        last_stmt = stmt
+                    } else {
+                        // Link previous to this
+                        dm_set(last_stmt + 4, stmt)
+                        last_stmt = stmt
+                    }
+                }
+            }
+            t = peek()
+        }
+    }
+    
+    // Store first statement in block
+    dm_set(block_node + 2, first_stmt)
     
     // Eat DEDENT if present
-    let t2 = peek()
-    if t2 == TOK_DEDENT {
+    t = peek()
+    if t == TOK_DEDENT {
         eat()
     }
     
@@ -399,36 +576,42 @@ fn parse_if() {
     eat() // eat IF
     let cond = parse_expr()
     
-    // Temporarily skip block parsing
-    // if peek() == TOK_COLON { eat() }
-    // if peek() == TOK_NEWLINE { eat() }
-    // let body = parse_block()
-    let body = 0
+    // Expect colon
+    let t = peek()
+    if t == TOK_COLON {
+        eat()
+    }
+    
+    // Expect newline
+    t = peek()
+    if t == TOK_NEWLINE {
+        eat()
+    }
+    
+    // Parse indented body
+    let body = parse_block()
     
     let node = node_new(NODE_IF, 0)
-    let k = node
-    data_mem[k+2] = cond
-    data_mem[k+3] = body
+    dm_set(node + 2, cond)
+    dm_set(node + 3, body)
     return node
 }
 
 // --- 7. CODEGEN ---
 fn gen(node) {
-    // Use local copy of data_mem
-    let dm = data_mem
+    // Use dm_get helper for array access
     let k = node
-    let type = dm[k]
+    let type = dm_get(k)
     
     if type == NODE_NUM {
-        let k1 = k + 1
-        let val = dm[k1]
+        let val = dm_get(k + 1)
         x64_mov_rax(val)
         return 0
     }
     
     if type == NODE_ADD {
-        let left = data_mem[k+2]
-        let right = data_mem[k+3]
+        let left = dm_get(k + 2)
+        let right = dm_get(k + 3)
         gen(left)
         x64_push_rax()
         gen(right)
@@ -440,8 +623,8 @@ fn gen(node) {
     // NODE_LT: left < right
     // Push left, gen right, pop rcx, cmp rcx,rax, setl al, movzx rax,al
     if type == NODE_LT {
-        let left = data_mem[k+2]
-        let right = data_mem[k+3]
+        let left = dm_get(k + 2)
+        let right = dm_get(k + 3)
         gen(left)
         x64_push_rax()    // push left
         gen(right)
@@ -468,8 +651,8 @@ fn gen(node) {
     
     // NODE_GT: left > right
     if type == NODE_GT {
-        let left = data_mem[k+2]
-        let right = data_mem[k+3]
+        let left = dm_get(k + 2)
+        let right = dm_get(k + 3)
         gen(left)
         x64_push_rax()
         gen(right)
@@ -495,7 +678,7 @@ fn gen(node) {
     }
     
     if type == NODE_RET {
-        let child = data_mem[k+2]
+        let child = dm_get(k + 2)
         gen(child)
         // emits RAX, but we need RET
         x64_epilogue() 
@@ -504,19 +687,18 @@ fn gen(node) {
     
     // TEMPORARY: Just generate code for immediate body of block (only 1st stmt)
     if type == NODE_BLOCK {
-         let stmt = data_mem[k+2]
+         let stmt = dm_get(k + 2)
          // Loop through stmts
          while stmt > 0 {
              gen(stmt)
-             let k_s = stmt
-             stmt = data_mem[k_s+4]
+             stmt = dm_get(stmt + 4)
          }
          return 0
     }
     
     if type == NODE_IF {
-        let cond = data_mem[k+2]
-        let body = data_mem[k+3]
+        let cond = dm_get(k + 2)
+        let body = dm_get(k + 3)
         
         // 1. Generate condition (result in RAX)
         gen(cond)
@@ -538,8 +720,8 @@ fn gen(node) {
     }
     
     if type == NODE_WHILE {
-        let cond = data_mem[k+2]
-        let body = data_mem[k+3]
+        let cond = dm_get(k + 2)
+        let body = dm_get(k + 3)
         
         // 1. Remember loop start
         let loop_start = code_idx
@@ -570,37 +752,286 @@ fn gen(node) {
     }
 }
 
-// --- 8. MAIN ---
+// --- 9. PE EXE GENERATOR ---
+let pe_buf = 0
+let pe_idx = 0
+
+fn pe_emit(b) {
+    set_byte(pe_buf, pe_idx, b)
+    pe_idx = pe_idx + 1
+}
+
+fn pe_emit_word(val) {
+    pe_emit(val % 256)
+    pe_emit((val / 256) % 256)
+}
+
+fn pe_emit_dword(val) {
+    pe_emit_word(val % 65536)
+    pe_emit_word((val / 65536) % 65536)
+}
+
+fn pe_emit_qword(val) {
+    pe_emit_dword(val % 4294967296)
+    pe_emit_dword(0)
+}
+
+fn pe_pad_to(target) {
+    while pe_idx < target {
+        pe_emit(0)
+    }
+}
+
+fn create_exe(filename, code_ptr, code_len) {
+    // DEBUG: entered create_exe
+    // Allocate PE buffer (1024 bytes for header + code)
+    pe_buf = alloc(2048)
+    pe_idx = 0
+    
+    // Write MZ directly
+    set_byte(pe_buf, 0, 77)  // 'M'
+    set_byte(pe_buf, 1, 90)  // 'Z'
+    
+    // Write to file immediately to test
+    let h = fopen(filename, 1)
+    let w = fwrite(h, pe_buf, 2)
+    fclose(h)
+    return w
+}
+
+fn create_exe_full(filename, code_ptr, code_len) {
+    // Allocate PE buffer (1024 bytes for header + code)
+    pe_buf = alloc(2048)
+    pe_idx = 0
+    
+    // === DOS HEADER (64 bytes) ===
+    // 0x00: MZ signature
+    pe_emit(77)   // 'M'
+    pe_emit(90)   // 'Z'
+    
+    // 0x02-0x3B: DOS header fields (zeros)
+    pe_pad_to(60)
+    
+    // 0x3C: e_lfanew - pointer to PE header (64 = 0x40)
+    pe_emit_dword(64)
+    
+    // === PE SIGNATURE (4 bytes) ===
+    // 0x40: "PE\0\0"
+    pe_emit(80)   // 'P'
+    pe_emit(69)   // 'E'
+    pe_emit(0)
+    pe_emit(0)
+    
+    // === FILE HEADER (20 bytes) ===
+    // Machine: 0x8664 (AMD64)
+    pe_emit_word(34404)  // 0x8664
+    
+    // NumberOfSections: 1
+    pe_emit_word(1)
+    
+    // TimeDateStamp
+    pe_emit_dword(0)
+    
+    // PointerToSymbolTable
+    pe_emit_dword(0)
+    
+    // NumberOfSymbols
+    pe_emit_dword(0)
+    
+    // SizeOfOptionalHeader: 240 (0xF0)
+    pe_emit_word(240)
+    
+    // Characteristics: 0x0022 (EXECUTABLE_IMAGE | LARGE_ADDRESS_AWARE)
+    pe_emit_word(34)
+    
+    // === OPTIONAL HEADER PE32+ (240 bytes) ===
+    // Magic: 0x020B (PE32+)
+    pe_emit_word(523)  // 0x020B
+    
+    // LinkerVersion
+    pe_emit(14)  // Major
+    pe_emit(0)   // Minor
+    
+    // SizeOfCode
+    pe_emit_dword(512)
+    
+    // SizeOfInitializedData
+    pe_emit_dword(0)
+    
+    // SizeOfUninitializedData
+    pe_emit_dword(0)
+    
+    // AddressOfEntryPoint: 0x1000 (RVA of code)
+    pe_emit_dword(4096)
+    
+    // BaseOfCode: 0x1000
+    pe_emit_dword(4096)
+    
+    // ImageBase: 0x00400000 (8 bytes for PE32+)
+    pe_emit_dword(4194304)  // 0x400000
+    pe_emit_dword(0)
+    
+    // SectionAlignment: 0x1000
+    pe_emit_dword(4096)
+    
+    // FileAlignment: 0x200
+    pe_emit_dword(512)
+    
+    // MajorOperatingSystemVersion
+    pe_emit_word(6)
+    
+    // MinorOperatingSystemVersion
+    pe_emit_word(0)
+    
+    // MajorImageVersion
+    pe_emit_word(0)
+    
+    // MinorImageVersion
+    pe_emit_word(0)
+    
+    // MajorSubsystemVersion
+    pe_emit_word(6)
+    
+    // MinorSubsystemVersion
+    pe_emit_word(0)
+    
+    // Win32VersionValue
+    pe_emit_dword(0)
+    
+    // SizeOfImage: 0x2000 (headers + 1 section)
+    pe_emit_dword(8192)
+    
+    // SizeOfHeaders: 0x200
+    pe_emit_dword(512)
+    
+    // CheckSum
+    pe_emit_dword(0)
+    
+    // Subsystem: 3 (CONSOLE)
+    pe_emit_word(3)
+    
+    // DllCharacteristics: 0x8160 (NX_COMPAT | DYNAMIC_BASE | TERMINAL_SERVER_AWARE | HIGH_ENTROPY_VA)
+    pe_emit_word(33120)
+    
+    // SizeOfStackReserve (8 bytes)
+    pe_emit_qword(1048576)  // 1MB
+    
+    // SizeOfStackCommit (8 bytes)
+    pe_emit_qword(4096)
+    
+    // SizeOfHeapReserve (8 bytes)
+    pe_emit_qword(1048576)
+    
+    // SizeOfHeapCommit (8 bytes)
+    pe_emit_qword(4096)
+    
+    // LoaderFlags
+    pe_emit_dword(0)
+    
+    // NumberOfRvaAndSizes: 16
+    pe_emit_dword(16)
+    
+    // Data Directories (16 * 8 = 128 bytes, all zeros)
+    let i = 0
+    while i < 128 {
+        pe_emit(0)
+        i = i + 1
+    }
+    
+    // === SECTION HEADER (40 bytes) ===
+    // Name: ".text\0\0\0"
+    pe_emit(46)   // '.'
+    pe_emit(116)  // 't'
+    pe_emit(101)  // 'e'
+    pe_emit(120)  // 'x'
+    pe_emit(116)  // 't'
+    pe_emit(0)
+    pe_emit(0)
+    pe_emit(0)
+    
+    // VirtualSize
+    pe_emit_dword(512)
+    
+    // VirtualAddress: 0x1000
+    pe_emit_dword(4096)
+    
+    // SizeOfRawData: 0x200 (512)
+    pe_emit_dword(512)
+    
+    // PointerToRawData: 0x200 (512)
+    pe_emit_dword(512)
+    
+    // PointerToRelocations
+    pe_emit_dword(0)
+    
+    // PointerToLinenumbers
+    pe_emit_dword(0)
+    
+    // NumberOfRelocations
+    pe_emit_word(0)
+    
+    // NumberOfLinenumbers
+    pe_emit_word(0)
+    
+    // Characteristics: 0x60000020 (CODE | EXECUTE | READ)
+    pe_emit_dword(1610612768)
+    
+    // === PADDING to 0x200 (512) ===
+    pe_pad_to(512)
+    
+    // === CODE SECTION ===
+    // Copy generated machine code
+    i = 0
+    while i < code_len {
+        let b = get_byte(code_ptr, i)
+        pe_emit(b)
+        i = i + 1
+    }
+    
+    // Pad code to 512 bytes
+    pe_pad_to(1024)
+    
+    // === WRITE TO FILE ===
+    let h = fopen(filename, 1)
+    
+    // Debug: check pe_idx and handle
+    // pe_idx should be 1024, h should be non-zero
+    
+    let written = fwrite(h, pe_buf, pe_idx)
+    fclose(h)
+    
+    return written
+}
+
+// --- 10. MAIN ---
 fn main() {
-    // Init Globals
-    data_mem = alloc(64000)
-    code_mem = alloc_exec(32000)  // Executable memory for JIT
+    // Initialize PE buffer
+    pe_buf = alloc(2048)
+    pe_idx = 0
     
-    // Simplest test - just a number
-    let src = "42"
+    // Initialize JIT code buffer
+    code_mem = alloc_exec(65536)
+    data_mem = alloc(4096)
     
-    // 1. LEX
-    lex(src)
+    // Test: Simple machine code that returns 42
+    // MOV RAX, 42
+    emit(72)    // 0x48
+    emit(184)   // 0xB8
+    emit64(42)
+    // RET
+    emit(195)   // 0xC3
     
-    print(8001)
-    print(tok_count)
-    // Print first token type and value
-    print(8002)
-    print(data_mem[0])
-    print(8003)
-    print(data_mem[1000])
+    // Invoke to test
+    let result = invoke(code_mem)
+    print(result)
     
-    // 2. PARSE
-    p_cursor = 0
-    let root = parse_expr()
+    // Create PE EXE using FULL function
+    let fname = alloc(2)
+    fname[0] = 8675391313294419304  // "hello.ex" little-endian (correct)
+    fname[1] = 101                   // "e\0"
     
-    // 3. CODEGEN
-    code_idx = 0    // Reset code index!
-    x64_prologue()
-    gen(root)
-    x64_epilogue()
+    let written = create_exe_full(fname, code_mem, code_idx)
+    print(written)
     
-    // 4. EXECUTE
-    let res = invoke(code_mem) 
-    print(res)    // Expected: 42
+    return 0
 }

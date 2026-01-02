@@ -4401,37 +4401,28 @@ intrinsic_puts:
 ; -----------------------------------------------------------------------------
 ; intrinsic_fopen(filename_ptr, mode)
 ; mode: 0 = Read, 1 = Write
-; Stack Alignment: Entry RSP%16=8, Push 3 regs -> RSP%16=0, SUB 64 -> Aligned
+; Args: RCX = filename, RDX = mode (Win64 ABI)
 ; -----------------------------------------------------------------------------
 intrinsic_fopen:
     push rbx
     push rsi
     push rdi
-    sub rsp, 48    ; Changed from 64 to 48
+    sub rsp, 48
     
-    ; SYNAPSE args on stack (L-to-R push: fname first, mode second)
-    ; Offset: 48 (local) + 24 (saved regs) + 8 (ret) = 80
-    ; [RSP + 80] = Arg2 (Mode)
-    ; [RSP + 88] = Arg1 (Filename)
-
-    ; Arg1=RCX (Filename), Arg2=RDX (Mode)
-    mov rbx, rdx        ; Check Mode
-    push rbx
-    push rcx
+    ; Save args from registers (Win64 ABI)
+    mov rsi, rcx            ; Filename
+    mov rbx, rdx            ; Mode
     
     test rbx, rbx
     jnz .mode_write
     
 .mode_read:
     ; CreateFileA(name, GENERIC_READ, 1 (SHARE_READ), 0, OPEN_EXISTING, NORMAL, 0)
+    mov rcx, rsi            ; Filename
     mov edx, 0x80000000     ; GENERIC_READ
     mov r8d, 1              ; ShareMode = 1 (FILE_SHARE_READ)
     xor r9d, r9d            ; Security = NULL
     
-    ; Stack args for WinAPI (relative to current RSP)
-    pop rcx               ; Restore Filename
-    
-    ; Stack args for WinAPI (relative to current RSP)
     mov qword [rsp+32], 3   ; OPEN_EXISTING (Arg5)
     mov qword [rsp+40], 0x80 ; FILE_ATTRIBUTE_NORMAL (Arg6)
     mov qword [rsp+48], 0   ; Template = NULL (Arg7)
@@ -4441,6 +4432,7 @@ intrinsic_fopen:
 
 .mode_write:
     ; CreateFileA(name, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, NORMAL, 0)
+    mov rcx, rsi            ; Filename
     mov edx, 0x40000000     ; GENERIC_WRITE
     xor r8d, r8d
     xor r9d, r9d
@@ -4456,7 +4448,7 @@ intrinsic_fopen:
     jne .fopen_ok
     call [GetLastError]     ; Return error code instead of 0
 .fopen_ok:
-    add rsp, 48             ; Cleanup 48
+    add rsp, 48
     pop rdi
     pop rsi
     pop rbx
@@ -4758,6 +4750,7 @@ intrinsic_sleep:
 ; -----------------------------------------------------------------------------
 ; intrinsic_fread(handle, buffer, len)
 ; Reads bytes from file. Returns: Bytes read
+; Args: RCX = handle, RDX = buffer, R8 = len (Win64 ABI)
 ; -----------------------------------------------------------------------------
 intrinsic_fread:
     push rbx
@@ -4767,22 +4760,19 @@ intrinsic_fread:
     push r15
     sub rsp, 48             ; 32 shadow + 16 align
     
-    ; Stack: 48 (sub) + 40 (pushes) + 8 (ret) = 96 bytes above args
-    ; [RSP + 96] = len (last pushed = top)
-    ; [RSP + 104] = buffer  
-    ; [RSP + 112] = handle (first pushed = bottom)
+    ; Save args from registers (Win64 ABI: RCX, RDX, R8)
+    mov r14, rcx            ; Handle
+    mov r15, rdx            ; Buffer
+    mov rbx, r8             ; Len
     
     ; ReadFile(handle, buffer, len, &fread_result, NULL)
-    mov rcx, [rsp + 112]    ; Handle
-    mov rdx, [rsp + 104]    ; Buffer
-    mov r8,  [rsp + 96]     ; Len
+    mov rcx, r14            ; Handle
+    mov rdx, r15            ; Buffer
+    mov r8,  rbx            ; Len
     lea r9,  [fread_result] ; &fread_result
     mov qword [rsp+32], 0   ; lpOverlapped
     
     call [ReadFile]
-    
-    test eax, eax
-    jz .fread_err
     
     test eax, eax
     jz .fread_err
@@ -4805,6 +4795,7 @@ intrinsic_fread:
 ; -----------------------------------------------------------------------------
 ; intrinsic_fwrite(handle, buffer, len)
 ; Writes bytes to file. Returns: Bytes written
+; Args: RCX = handle, RDX = buffer, R8 = len (Win64 ABI)
 ; -----------------------------------------------------------------------------
 intrinsic_fwrite:
     push rbx
@@ -4814,15 +4805,15 @@ intrinsic_fwrite:
     push r15
     sub rsp, 48             ; 32 shadow + 16 align
     
-    ; Stack: 48 (sub) + 40 (pushes) + 8 (ret) = 96 bytes above args
-    ; [RSP + 96] = len (last pushed = top)
-    ; [RSP + 104] = buffer  
-    ; [RSP + 112] = handle (first pushed = bottom)
+    ; Save args from registers (Win64 ABI: RCX, RDX, R8)
+    mov r14, rcx            ; Handle
+    mov r15, rdx            ; Buffer
+    mov rbx, r8             ; Len
     
     ; WriteFile(handle, buffer, len, &fwrite_result, NULL)
-    mov rcx, [rsp + 112]    ; Handle
-    mov rdx, [rsp + 104]    ; Buffer
-    mov r8,  [rsp + 96]     ; Len
+    mov rcx, r14            ; Handle
+    mov rdx, r15            ; Buffer
+    mov r8,  rbx            ; Len
     lea r9, [fwrite_result] ; &fwrite_result 
     mov qword [rsp+32], 0   ; lpOverlapped
     

@@ -1,0 +1,28 @@
+// Workaround: manual pointer arithmetic
+fn main() {
+    let arr = alloc(2000)
+    
+    // Instead of arr[10] = 22, compute address manually
+    // arr + 10 gives pointer to element 10
+    let p0 = arr + 0
+    let p10 = arr + 10
+    let p100 = arr + 100
+    
+    // Write using index 0 of computed pointer
+    let z = 0
+    p0[z] = 11
+    p10[z] = 22
+    p100[z] = 33
+    
+    // Read back
+    let v0 = p0[z]
+    let v10 = p10[z]
+    let v100 = p100[z]
+    
+    let sum = v0 + v10 + v100
+    
+    puts("Sum (expect 66):")
+    print(sum)
+    
+    return 0
+}

@@ -1,0 +1,33 @@
+// Test dm_get/dm_set pattern
+let data_mem = 0
+
+fn dm_get(idx) {
+    let z = 0
+    let p = data_mem + idx
+    return p[z]
+}
+
+fn dm_set(idx, val) {
+    let z = 0
+    let p = data_mem + idx
+    p[z] = val
+}
+
+fn main() {
+    data_mem = alloc(16000)
+    
+    // Write at index 0 and 1000
+    dm_set(0, 111)
+    dm_set(1000, 222)
+    
+    // Read back
+    let v0 = dm_get(0)
+    let v1000 = dm_get(1000)
+    
+    let sum = v0 + v1000
+    
+    puts("Sum (expect 333):")
+    print(sum)
+    
+    return 0
+}

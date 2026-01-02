@@ -1,0 +1,13 @@
+// Minimal alloc test
+let g_ptr = 0
+
+fn main() {
+    let local_ptr = 0
+    
+    puts("Starting")
+    local_ptr = alloc(256)
+    puts("Allocated")
+    print(local_ptr)
+    
+    puts("Done")
+}

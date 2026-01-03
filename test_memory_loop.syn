@@ -1,0 +1,15 @@
+// test_memory_loop.syn
+// Phase 53 Test: Use loop to fill array
+
+fn main() {
+    let arr = alloc(5)
+    let i = 0
+    
+    while i < 5 {
+        arr[i] = i * 10
+        i = i + 1
+    }
+    
+    return arr[3]
+}
+// Expected: Exit code 30 (index 3 = 3*10 = 30)

@@ -1,0 +1,10 @@
+// test_alloc_ptr.syn
+// Тест: выделяем память, проверяем что указатель не ноль
+
+fn main() {
+    let ptr = alloc(10)
+    if ptr > 0 {
+        return 99
+    }
+    return 1
+}

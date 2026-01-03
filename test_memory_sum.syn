@@ -1,0 +1,16 @@
+// test_memory_sum.syn
+// Phase 53 Test: Allocate array, fill with values, sum them
+
+fn main() {
+    let arr = alloc(5)
+    
+    arr[0] = 10
+    arr[1] = 20
+    arr[2] = 30
+    arr[3] = 40
+    arr[4] = 0
+    
+    let sum = arr[0] + arr[1] + arr[2] + arr[3]
+    return sum
+}
+// Expected: Exit code 100

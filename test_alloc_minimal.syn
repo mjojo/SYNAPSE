@@ -1,0 +1,15 @@
+// test_alloc_minimal.syn
+// Минимальный тест VirtualAlloc
+// Проверяем только вызов alloc, без чтения/записи массива
+
+fn main() {
+    let ptr = alloc(10)
+    
+    // Если дошли сюда - alloc не упал
+    // Проверяем, что ptr != 0
+    if ptr > 0 {
+        return 99
+    }
+    
+    return 1
+}

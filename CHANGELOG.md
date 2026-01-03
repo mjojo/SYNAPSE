@@ -2,6 +2,33 @@
 
 ---
 
+## [3.3.0-CORTEX] - 2026-01-03 - "The Cortex" 🧠
+
+### 🏆 CRITICAL MILESTONE: Phase 53 COMPLETE - Dynamic Memory in Standalone Executables!
+
+**Historic Achievement:** Generated executables now allocate memory via VirtualAlloc, read and write data at runtime. Exit code 99 achieved!
+
+### 🐛 Bugs Fixed
+1. **Argument compilation bug** — `compile_expr` was calling `next_token` at start, but `.stmt_handle_alloc_intrinsic` already did that. Result: `alloc(10)` received 0 instead of 10. **Fix:** Removed redundant `next_token` from intrinsic handler.
+
+2. **Global variable crash** — `compile_let` was generating code to store variables at JIT memory addresses (e.g., `0x004073B4`). These addresses don't exist in standalone executables. **Fix:** Removed global copy generation; standalone uses only local variables via `[RBP+offset]`.
+
+### ✅ Phase 53 Proof
+```synapse
+fn main() {
+    let ptr = alloc(10)   // VirtualAlloc via IAT
+    ptr[0] = 99           // Write to allocated memory
+    return ptr[0]         // Read back — EXIT CODE 99! 🧠
+}
+```
+
+### 🔧 Technical Details
+- Stack alignment: SUB RSP, 48 (0x30) before VirtualAlloc call
+- IAT layout: IAT[0]=ExitProcess, IAT[1]=VirtualAlloc
+- RIP-relative CALL: `FF 15 D5 0F 00 00` → target RVA 0x2030
+
+---
+
 ## [3.2.0-STABLE] - 2026-01-03 - "The Answer is 42" 🎯✨
 
 ### 🏆 CRITICAL MILESTONE: Phase 52 COMPLETE - Standalone PE32+ Executables WORKING!

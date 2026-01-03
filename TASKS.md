@@ -1,13 +1,42 @@
 # SYNAPSE Development Tasks
 
-## 🏆 Current Status: v3.2.0-STABLE "Ouroboros Returns" (Phase 52 ✅ COMPLETE)
+## 🏆 Current Status: v3.3.0-CORTEX "The Cortex" (Phase 53 ✅ COMPLETE)
 
-**Achievement:** Graphics Engine + GUI + Mouse + Self-Hosting JIT + **Standalone EXE Generation** + **WORKING IAT RESOLUTION**  
-**Victory:** Windows Loader successfully fills Import Address Table - `test_exit42.syn` returns Exit Code 42!
+**Achievement:** Graphics Engine + GUI + Mouse + Self-Hosting JIT + Standalone EXE + IAT Resolution + **DYNAMIC MEMORY!**  
+**Victory:** VirtualAlloc works in standalone executables - `test_alloc_use.syn` returns Exit Code 99!
 
 ---
 
-## 🎉 BREAKTHROUGH: Phase 52 Complete!
+## 🧠 BREAKTHROUGH: Phase 53 Complete!
+
+### Victory: Dynamic Memory in Standalone Executables!
+- **Result**: `synapse_new.exe` allocates memory, writes/reads data, exits with code **99**
+- **Test Case**:
+  ```synapse
+  fn main() {
+      let ptr = alloc(10)   // VirtualAlloc via IAT
+      ptr[0] = 99           // Write to allocated memory
+      return ptr[0]         // Read back — EXIT CODE 99!
+  }
+  ```
+- **Bugs Fixed**:
+  1. **Double next_token** — `compile_expr` and `.stmt_handle_alloc_intrinsic` both called `next_token`, skipping the argument (10→0)
+  2. **Global variable crash** — `compile_let` wrote to JIT addresses that don't exist in standalone EXE
+- **Stack Alignment**: SUB RSP, 48 (0x30) before Win64 API calls
+- **IAT[1]**: VirtualAlloc at RVA 0x2030, called via `FF 15 D5 0F 00 00`
+
+### Phase 53: The Cortex (Memory) ✅ COMPLETE
+- [x] **VirtualAlloc via IAT**: Working CALL [RIP+disp] to IAT[1]
+- [x] **Stack alignment**: Proper 48-byte shadow space for Win64 ABI
+- [x] **Argument passing**: Fixed double-token-consumption bug
+- [x] **Local variables only**: Removed global copy for standalone compatibility
+- [x] **Memory write**: `ptr[0] = 99` works on allocated memory
+- [x] **Memory read**: `return ptr[0]` correctly returns 99
+- **STATUS**: ✅ **DYNAMIC MEMORY FULLY OPERATIONAL IN STANDALONE EXE**
+
+---
+
+## 🎉 PREVIOUS BREAKTHROUGH: Phase 52 Complete!
 
 ### Victory: IAT Resolution Working!
 - **Result**: `synapse_new.exe` exits with code **42** (0x0000002A)

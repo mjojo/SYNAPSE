@@ -1,0 +1,18 @@
+// test_alloc_phase53.syn
+// Phase 53 Test: VirtualAlloc через IAT
+// Ожидаемый Exit Code: 99 (если память выделена успешно)
+
+fn main() {
+    let arr = alloc(100)
+    
+    if arr > 0 {
+        // Память выделена успешно!
+        arr[0] = 42
+        arr[1] = 57
+        let sum = arr[0] + arr[1]
+        return sum
+    }
+    
+    // Ошибка: alloc вернул 0
+    return 0
+}

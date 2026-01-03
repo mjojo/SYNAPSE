@@ -1,0 +1,8 @@
+// test_alloc_use.syn
+// Тест: выделяем память, записываем значение, читаем обратно
+
+fn main() {
+    let ptr = alloc(10)
+    ptr[0] = 99
+    return ptr[0]
+}

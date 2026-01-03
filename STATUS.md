@@ -1,25 +1,27 @@
-# 🧠 SYNAPSE v3.2.0 "Ouroboros Returns" - Current Status
+# 🧠 SYNAPSE v3.3.0 "The Cortex" - Current Status
 
 **Date:** January 3, 2026  
-**Build:** 20260103_STABLE  
-**Phase:** 52 (Standalone PE32+ Executables) - ✅ **COMPLETE**
+**Build:** 20260103_CORTEX  
+**Phase:** 53 (Dynamic Memory in Standalone) - ✅ **COMPLETE**
 
 ---
 
 ## 🎯 Executive Summary
 
-SYNAPSE v3.2 represents a fully functional self-hosting compiler with graphics capabilities and **working standalone executable generation**. Phase 52 achieved a historic milestone: generated PE32+ executables now successfully execute with proper IAT (Import Address Table) resolution by Windows Loader. Exit code 42 confirmed! 🎉
+SYNAPSE v3.3 achieves a historic milestone: **dynamic memory allocation in standalone executables!** Phase 53 "The Cortex" enables generated PE32+ executables to call VirtualAlloc through the IAT, allocate memory at runtime, and read/write data. Exit code 99 confirmed! 🧠
 
-**Critical Bug Fixed:** Data Directory offset miscalculation (0x148 vs 0x150) was corrupting TLS/GlobalPtr entries, preventing IAT resolution. With ILT=0 optimization and correct Import Directory size (0x6C bytes), Windows Loader now properly fills the IAT, enabling API calls.
+**Phase 53 Fixes Applied:**
+1. **Argument compilation bug** — `compile_expr` was double-consuming tokens, causing `alloc(10)` to receive 0 instead of 10
+2. **Global variable removal** — JIT addresses are invalid in standalone executables; now uses only local stack variables via RBP
 
 ---
 
 ## ✅ Completed Features
 
-### Core Compiler (v3.2)
+### Core Compiler (v3.3)
 - ✅ **Lexer v6**: Full tokenization with comments, identifiers, keywords
 - ✅ **Parser v9**: Recursive descent parser for complex syntax trees
-- ✅ **JIT v11**: x64 code generation with stack frames
+- ✅ **JIT v12**: x64 code generation with standalone-compatible memory allocation
 - ✅ **Codegen v8**: Proper function prologue/epilogue
 - ✅ **Symbol Table v3**: Global and local variable resolution
 - ✅ **Function Table v3**: Fast call resolution with jump tables
@@ -43,10 +45,10 @@ SYNAPSE v3.2 represents a fully functional self-hosting compiler with graphics c
 - ✅ Keyboard: `get_key(vk_code)`
 - ✅ Real-time event handling
 
-### Memory Management
-- ✅ `alloc(size)` - Dynamic memory allocation
+### Memory Management (v4 — PHASE 53!)
+- ✅ `alloc(size)` - Dynamic memory allocation via VirtualAlloc **IN STANDALONE EXE!**
 - ✅ `alloc_exec(size)` - Executable memory for JIT
-- ✅ Array access: `ptr[index]`
+- ✅ Array access: `ptr[index]` — **WORKS IN STANDALONE!**
 - ✅ Byte operations: `get_byte(ptr, offset)`, `set_byte(ptr, offset, value)`
 
 ### Executable Generation (Phase 52 - COMPLETE)

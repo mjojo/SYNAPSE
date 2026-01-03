@@ -1,0 +1,7 @@
+// test_alloc_simple.syn
+// Простейший тест: только вызов alloc, возврат фиксированного значения
+
+fn main() {
+    alloc(10)
+    return 77
+}

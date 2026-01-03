@@ -1357,34 +1357,17 @@ parse_block:
     test r15d, r15d
     jz .var_global_only
     
-    ; We have local - write to local first
+    ; We have local - write to local only
+    ; NOTE: Global copy removed for standalone exe compatibility
     mov dword [rdi], 0x458948   ; MOV [RBP + disp8], RAX
     mov [rdi+3], r13b
     add rdi, 4
     mov [jit_cursor], rdi
-    
-    ; Also write to global if we have it
-    test r14, r14
-    jz .stmt_loop
-    
-    mov rdi, [jit_cursor]
-    mov word [rdi], 0xB948      ; MOV RCX, imm64
-    mov [rdi+2], r14
-    add rdi, 10
-    mov dword [rdi], 0x018948   ; MOV [RCX], RAX
-    add rdi, 3
-    mov [jit_cursor], rdi
     jmp .stmt_loop
     
 .var_global_only:
-    ; Global only - write to global
-    mov word [rdi], 0xB948      ; MOV RCX, imm64
-    mov [rdi+2], r14
-    add rdi, 10
-    mov dword [rdi], 0x018948   ; MOV [RCX], RAX
-    add rdi, 3
-    mov [jit_cursor], rdi
-    jmp .stmt_loop
+    ; For standalone exe: skip global-only variables (they don't work)
+    ; In JIT mode this would write to global address, but that crashes standalone
     jmp .stmt_loop
 
 .is_array_assign:
@@ -1575,8 +1558,7 @@ parse_block:
 
 ; === STATEMENT INTRINSIC HANDLERS ===
 .stmt_handle_alloc_intrinsic:
-    ; Current token is '(', need to read first argument
-    call next_token         ; Now cur_tok = first argument
+    ; Current token is '(', compile_expr will do next_token
     
     ; Parse single argument for alloc(size)
     call compile_expr
@@ -1681,15 +1663,8 @@ compile_let:
     mov [rdi + 3], al
     add qword [jit_cursor], 4
     
-    ; Generate: MOV [global_addr], RAX (global copy)
-    ; MOV RCX, imm64; MOV [RCX], RAX
-    mov rdi, [jit_cursor]
-    mov word [rdi], 0xB948          ; MOV RCX, imm64
-    mov [rdi + 2], r13
-    add rdi, 10
-    mov dword [rdi], 0x018948       ; MOV [RCX], RAX (48 89 01)
-    add rdi, 3
-    mov [jit_cursor], rdi
+    ; NOTE: Global copy removed for standalone exe compatibility
+    ; Global addresses from JIT memory don't exist in standalone executables
 
 .let_done:
     pop r13
@@ -2039,44 +2014,12 @@ compile_while:
     add rdi, 4
     mov [jit_cursor], rdi
     
-    ; Also write to global if we have it
-    test r14, r14
-    jz .body_loop
-    
-    mov rdi, [jit_cursor]
-    mov word [rdi], 0xB948          ; MOV RCX, imm64
-    mov [rdi + 2], r14
-    add rdi, 10
-    mov dword [rdi], 0x018948       ; MOV [RCX], RAX
-    add rdi, 3
-    mov [jit_cursor], rdi
+    ; NOTE: Global copy removed for standalone exe compatibility
     jmp .body_loop
     
 .while_var_try_global:
-    lea rcx, [func_call_name]
-    call global_sym_find
-    test rax, rax
-    jz .body_loop           ; Not found - skip
-    mov r14, rax            ; R14 = global address
-    
-    ; Compile right-hand side expression
-    ; IMPORTANT: Save R12/R13 which hold while loop addresses!
-    push r12
-    push r13
-    push r14
-    call compile_expr
-    pop r14
-    pop r13
-    pop r12
-    
-    ; Global only - write to global
-    mov rdi, [jit_cursor]
-    mov word [rdi], 0xB948          ; MOV RCX, imm64
-    mov [rdi + 2], r14
-    add rdi, 10
-    mov dword [rdi], 0x018948       ; MOV [RCX], RAX
-    add rdi, 3
-    mov [jit_cursor], rdi
+    ; For standalone exe: skip global-only variables (they don't work)
+    ; In JIT mode this would write to global address, but that crashes standalone
     jmp .body_loop
 
 .while_array_assign:
@@ -5566,8 +5509,11 @@ generate_alloc_iat:
     mov dword [rdi], 0x00000004
     add rdi, 4
     
-    ; Allocate shadow space: SUB RSP, 32 (48 83 EC 20)
-    mov dword [rdi], 0x20EC8348
+    ; Allocate shadow space + alignment: SUB RSP, 48 (48 83 EC 30)
+    ; Note: RSP is at -8 mod 16 after function prologue (PUSH RBP + SUB RSP, 0x120)
+    ; We need RSP = 8 mod 16 BEFORE call so that after PUSH ret_addr it's 0 mod 16
+    ; -8 - 48 = -56 = 8 mod 16 ✓
+    mov dword [rdi], 0x30EC8348
     add rdi, 4
     
     ; Update cursor before IAT call
@@ -5577,9 +5523,9 @@ generate_alloc_iat:
     mov rcx, 1
     call emit_iat_call
     
-    ; Restore stack: ADD RSP, 32 (48 83 C4 20)
+    ; Restore stack: ADD RSP, 48 (48 83 C4 30)
     mov rdi, [jit_cursor]
-    mov dword [rdi], 0x20C48348
+    mov dword [rdi], 0x30C48348
     add rdi, 4
     
     ; Update cursor

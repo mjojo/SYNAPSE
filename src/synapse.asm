@@ -371,7 +371,7 @@ section '.data' data readable writeable
         db '.text',0,0,0            ; Name
         dd 0x00001000               ; VirtualSize
         dd 0x00001000               ; VirtualAddress
-        dd 0x00000200               ; SizeOfRawData (512 bytes on disk)
+        dd 0x00001000               ; SizeOfRawData (4096 bytes on disk - room for big programs!)
         dd 0x00000200               ; PointerToRawData (Offset 512 in file)
         dd 0,0,0                    ; Relocs/Lines
         dd 0x60000020               ; Characteristics (Code + Exec + Read)
@@ -381,7 +381,7 @@ section '.data' data readable writeable
         dd 0x100                     ; VirtualSize (256 bytes - Phase 54 import data)
         dd 0x00002000                ; VirtualAddress (RVA 0x2000)
         dd 0x00000200                ; SizeOfRawData (512 bytes on disk)
-        dd 0x00000400                ; PointerToRawData (Offset 1024 in file)
+        dd 0x00001200                ; PointerToRawData (Offset 0x1200 in file, after 4KB .text)
         dd 0,0,0                     ; Relocs/Lines
         dd 0xC0000040                ; Characteristics (Read + Write + Initialized Data)
         
@@ -391,7 +391,7 @@ section '.data' data readable writeable
     hOutFile     dq 0
     temp_buffer  rb 16              ; Temporary buffer for patching
     out_bytes_written dq 0
-    pad_buffer   rb 512
+    pad_buffer   rb 4096              ; Increased for 4KB .text padding
     
     compile_mode_msg db '[COMPILE] Generating synapse_new.exe...',13,10,0
     compile_done_msg db '[SUCCESS] synapse_new.exe created!',13,10,0
@@ -868,15 +868,15 @@ start:
     test eax, eax
     jz .compile_error
     
-    ; 6. PADDING CODE SECTION TO 512 BYTES (ALIGNMENT)
-    ; Секция кода на диске должна быть кратна 512.
+; 6. PADDING CODE SECTION TO 4096 BYTES (0x1000 - new size!)
+    ; Секция кода на диске теперь 4KB чтобы вместить большие программы
     ; Total = entry_stub_size + code_size
     mov rax, entry_stub_size
     add rax, [out_bytes_written]
-    mov rbx, 512
+    mov rbx, 0x1000             ; 4096 bytes (was 512)
     sub rbx, rax
     cmp rbx, 0
-    jle .write_import               ; Skip padding if >= 512
+    jle .write_import               ; Skip padding if >= 4096
     
     mov rcx, [hOutFile]
     lea rdx, [pad_buffer]
@@ -887,10 +887,10 @@ start:
     
     test eax, eax
     jz .compile_error
-    
+
 .write_import:
-    ; 6. WRITE IMPORT SECTION
-    ; We assume file is now at offset 0x400 (1024 bytes)
+    ; 7. WRITE IMPORT SECTION
+    ; File is now at offset 0x1200 (header 512 + .text 4096 = 4608 = 0x1200)
     ; This corresponds to RVA 0x2000
     mov rcx, [hOutFile]
     lea rdx, [import_data_start]
@@ -902,7 +902,7 @@ start:
     test eax, eax
     jz .compile_error
     
-    ; 7. PADDING IMPORT SECTION (to 512 bytes for alignment)
+    ; 8. PADDING IMPORT SECTION (to 512 bytes for alignment)
     mov rax, 512
     sub rax, import_data_size
     cmp rax, 0
@@ -1610,6 +1610,65 @@ parse_block:
     
 .not_setbyte_stmt:
     pop rsi
+    
+    ; --- Inline Check for 'read' ---
+    push rsi
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 'r'
+    jne .not_read_stmt
+    cmp byte [rsi+1], 'e'
+    jne .not_read_stmt
+    cmp byte [rsi+2], 'a'
+    jne .not_read_stmt
+    cmp byte [rsi+3], 'd'
+    jne .not_read_stmt
+    cmp byte [rsi+4], 0
+    jne .not_read_stmt
+    pop rsi
+    jmp .stmt_handle_read_intrinsic
+    
+.not_read_stmt:
+    pop rsi
+    
+    ; --- Inline Check for 'open' ---
+    push rsi
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 'o'
+    jne .not_open_stmt
+    cmp byte [rsi+1], 'p'
+    jne .not_open_stmt
+    cmp byte [rsi+2], 'e'
+    jne .not_open_stmt
+    cmp byte [rsi+3], 'n'
+    jne .not_open_stmt
+    cmp byte [rsi+4], 0
+    jne .not_open_stmt
+    pop rsi
+    jmp .stmt_handle_open_intrinsic
+    
+.not_open_stmt:
+    pop rsi
+    
+    ; --- Inline Check for 'close' ---
+    push rsi
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 'c'
+    jne .not_close_stmt
+    cmp byte [rsi+1], 'l'
+    jne .not_close_stmt
+    cmp byte [rsi+2], 'o'
+    jne .not_close_stmt
+    cmp byte [rsi+3], 's'
+    jne .not_close_stmt
+    cmp byte [rsi+4], 'e'
+    jne .not_close_stmt
+    cmp byte [rsi+5], 0
+    jne .not_close_stmt
+    pop rsi
+    jmp .stmt_handle_close_intrinsic
+    
+.not_close_stmt:
+    pop rsi
     ; --- End Inline Checks ---
     
     ; Find function first (save address)
@@ -1777,6 +1836,77 @@ parse_block:
     
     ; Generate setbyte code: MOV BYTE [ptr+offset], value
     call generate_setbyte
+    
+    jmp .stmt_loop
+
+.stmt_handle_read_intrinsic:
+    ; read(handle, buffer, length) - three arguments
+    ; Same as write but calls IAT index 4
+    
+    ; Argument 1: handle
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ','
+    call next_token
+    
+    ; Argument 2: buffer pointer
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ','
+    call next_token
+    
+    ; Argument 3: length
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate IAT-based ReadFile call
+    call generate_read_iat
+    
+    jmp .stmt_loop
+
+.stmt_handle_open_intrinsic:
+    ; open(filename_ptr) - single argument, returns handle
+    ; CreateFileA with GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, NORMAL, NULL
+    
+    ; Argument 1: filename pointer
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate IAT-based CreateFileA call
+    call generate_open_iat
+    
+    jmp .stmt_loop
+
+.stmt_handle_close_intrinsic:
+    ; close(handle) - single argument
+    
+    ; Argument 1: handle
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate IAT-based CloseHandle call
+    call generate_close_iat
     
     jmp .stmt_loop
     
@@ -3824,7 +3954,7 @@ compile_expr:
 
 ; =============================================================================
 ; compile_term - Compile single term (number, variable, or parenthesized expr)
-; REWRITTEN: Now supports ( expression )
+; REWRITTEN: Now supports ( expression ) and unary minus
 ; =============================================================================
 compile_term:
     cmp dword [cur_tok_type], TOK_STRING
@@ -3836,11 +3966,57 @@ compile_term:
     cmp dword [cur_tok_type], TOK_IDENT
     je .variable
     
-    ; --- NEW: Support for '(' ---
+    ; --- Support for '(' or unary minus ---
     cmp dword [cur_tok_type], TOK_OP
     jne .default_zero
+    
+    ; Check for unary minus
+    cmp qword [cur_tok_value], OP_MINUS
+    je .unary_minus
+    
     cmp qword [cur_tok_value], OP_LPAREN
     je .paren_expr
+    jmp .default_zero
+
+.unary_minus:
+    ; Unary minus: return 0 - next_term
+    ; First generate MOV RAX, 0
+    mov rdi, [jit_cursor]
+    mov word [rdi], 0xB848
+    mov qword [rdi+2], 0
+    add qword [jit_cursor], 10
+    
+    ; PUSH RAX (save 0)
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50        ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip '-' and parse next term
+    call next_token
+    call compile_term
+    
+    ; Now RAX has the term value, stack has 0
+    ; We need: 0 - RAX
+    ; POP RCX; SUB RCX, RAX; MOV RAX, RCX
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59        ; POP RCX
+    inc rdi
+    ; SUB RCX, RAX (48 29 C1)
+    mov byte [rdi], 0x48
+    inc rdi
+    mov byte [rdi], 0x29
+    inc rdi
+    mov byte [rdi], 0xC1
+    inc rdi
+    ; MOV RAX, RCX (48 89 C8)
+    mov byte [rdi], 0x48
+    inc rdi
+    mov byte [rdi], 0x89
+    inc rdi
+    mov byte [rdi], 0xC8
+    inc rdi
+    mov [jit_cursor], rdi
+    ret
     
 .default_zero:
     ; Default: return 0
@@ -4029,7 +4205,89 @@ compile_term:
     
 .not_alloc_intrinsic:
     pop rsi                         ; Восстанавливаем RSI
-    ; --- End Inline Check ---
+    
+    ; --- Inline Check for 'getstd' ---
+    push rsi
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 'g'
+    jne .not_getstd_intrinsic
+    cmp byte [rsi+1], 'e'
+    jne .not_getstd_intrinsic
+    cmp byte [rsi+2], 't'
+    jne .not_getstd_intrinsic
+    cmp byte [rsi+3], 's'
+    jne .not_getstd_intrinsic
+    cmp byte [rsi+4], 't'
+    jne .not_getstd_intrinsic
+    cmp byte [rsi+5], 'd'
+    jne .not_getstd_intrinsic
+    cmp byte [rsi+6], 0
+    jne .not_getstd_intrinsic
+    pop rsi
+    jmp .handle_getstd_intrinsic
+    
+.not_getstd_intrinsic:
+    pop rsi
+    
+    ; --- Inline Check for 'open' ---
+    push rsi
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 'o'
+    jne .not_open_intrinsic
+    cmp byte [rsi+1], 'p'
+    jne .not_open_intrinsic
+    cmp byte [rsi+2], 'e'
+    jne .not_open_intrinsic
+    cmp byte [rsi+3], 'n'
+    jne .not_open_intrinsic
+    cmp byte [rsi+4], 0
+    jne .not_open_intrinsic
+    pop rsi
+    jmp .handle_open_intrinsic
+    
+.not_open_intrinsic:
+    pop rsi
+    
+    ; --- Inline Check for 'read' ---
+    push rsi
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 'r'
+    jne .not_read_intrinsic
+    cmp byte [rsi+1], 'e'
+    jne .not_read_intrinsic
+    cmp byte [rsi+2], 'a'
+    jne .not_read_intrinsic
+    cmp byte [rsi+3], 'd'
+    jne .not_read_intrinsic
+    cmp byte [rsi+4], 0
+    jne .not_read_intrinsic
+    pop rsi
+    jmp .handle_read_intrinsic
+    
+.not_read_intrinsic:
+    pop rsi
+    
+    ; --- Inline Check for 'close' ---
+    push rsi
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 'c'
+    jne .not_close_intrinsic
+    cmp byte [rsi+1], 'l'
+    jne .not_close_intrinsic
+    cmp byte [rsi+2], 'o'
+    jne .not_close_intrinsic
+    cmp byte [rsi+3], 's'
+    jne .not_close_intrinsic
+    cmp byte [rsi+4], 'e'
+    jne .not_close_intrinsic
+    cmp byte [rsi+5], 0
+    jne .not_close_intrinsic
+    pop rsi
+    jmp .handle_close_intrinsic
+    
+.not_close_intrinsic:
+    pop rsi
+    ; --- End Inline Checks ---
     
     ; Find the function
     lea rcx, [func_call_name]
@@ -4120,6 +4378,72 @@ compile_term:
     call generate_alloc_iat
     
     ; Return with RAX as result
+    ret
+
+.handle_getstd_intrinsic:
+    ; getstd(nStdHandle) - single argument, returns handle
+    call next_token         ; Skip '('
+    call compile_term       ; Parse argument
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    call next_token         ; Skip ')'
+    call generate_getstd_iat
+    ret
+
+.handle_open_intrinsic:
+    ; open(filename_ptr) - single argument, returns handle
+    call next_token         ; Skip '('
+    call compile_term       ; Parse argument
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    call next_token         ; Skip ')'
+    call generate_open_iat
+    ret
+
+.handle_read_intrinsic:
+    ; read(handle, buffer, length) - three arguments
+    call next_token         ; Skip '('
+    call compile_term       ; Parse handle
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    call next_token         ; Skip ','
+    call compile_term       ; Parse buffer
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    call next_token         ; Skip ','
+    call compile_term       ; Parse length
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    call next_token         ; Skip ')'
+    call generate_read_iat
+    ret
+
+.handle_close_intrinsic:
+    ; close(handle) - single argument
+    call next_token         ; Skip '('
+    call compile_term       ; Parse handle
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    call next_token         ; Skip ')'
+    call generate_close_iat
     ret
     
 .func_not_found:
@@ -5880,6 +6204,229 @@ generate_setbyte:
     inc rdi
     mov byte [rdi], 0x0A        ; SIB: base=RDX, index=RCX, scale=1
     inc rdi
+    
+    ; Update cursor
+    mov [jit_cursor], rdi
+    
+    pop rbx
+    ret
+
+; =============================================================================
+; generate_read_iat - Generate ReadFile call through IAT
+; Usage: read(handle, buffer, length)
+; IAT Index: 4 (ReadFile)
+; Stack on entry: [length] [buffer] [handle] (top to bottom)
+; =============================================================================
+generate_read_iat:
+    push rbx
+    push r12
+    
+    mov rdi, [jit_cursor]
+    
+    ; Stack has 3 args: handle (deep), buffer, length (top)
+    ; ReadFile: RCX=handle, RDX=buffer, R8=nBytes, R9=lpBytesRead (NULL), [RSP+32]=lpOverlapped (NULL)
+    
+    ; POP R8 (length - top of stack)
+    mov word [rdi], 0x5841      ; POP R8 (41 58)
+    add rdi, 2
+    
+    ; POP RDX (buffer)
+    mov byte [rdi], 0x5A        ; POP RDX
+    inc rdi
+    
+    ; POP RCX (handle)
+    mov byte [rdi], 0x59        ; POP RCX
+    inc rdi
+    
+    ; XOR R9D, R9D (lpNumberOfBytesRead = NULL)
+    mov dword [rdi], 0xC9314D   ; 4D 31 C9 = XOR R9, R9 (actually 45 31 C9)
+    add rdi, 3
+    
+    ; Allocate 48 bytes for shadow space + 5th arg + alignment
+    ; SUB RSP, 48 (0x30)
+    mov dword [rdi], 0x30EC8348
+    add rdi, 4
+    
+    ; Set 5th arg (lpOverlapped) = NULL at [RSP+32]
+    ; MOV QWORD [RSP+0x20], 0
+    mov byte [rdi], 0x48        ; REX.W
+    inc rdi
+    mov byte [rdi], 0xC7        ; MOV r/m64, imm32
+    inc rdi
+    mov byte [rdi], 0x44        ; ModRM: [RSP+disp8]
+    inc rdi
+    mov byte [rdi], 0x24        ; SIB: RSP
+    inc rdi
+    mov byte [rdi], 0x20        ; disp8 = 32
+    inc rdi
+    mov dword [rdi], 0x00000000 ; imm32 = 0
+    add rdi, 4
+    
+    ; Update cursor before IAT call
+    mov [jit_cursor], rdi
+    
+    ; Call ReadFile through IAT (index 4)
+    mov rcx, 4
+    call emit_iat_call
+    
+    ; Restore stack: ADD RSP, 48
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0x30C48348
+    add rdi, 4
+    
+    ; Update cursor
+    mov [jit_cursor], rdi
+    
+    pop r12
+    pop rbx
+    ret
+
+; =============================================================================
+; generate_open_iat - Generate CreateFileA call through IAT
+; Usage: let handle = open(filename_ptr)
+; IAT Index: 5 (CreateFileA)
+; CreateFileA(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+;             dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile)
+; 7 arguments! First 4 in registers, last 3 on stack.
+; =============================================================================
+generate_open_iat:
+    push rbx
+    push r12
+    
+    mov rdi, [jit_cursor]
+    
+    ; POP RCX (filename pointer - already on stack from caller)
+    mov byte [rdi], 0x59        ; POP RCX
+    inc rdi
+    
+    ; MOV RDX, 0x80000000 (GENERIC_READ)
+    ; 48 BA 00 00 00 80 00 00 00 00
+    mov byte [rdi], 0x48
+    inc rdi
+    mov byte [rdi], 0xBA
+    inc rdi
+    mov dword [rdi], 0x80000000
+    add rdi, 4
+    mov dword [rdi], 0x00000000
+    add rdi, 4
+    
+    ; MOV R8D, 1 (FILE_SHARE_READ)
+    ; 41 B8 01 00 00 00
+    mov word [rdi], 0xB841      ; 41 B8
+    add rdi, 2
+    mov dword [rdi], 0x00000001
+    add rdi, 4
+    
+    ; XOR R9D, R9D (lpSecurityAttributes = NULL)
+    ; 45 31 C9
+    mov byte [rdi], 0x45
+    inc rdi
+    mov byte [rdi], 0x31
+    inc rdi
+    mov byte [rdi], 0xC9
+    inc rdi
+    
+    ; Allocate stack space for shadow (32) + 3 stack args (24) + align = 56 bytes (0x38)
+    ; Actually need: shadow(32) + arg5(8) + arg6(8) + arg7(8) = 56 (0x38)
+    ; But need 16-byte alignment, so 64 (0x40)
+    ; SUB RSP, 64 (0x40)
+    mov dword [rdi], 0x40EC8348
+    add rdi, 4
+    
+    ; Stack layout after SUB RSP, 64:
+    ; [RSP+32] = 5th arg: dwCreationDisposition = OPEN_EXISTING (3)
+    ; [RSP+40] = 6th arg: dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL (0x80)
+    ; [RSP+48] = 7th arg: hTemplateFile = NULL (0)
+    
+    ; MOV DWORD [RSP+32], 3 (OPEN_EXISTING)
+    ; C7 44 24 20 03 00 00 00
+    mov byte [rdi], 0xC7
+    inc rdi
+    mov byte [rdi], 0x44
+    inc rdi
+    mov byte [rdi], 0x24
+    inc rdi
+    mov byte [rdi], 0x20        ; offset 32
+    inc rdi
+    mov dword [rdi], 0x00000003 ; OPEN_EXISTING
+    add rdi, 4
+    
+    ; MOV DWORD [RSP+40], 128 (FILE_ATTRIBUTE_NORMAL = 0x80)
+    ; C7 44 24 28 80 00 00 00
+    mov byte [rdi], 0xC7
+    inc rdi
+    mov byte [rdi], 0x44
+    inc rdi
+    mov byte [rdi], 0x24
+    inc rdi
+    mov byte [rdi], 0x28        ; offset 40
+    inc rdi
+    mov dword [rdi], 0x00000080 ; FILE_ATTRIBUTE_NORMAL
+    add rdi, 4
+    
+    ; MOV QWORD [RSP+48], 0 (hTemplateFile = NULL)
+    ; 48 C7 44 24 30 00 00 00 00
+    mov byte [rdi], 0x48
+    inc rdi
+    mov byte [rdi], 0xC7
+    inc rdi
+    mov byte [rdi], 0x44
+    inc rdi
+    mov byte [rdi], 0x24
+    inc rdi
+    mov byte [rdi], 0x30        ; offset 48
+    inc rdi
+    mov dword [rdi], 0x00000000
+    add rdi, 4
+    
+    ; Update cursor before IAT call
+    mov [jit_cursor], rdi
+    
+    ; Call CreateFileA through IAT (index 5)
+    mov rcx, 5
+    call emit_iat_call
+    
+    ; Restore stack: ADD RSP, 64
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0x40C48348
+    add rdi, 4
+    
+    ; Update cursor
+    mov [jit_cursor], rdi
+    
+    pop r12
+    pop rbx
+    ret
+
+; =============================================================================
+; generate_close_iat - Generate CloseHandle call through IAT
+; Usage: close(handle)
+; IAT Index: 6 (CloseHandle)
+; =============================================================================
+generate_close_iat:
+    push rbx
+    
+    mov rdi, [jit_cursor]
+    
+    ; POP RCX (handle)
+    mov byte [rdi], 0x59        ; POP RCX
+    inc rdi
+    
+    ; Allocate shadow space: SUB RSP, 40 (0x28)
+    mov dword [rdi], 0x28EC8348
+    add rdi, 4
+    
+    ; Update cursor before IAT call
+    mov [jit_cursor], rdi
+    
+    ; Call CloseHandle through IAT (index 6)
+    mov rcx, 6
+    call emit_iat_call
+    
+    ; Restore stack: ADD RSP, 40
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0x28C48348
+    add rdi, 4
     
     ; Update cursor
     mov [jit_cursor], rdi

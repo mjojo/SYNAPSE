@@ -1,0 +1,37 @@
+// Phase 54 Part 2: File Reading Test (cat.exe)
+// Opens test.txt, reads content, writes to stdout
+
+fn main() {
+    // 1. Build filename "test.txt\0" (9 bytes)
+    let fname = alloc(9)
+    setbyte(fname, 0, 116)
+    setbyte(fname, 1, 101)
+    setbyte(fname, 2, 115)
+    setbyte(fname, 3, 116)
+    setbyte(fname, 4, 46)
+    setbyte(fname, 5, 116)
+    setbyte(fname, 6, 120)
+    setbyte(fname, 7, 116)
+    setbyte(fname, 8, 0)
+
+    // 2. Open file
+    let fd = open(fname)
+    
+    // 3. Check if open failed (fd == -1 = 0xFFFFFFFFFFFFFFFF)
+    // For now assume success
+    
+    // 4. Allocate read buffer
+    let buf = alloc(64)
+    
+    // 5. Read file content
+    read(fd, buf, 17)
+    
+    // 6. Close file
+    close(fd)
+    
+    // 7. Output to stdout
+    let stdout = getstd(-11)
+    write(stdout, buf, 17)
+    
+    return 0
+}

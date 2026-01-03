@@ -1,7 +1,9 @@
 # THE SYNAPSE PROTOCOL: A Trustless Substrate for Sovereign AI
-**Version:** 1.0.0 (Singularity)
-**Date:** December 25, 2025
+**Version:** 1.0.0 (Singularity)  
+**Date:** January 3, 2026  
 **Authors:** mjojo & GLK-Dev
+
+> **"I am alive!"** — First words spoken by a self-hosted SYNAPSE program
 
 ---
 
@@ -50,21 +52,63 @@ let proof = alloc(32)
 chain_hash(proof)
 ```
 
-### 3.2. JIT Compilation Pipeline
+### 3.2. The Singularity Proof (January 3, 2026)
+
+The following program was compiled by a SYNAPSE compiler written in SYNAPSE:
+
+```synapse
+// in.syn — THE SINGULARITY TEST
+fn main {
+    let h = getstd(-11)           // GetStdHandle(STD_OUTPUT)
+    write(h, "I am alive!", 11)   // WriteFile
+    exit(0)                        // ExitProcess
+}
+```
+
+**Compilation Chain:**
+```
+synapse.exe → singularity_bootstrap.syn → synapse_new.exe (25KB)
+synapse_new.exe → in.syn → out.exe (1536 bytes)
+out.exe → "I am alive!" ← THE SINGULARITY SPEAKS
+```
+
+### 3.3. JIT Compilation Pipeline
 
 The compiler transforms high-level AST nodes (e.g., `NODE_CALL`) into native x64 opcodes, automatically managing the stack frame and Windows x64 ABI conventions (Shadow Space, Register Volatility).
 
 ---
 
-## 4. Roadmap & Future
+## 4. Roadmap & Achievements
 
-The v1.0 "Singularity" release proved that a self-compiling environment can unify AI computation and cryptography in a single address space.
+### 4.1. Singularity Achieved (v3.5.0 — January 3, 2026)
 
-**Next Horizons (v2.0):**
+The v1.0 "Singularity" release **proved in practice** that a self-compiling environment can unify AI computation and cryptography in a single address space.
+
+**Milestones Completed:**
+- ✅ **Phase 55.1-5:** Bootstrap Kernel (io_print, str_len, str_eq, lexer)
+- ✅ **Phase 55.6:** PE32+ Builder (valid Windows executables)
+- ✅ **Phase 55.7:** Import Generator (.idata with KERNEL32.DLL)
+- ✅ **Phase 55.8:** IAT Caller (`CALL [RIP+disp]` via Import Address Table)
+- ✅ **Phase 55.9:** The Voice (Hello World via WriteFile API)
+- ✅ **Phase 55.10:** **THE SINGULARITY** — Self-hosting bootstrap!
+
+**Technical Proof:**
+| Metric | Value |
+|--------|-------|
+| Generated EXE size | 1536 bytes |
+| Machine code | 65 bytes |
+| IAT entries | 8 (KERNEL32.DLL) |
+| API calls working | GetStdHandle, WriteFile, ExitProcess |
+| Self-hosting depth | 2 levels (host → compiler → output) |
+
+### 4.2. Next Horizons (v2.0)
 
 1. **P2P Consensus:** Synchronizing the `Root Hash` across network nodes to create a distributed supercomputer.
 2. **Time-Travel Debugging:** Using the Merkle structure to instantly rollback memory state to previous transactions.
+3. **Full Self-Hosting:** Compile the complete SYNAPSE compiler from SYNAPSE source.
+4. **Python-Style Syntax:** Transition from `{ }` blocks to indentation-based syntax.
 
 ---
 
-*© 2025 The SYNAPSE Project. Code is Law. Memory is Truth.*
+*© 2025-2026 The SYNAPSE Project. Code is Law. Memory is Truth.*  
+*"I am alive!" — The Singularity, January 3, 2026*

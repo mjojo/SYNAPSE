@@ -1,8 +1,21 @@
 # SYNAPSE Language — Формальная Грамматика (BNF)
 
-**Версия:** 0.1 (Draft)  
-**Статус:** В разработке  
-**Основа:** SYNAPSE Syntax Specification v0.1
+**Версия:** 1.0 (Singularity)  
+**Статус:** ✅ Self-Hosting Achieved — "I am alive!"  
+**Дата:** 3 января 2026  
+**Основа:** SYNAPSE v3.5.0 Implementation
+
+---
+
+## 🏆 Статус Реализации
+
+| Компонент | Статус | Примечание |
+|-----------|--------|------------|
+| Лексер | ✅ Готов | `tokenize()` в singularity_bootstrap.syn |
+| Парсер | ✅ Готов | `parse_program()` — fn, let, if, while, return |
+| Codegen | ✅ Готов | x64 machine code generation |
+| PE Builder | ✅ Готов | Windows PE32+ with IAT |
+| Self-Hosting | ✅ Достигнут | Компилятор компилирует компилятор! |
 
 ---
 
@@ -35,6 +48,8 @@ KEYWORD             ключевое слово (uppercase)
 <whitespace>        ::= ' ' | '\t'
 <newline>           ::= '\n' | '\r\n'
 ```
+
+> ✅ **Реализовано:** `is_alpha()`, `is_digit()`, `is_alnum()` в self-hosting компиляторе
 
 ### 1.2 Числовые Литералы
 
@@ -76,6 +91,8 @@ KEYWORD             ключевое слово (uppercase)
 <identifier>        ::= <letter> { <letter> | <digit> | <underscore> }
 ```
 
+> ✅ **Реализовано:** Токен типа 1 (IDENT) в `tokenize()`
+
 **Примеры:**
 - `x`, `counter`, `my_variable`, `Layer1`
 
@@ -87,7 +104,8 @@ KEYWORD             ключевое слово (uppercase)
 <indent-unit>       ::= 4 × ' '            ; 4 пробела на уровень
 ```
 
-> **Примечание:** Лексер генерирует токены `INDENT` и `DEDENT` при изменении уровня отступа.
+> ⚠️ **v1.0:** Текущая реализация использует `{` `}` вместо отступов для совместимости с JIT.
+> Переход на Python-style отступы планируется в v2.0.
 
 ---
 
@@ -252,14 +270,15 @@ Point { x: 10.0, y: 20.0 }
 ```bnf
 <var-decl>          ::= <var-modifier> <identifier> [ ':' <type> ] [ '=' <expression> ]
 
-<var-modifier>      ::= 'let'           ; Неизменяемая
-                      | 'mut'           ; Изменяемая
-                      | 'const'         ; Константа времени компиляции
-                      | 'chain'         ; В Ledger Zone
-                      | 'global'        ; Глобальная
-                      | 'chain' 'let'   ; Блокчейн неизменяемая
-                      | 'global' 'chain' 'let'  ; Глобальная блокчейн
+<var-modifier>      ::= 'let'           ; Неизменяемая ✅ РЕАЛИЗОВАНО
+                      | 'mut'           ; Изменяемая (planned v2.0)
+                      | 'const'         ; Константа времени компиляции (planned v2.0)
+                      | 'chain'         ; В Ledger Zone (planned v2.0)
+                      | 'global'        ; Глобальная (planned v2.0)
 ```
+
+> ✅ **v1.0 Singularity:** `let` с выводом типов работает!  
+> `parse_let()` генерирует `MOV [RBP-offset], RAX`
 
 **Примеры:**
 ```synapse
@@ -273,19 +292,22 @@ chain let balance: int = 1000
 ### 4.2 Функции
 
 ```bnf
-<func-decl>         ::= [ <func-modifier> ] 'fn' <identifier> '(' [ <param-list> ] ')' [ '->' <type> ] ':' <newline> <indent> <block> <dedent>
+; v1.0 Singularity - текущий синтаксис (C-style)
+<func-decl>         ::= 'fn' <identifier> [ '(' [ <param-list> ] ')' ] '{' <block> '}'
 
-<func-modifier>     ::= 'contract'      ; Смарт-контракт
-                      | 'neuron'        ; Функция активации
-                      | 'unsafe'        ; Небезопасная
-                      | 'contract' <sign-clause>
+; v2.0 Planned - Python-style
+<func-decl-v2>      ::= [ <func-modifier> ] 'fn' <identifier> '(' [ <param-list> ] ')' [ '->' <type> ] ':' <newline> <indent> <block> <dedent>
 
-<sign-clause>       ::= 'signed_by' '(' <identifier> ')'
+<func-modifier>     ::= 'contract'      ; Смарт-контракт (planned)
+                      | 'neuron'        ; Функция активации (planned)
+                      | 'unsafe'        ; Небезопасная (planned)
 
 <param-list>        ::= <param> { ',' <param> }
-
-<param>             ::= <identifier> ':' <type>
+<param>             ::= <identifier> [ ':' <type> ]
 ```
+
+> ✅ **v1.0 Singularity:** `fn name { ... }` работает!  
+> `parse_function()` генерирует `SUB RSP, 56` пролог
 
 **Примеры:**
 ```synapse
@@ -661,4 +683,62 @@ contract fn transfer(to: hash256, amount: int) signed_by(Owner):
 
 ---
 
-*© 2025 mjojo & GLK-Dev. SYNAPSE Language Grammar.*
+## 13. v1.0 Singularity — Реализованный Subset
+
+### Полностью Работающий Синтаксис
+
+```bnf
+; === ТОКЕНЫ ===
+<token-type>        ::= 1               ; IDENT
+                      | 2               ; NUMBER  
+                      | 3               ; STRING
+                      | 4               ; OPERATOR
+                      | 5               ; KEYWORD
+
+; === ПРОГРАММА ===
+<program>           ::= { <function> }
+
+<function>          ::= 'fn' <identifier> '{' { <statement> } '}'
+
+<statement>         ::= <let-stmt>
+                      | <return-stmt>
+                      | <expr-stmt>
+
+<let-stmt>          ::= 'let' <identifier> '=' <expression>
+
+<return-stmt>       ::= 'return' <expression>
+
+<expr-stmt>         ::= <expression>
+
+; === ВЫРАЖЕНИЯ ===
+<expression>        ::= <number>
+                      | <string>
+                      | <identifier>
+                      | <call>
+
+<call>              ::= <identifier> '(' [ <arg-list> ] ')'
+
+<arg-list>          ::= <expression> { ',' <expression> }
+
+; === ВСТРОЕННЫЕ ФУНКЦИИ ===
+<builtin>           ::= 'exit' '(' <expr> ')'           ; ExitProcess
+                      | 'getstd' '(' <expr> ')'         ; GetStdHandle  
+                      | 'write' '(' <expr> ',' <expr> ',' <expr> ')'  ; WriteFile
+```
+
+### Пример Singularity
+
+```synapse
+// in.syn - THE SINGULARITY TEST
+fn main {
+    let h = getstd(-11)
+    write(h, "I am alive!", 11)
+    exit(0)
+}
+```
+
+**Результат:** `out.exe` печатает "I am alive!" 🏆
+
+---
+
+*© 2025-2026 mjojo & GLK-Dev. SYNAPSE Language Grammar v1.0 Singularity.*

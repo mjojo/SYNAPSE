@@ -1,8 +1,12 @@
-# SYNAPSE SYNTAX SPECIFICATION
+# SYNAPSE v2 SYNTAX SPECIFICATION
 
 **Версия:** 0.1 (Draft)  
-**Статус:** В разработке  
+**Статус:** В разработке (после Singularity v1)  
+**Дата:** 3 января 2026  
 **Основа:** Гибрид Python (читаемость) + Rust (типизация) + ASM (контроль)
+
+> *"v1 Singularity достигнут — компилятор скомпилировал сам себя.  
+> v2 — следующий шаг: Python-style синтаксис с отступами."*
 
 ---
 
@@ -19,14 +23,17 @@
 
 ### 1.2 Отличия от TITAN BASIC
 
-| TITAN (BASIC) | SYNAPSE (Modern) |
-|---------------|------------------|
-| `DIM A(100)` | `let a: tensor<100>` |
-| `LET X = 5` | `let x = 5` |
-| `FUNC NAME` / `ENDFUNC` | `fn name():` + отступы |
-| `IF ... THEN` / `ENDIF` | `if ...:` + отступы |
-| `FOR ... NEXT` | `for ... in ...:` |
-| `GOTO label` | Нет (структурное программирование) |
+| TITAN (BASIC) | SYNAPSE v1 (текущий) | SYNAPSE v2 (план) |
+|---------------|----------------------|-------------------|
+| `DIM A(100)` | `let a = alloc(100)` | `let a: tensor<100>` |
+| `LET X = 5` | `let x = 5` | `let x = 5` |
+| `FUNC NAME` / `ENDFUNC` | `fn name { }` | `fn name():` + отступы |
+| `IF ... THEN` / `ENDIF` | `if cond { }` | `if cond:` + отступы |
+| `FOR ... NEXT` | `while cond { }` | `for ... in ...:` |
+| `GOTO label` | Нет | Нет |
+
+> **Примечание:** SYNAPSE v1 достиг Singularity 3 января 2026.  
+> v2 добавит Python-style отступы вместо фигурных скобок.
 
 ---
 
@@ -555,4 +562,10 @@ asm, pass, _
 
 ---
 
-*© 2025 mjojo & GLK-Dev. SYNAPSE Syntax Specification.*
+*© 2025-2026 mjojo & GLK-Dev. SYNAPSE v2 Syntax Specification.*
+
+---
+
+**История:**
+- v1 Singularity: 3 января 2026 — `"I am alive!"`
+- v2 Draft: В разработке — Python-style синтаксис

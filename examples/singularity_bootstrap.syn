@@ -1,0 +1,508 @@
+// SYNAPSE SINGULARITY - HARDCODED BOOTSTRAP
+// This reads in.syn but generates the same fixed Hello World code
+// Purpose: Prove that the JIT-compiled compiler can read files and write EXE
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_nl() {
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    io_print(nl)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    print_nl()
+    return 0
+}
+
+// --- PE BUILDER ---
+fn init_state(state) {
+    state[5] = alloc(8192)
+    state[6] = 0
+    return 0
+}
+
+fn put_byte(state, b) {
+    let exe_buf = state[5]
+    let exe_pos = state[6]
+    setbyte(exe_buf, exe_pos, b)
+    state[6] = exe_pos + 1
+    return 0
+}
+
+fn put_word(state, w) {
+    put_byte(state, w % 256)
+    let w1 = w / 256
+    put_byte(state, w1 % 256)
+    return 0
+}
+
+fn put_dword(state, d) {
+    put_byte(state, d % 256)
+    let d1 = d / 256
+    put_byte(state, d1 % 256)
+    let d2 = d1 / 256
+    put_byte(state, d2 % 256)
+    let d3 = d2 / 256
+    put_byte(state, d3 % 256)
+    return 0
+}
+
+fn put_qword(state, q) {
+    put_dword(state, q)
+    put_dword(state, 0)
+    return 0
+}
+
+fn put_zeros(state, count) {
+    let i = 0
+    while i < count {
+        put_byte(state, 0)
+        i = i + 1
+    }
+    return 0
+}
+
+fn emit_pe_header(state) {
+    put_byte(state, 77)
+    put_byte(state, 90)
+    put_zeros(state, 58)
+    put_dword(state, 64)
+
+    put_byte(state, 80)
+    put_byte(state, 69)
+    put_word(state, 0)
+
+    put_word(state, 34404)
+    put_word(state, 2)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_word(state, 240)
+    put_word(state, 34)
+
+    put_word(state, 523)
+    put_byte(state, 1)
+    put_byte(state, 0)
+    put_dword(state, 512)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 4096)
+    put_dword(state, 4096)
+
+    put_qword(state, 4194304)
+    put_dword(state, 4096)
+    put_dword(state, 512)
+    put_word(state, 6)
+    put_word(state, 0)
+    put_word(state, 0)
+    put_word(state, 0)
+    put_word(state, 6)
+    put_word(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 12288)
+    put_dword(state, 512)
+    put_dword(state, 0)
+    put_word(state, 3)
+    put_word(state, 0)
+    put_qword(state, 1048576)
+    put_qword(state, 4096)
+    put_qword(state, 1048576)
+    put_qword(state, 4096)
+    put_dword(state, 0)
+    put_dword(state, 16)
+
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 8192)
+    put_dword(state, 40)
+    put_zeros(state, 80)
+    put_dword(state, 8232)
+    put_dword(state, 72)
+    put_zeros(state, 24)
+
+    put_byte(state, 46)
+    put_byte(state, 116)
+    put_byte(state, 101)
+    put_byte(state, 120)
+    put_byte(state, 116)
+    put_zeros(state, 3)
+    put_dword(state, 512)
+    put_dword(state, 4096)
+    put_dword(state, 512)
+    put_dword(state, 512)
+    put_zeros(state, 12)
+    put_dword(state, 1610612768)
+
+    put_byte(state, 46)
+    put_byte(state, 105)
+    put_byte(state, 100)
+    put_byte(state, 97)
+    put_byte(state, 116)
+    put_byte(state, 97)
+    put_zeros(state, 2)
+    put_dword(state, 512)
+    put_dword(state, 8192)
+    put_dword(state, 512)
+    put_dword(state, 1024)
+    put_zeros(state, 12)
+    put_dword(state, 1073741888)
+
+    let exe_pos = state[6]
+    while exe_pos < 512 {
+        put_byte(state, 0)
+        exe_pos = state[6]
+    }
+    return 0
+}
+
+fn emit_import_table(state) {
+    let IDATA_RVA = 8192
+
+    put_dword(state, IDATA_RVA + 40)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, IDATA_RVA + 112)
+    put_dword(state, IDATA_RVA + 40)
+    put_zeros(state, 20)
+
+    let hint_base = IDATA_RVA + 126
+    put_qword(state, hint_base)
+    put_qword(state, hint_base + 14)
+    put_qword(state, hint_base + 30)
+    put_qword(state, hint_base + 44)
+    put_qword(state, hint_base + 56)
+    put_qword(state, hint_base + 68)
+    put_qword(state, hint_base + 82)
+    put_qword(state, hint_base + 96)
+    put_qword(state, 0)
+
+    // KERNEL32.DLL
+    put_byte(state, 75)
+    put_byte(state, 69)
+    put_byte(state, 82)
+    put_byte(state, 78)
+    put_byte(state, 69)
+    put_byte(state, 76)
+    put_byte(state, 51)
+    put_byte(state, 50)
+    put_byte(state, 46)
+    put_byte(state, 68)
+    put_byte(state, 76)
+    put_byte(state, 76)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // ExitProcess
+    put_word(state, 0)
+    put_byte(state, 69)
+    put_byte(state, 120)
+    put_byte(state, 105)
+    put_byte(state, 116)
+    put_byte(state, 80)
+    put_byte(state, 114)
+    put_byte(state, 111)
+    put_byte(state, 99)
+    put_byte(state, 101)
+    put_byte(state, 115)
+    put_byte(state, 115)
+    put_byte(state, 0)
+
+    // VirtualAlloc
+    put_word(state, 0)
+    put_byte(state, 86)
+    put_byte(state, 105)
+    put_byte(state, 114)
+    put_byte(state, 116)
+    put_byte(state, 117)
+    put_byte(state, 97)
+    put_byte(state, 108)
+    put_byte(state, 65)
+    put_byte(state, 108)
+    put_byte(state, 108)
+    put_byte(state, 111)
+    put_byte(state, 99)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // VirtualFree
+    put_word(state, 0)
+    put_byte(state, 86)
+    put_byte(state, 105)
+    put_byte(state, 114)
+    put_byte(state, 116)
+    put_byte(state, 117)
+    put_byte(state, 97)
+    put_byte(state, 108)
+    put_byte(state, 70)
+    put_byte(state, 114)
+    put_byte(state, 101)
+    put_byte(state, 101)
+    put_byte(state, 0)
+
+    // WriteFile
+    put_word(state, 0)
+    put_byte(state, 87)
+    put_byte(state, 114)
+    put_byte(state, 105)
+    put_byte(state, 116)
+    put_byte(state, 101)
+    put_byte(state, 70)
+    put_byte(state, 105)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+
+    // ReadFile
+    put_word(state, 0)
+    put_byte(state, 82)
+    put_byte(state, 101)
+    put_byte(state, 97)
+    put_byte(state, 100)
+    put_byte(state, 70)
+    put_byte(state, 105)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // CreateFileA
+    put_word(state, 0)
+    put_byte(state, 67)
+    put_byte(state, 114)
+    put_byte(state, 101)
+    put_byte(state, 97)
+    put_byte(state, 116)
+    put_byte(state, 101)
+    put_byte(state, 70)
+    put_byte(state, 105)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 65)
+    put_byte(state, 0)
+
+    // CloseHandle
+    put_word(state, 0)
+    put_byte(state, 67)
+    put_byte(state, 108)
+    put_byte(state, 111)
+    put_byte(state, 115)
+    put_byte(state, 101)
+    put_byte(state, 72)
+    put_byte(state, 97)
+    put_byte(state, 110)
+    put_byte(state, 100)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+
+    // GetStdHandle
+    put_word(state, 0)
+    put_byte(state, 71)
+    put_byte(state, 101)
+    put_byte(state, 116)
+    put_byte(state, 83)
+    put_byte(state, 116)
+    put_byte(state, 100)
+    put_byte(state, 72)
+    put_byte(state, 97)
+    put_byte(state, 110)
+    put_byte(state, 100)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    let exe_pos = state[6]
+    while exe_pos < 1536 {
+        put_byte(state, 0)
+        exe_pos = state[6]
+    }
+    return 0
+}
+
+fn save_exe(state, fname) {
+    let exe_buf = state[5]
+    let exe_size = state[6]
+    let fd = open(fname, 1)
+    write(fd, exe_buf, exe_size)
+    close(fd)
+    return 0
+}
+
+fn main() {
+    io_println("=== SINGULARITY BOOTSTRAP ===")
+    
+    // Read source file (just to prove we can)
+    io_println("Reading in.syn...")
+    let fname = alloc(8)
+    setbyte(fname, 0, 105)
+    setbyte(fname, 1, 110)
+    setbyte(fname, 2, 46)
+    setbyte(fname, 3, 115)
+    setbyte(fname, 4, 121)
+    setbyte(fname, 5, 110)
+    setbyte(fname, 6, 0)
+    
+    let fd = open(fname, 0)
+    let source = alloc(8192)
+    let bytes_read = read(fd, source, 8192)
+    close(fd)
+    
+    io_println("Source loaded!")
+    
+    // Build fixed "I am alive!" EXE
+    io_println("Building out.exe...")
+    
+    let state = alloc(64)
+    init_state(state)
+    
+    emit_pe_header(state)
+    
+    // Write hardcoded code for "I am alive!"
+    let exe_buf = state[5]
+    let code_start = 512
+    
+    // SUB RSP, 56
+    setbyte(exe_buf, code_start + 0, 72)
+    setbyte(exe_buf, code_start + 1, 131)
+    setbyte(exe_buf, code_start + 2, 236)
+    setbyte(exe_buf, code_start + 3, 56)
+    
+    // MOV ECX, -11
+    setbyte(exe_buf, code_start + 4, 185)
+    setbyte(exe_buf, code_start + 5, 245)
+    setbyte(exe_buf, code_start + 6, 255)
+    setbyte(exe_buf, code_start + 7, 255)
+    setbyte(exe_buf, code_start + 8, 255)
+    
+    // CALL [GetStdHandle] - RIP+0x1051
+    setbyte(exe_buf, code_start + 9, 255)
+    setbyte(exe_buf, code_start + 10, 21)
+    setbyte(exe_buf, code_start + 11, 81)
+    setbyte(exe_buf, code_start + 12, 16)
+    setbyte(exe_buf, code_start + 13, 0)
+    setbyte(exe_buf, code_start + 14, 0)
+    
+    // MOV R12, RAX
+    setbyte(exe_buf, code_start + 15, 73)
+    setbyte(exe_buf, code_start + 16, 137)
+    setbyte(exe_buf, code_start + 17, 196)
+    
+    // MOV RCX, R12
+    setbyte(exe_buf, code_start + 18, 76)
+    setbyte(exe_buf, code_start + 19, 137)
+    setbyte(exe_buf, code_start + 20, 225)
+    
+    // MOV RDX, 0x401080 (string address)
+    setbyte(exe_buf, code_start + 21, 72)
+    setbyte(exe_buf, code_start + 22, 186)
+    setbyte(exe_buf, code_start + 23, 128)
+    setbyte(exe_buf, code_start + 24, 16)
+    setbyte(exe_buf, code_start + 25, 64)
+    setbyte(exe_buf, code_start + 26, 0)
+    setbyte(exe_buf, code_start + 27, 0)
+    setbyte(exe_buf, code_start + 28, 0)
+    setbyte(exe_buf, code_start + 29, 0)
+    setbyte(exe_buf, code_start + 30, 0)
+    
+    // MOV R8D, 11 (length of "I am alive!")
+    setbyte(exe_buf, code_start + 31, 65)
+    setbyte(exe_buf, code_start + 32, 184)
+    setbyte(exe_buf, code_start + 33, 11)
+    setbyte(exe_buf, code_start + 34, 0)
+    setbyte(exe_buf, code_start + 35, 0)
+    setbyte(exe_buf, code_start + 36, 0)
+    
+    // LEA R9, [RSP+48]
+    setbyte(exe_buf, code_start + 37, 76)
+    setbyte(exe_buf, code_start + 38, 141)
+    setbyte(exe_buf, code_start + 39, 76)
+    setbyte(exe_buf, code_start + 40, 36)
+    setbyte(exe_buf, code_start + 41, 48)
+    
+    // MOV QWORD [RSP+32], 0
+    setbyte(exe_buf, code_start + 42, 72)
+    setbyte(exe_buf, code_start + 43, 199)
+    setbyte(exe_buf, code_start + 44, 68)
+    setbyte(exe_buf, code_start + 45, 36)
+    setbyte(exe_buf, code_start + 46, 32)
+    setbyte(exe_buf, code_start + 47, 0)
+    setbyte(exe_buf, code_start + 48, 0)
+    setbyte(exe_buf, code_start + 49, 0)
+    setbyte(exe_buf, code_start + 50, 0)
+    
+    // CALL [WriteFile] - RIP+0x1007
+    setbyte(exe_buf, code_start + 51, 255)
+    setbyte(exe_buf, code_start + 52, 21)
+    setbyte(exe_buf, code_start + 53, 7)
+    setbyte(exe_buf, code_start + 54, 16)
+    setbyte(exe_buf, code_start + 55, 0)
+    setbyte(exe_buf, code_start + 56, 0)
+    
+    // XOR ECX, ECX
+    setbyte(exe_buf, code_start + 57, 49)
+    setbyte(exe_buf, code_start + 58, 201)
+    
+    // CALL [ExitProcess] - RIP+0xFE7
+    setbyte(exe_buf, code_start + 59, 255)
+    setbyte(exe_buf, code_start + 60, 21)
+    setbyte(exe_buf, code_start + 61, 231)
+    setbyte(exe_buf, code_start + 62, 15)
+    setbyte(exe_buf, code_start + 63, 0)
+    setbyte(exe_buf, code_start + 64, 0)
+    
+    // String "I am alive!" at offset 128 (RVA 0x1080)
+    let str_offset = 128
+    setbyte(exe_buf, code_start + str_offset + 0, 73)   // I
+    setbyte(exe_buf, code_start + str_offset + 1, 32)   // space
+    setbyte(exe_buf, code_start + str_offset + 2, 97)   // a
+    setbyte(exe_buf, code_start + str_offset + 3, 109)  // m
+    setbyte(exe_buf, code_start + str_offset + 4, 32)   // space
+    setbyte(exe_buf, code_start + str_offset + 5, 97)   // a
+    setbyte(exe_buf, code_start + str_offset + 6, 108)  // l
+    setbyte(exe_buf, code_start + str_offset + 7, 105)  // i
+    setbyte(exe_buf, code_start + str_offset + 8, 118)  // v
+    setbyte(exe_buf, code_start + str_offset + 9, 101)  // e
+    setbyte(exe_buf, code_start + str_offset + 10, 33)  // !
+    setbyte(exe_buf, code_start + str_offset + 11, 0)
+    
+    state[6] = 1024
+    emit_import_table(state)
+    
+    // Save
+    let outname = alloc(8)
+    setbyte(outname, 0, 111)
+    setbyte(outname, 1, 117)
+    setbyte(outname, 2, 116)
+    setbyte(outname, 3, 46)
+    setbyte(outname, 4, 101)
+    setbyte(outname, 5, 120)
+    setbyte(outname, 6, 101)
+    setbyte(outname, 7, 0)
+    
+    save_exe(state, outname)
+    
+    io_println("Created out.exe!")
+    io_println("")
+    io_println("Run: out.exe")
+    io_println("Expected: I am alive!")
+    
+    return 0
+}

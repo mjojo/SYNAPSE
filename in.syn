@@ -1,0 +1,8 @@
+// THE SINGULARITY TEST
+// If out.exe says "I am alive!" - you have achieved the Singularity
+
+fn main {
+    let h = getstd(-11)
+    write(h, "I am alive!", 11)
+    exit(0)
+}

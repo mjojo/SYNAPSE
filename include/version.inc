@@ -3,7 +3,7 @@
 ; =============================================================================
 
 SYNAPSE_VERSION_MAJOR = 3
-SYNAPSE_VERSION_MINOR = 4
+SYNAPSE_VERSION_MINOR = 5
 SYNAPSE_VERSION_PATCH = 0
 
 ; Stage: 1=alpha, 2=beta, 3=rc, 4=stable
@@ -13,21 +13,21 @@ SYNAPSE_VERSION_STAGE = 4
 SYNAPSE_BUILD_DATE = 20260103
 
 ; Component versions
-SYNAPSE_LEXER_VERSION = 6        ; +bootstrap lexer
-SYNAPSE_PARSER_VERSION = 9       ; +bootstrap parser
-SYNAPSE_JIT_VERSION = 12         ; +IAT call generation
+SYNAPSE_LEXER_VERSION = 7        ; +bootstrap lexer, singularity
+SYNAPSE_PARSER_VERSION = 10      ; +bootstrap parser, singularity
+SYNAPSE_JIT_VERSION = 13         ; +IAT call generation, WriteFile
 SYNAPSE_AVX_VERSION = 2          ; +matmul/relu
 SYNAPSE_NEURAL_VERSION = 3       ; +inference
 SYNAPSE_CRYPTO_VERSION = 2       ; +chain_hash
 SYNAPSE_LEDGER_VERSION = 3       ; +introspection
 SYNAPSE_CORE_VERSION = 2         ; +graphics/GUI
 SYNAPSE_BRIDGE_VERSION = 4       ; +mouse/keyboard
-SYNAPSE_CODEGEN_VERSION = 9      ; +emit_iat_call/RIP-relative
+SYNAPSE_CODEGEN_VERSION = 10     ; +emit_iat_call/RIP-relative/WriteFile
 SYNAPSE_SYMBOLS_VERSION = 3      ; +global/local
 SYNAPSE_FUNCTIONS_VERSION = 3    ; +fastcall
 SYNAPSE_FILEIO_VERSION = 3       ; +fread/fwrite
-SYNAPSE_PE_VERSION = 3           ; +PE builder/import table/IAT calls
+SYNAPSE_PE_VERSION = 4           ; +PE builder/import table/IAT calls/self-hosting
 
 ; Version strings for display
-SYNAPSE_VERSION_STR equ 'v3.4.0-nervous'
-SYNAPSE_FULL_NAME   equ 'SYNAPSE v3.4.0 - The Nervous System'
+SYNAPSE_VERSION_STR equ 'v3.5.0-singularity'
+SYNAPSE_FULL_NAME   equ 'SYNAPSE v3.5.0 - The Singularity'

@@ -1,0 +1,167 @@
+SYNAPSE PROJECT - DUAL LICENSING MODEL
+=====================================
+
+Copyright © 2026 Synapse Foundation. All Rights Reserved.
+
+This project uses a dual licensing model to balance open collaboration 
+with commercial sustainability.
+
+---
+
+## 1. CORE COMPONENTS (Apache License 2.0)
+
+The following components are licensed under Apache License 2.0:
+
+- Synapse Language Compiler (src/synapse.asm, src/lexer_v2.asm, src/parser_v2.asm)
+- Code Generator (src/codegen.asm)
+- Standard Library (stdlib/*)
+- JIT Engine and Virtual Machine
+- All language syntax and grammar definitions
+- Examples and documentation
+
+### Apache License 2.0 Summary:
+
+You are free to:
+- Use Synapse to create commercial applications
+- Modify the compiler for your needs
+- Distribute compiled executables without restrictions
+- Create proprietary software written in Synapse
+
+Requirements:
+- Include copyright notice and license text in distributions of source code
+- State significant changes to the code
+- Grant patent rights to users
+
+Full text: https://www.apache.org/licenses/LICENSE-2.0
+
+---
+
+## 2. NETWORK SERVICES (GNU AGPL v3)
+
+The following components are licensed under GNU Affero General Public License v3:
+
+- SynapseFS (Blockchain Filesystem)
+- Synapse Chain (Merkle Tree Memory Allocator)
+- Hive Protocol (Swarm Intelligence & P2P Consensus)
+- Network synchronization services
+- Distributed state management
+
+### AGPL v3 Summary:
+
+You are free to:
+- Use these services for internal purposes
+- Modify and distribute the code
+
+Requirements:
+- If you run a modified version of this software as a network service 
+  (e.g., cloud hosting), you MUST make the complete source code 
+  available to users of that service
+- All modifications must be released under AGPL v3
+- Include copyright notice and license text
+
+This prevents cloud providers from taking the code, offering it as a 
+service, and not contributing back.
+
+Full text: https://www.gnu.org/licenses/agpl-3.0.html
+
+---
+
+## 3. COMMERCIAL LICENSING
+
+If you wish to use Network Services (SynapseFS, Hive Protocol) in a 
+proprietary cloud service without releasing your source code, a 
+commercial license is available.
+
+Contact: synapse-licensing@example.com
+
+Commercial licenses include:
+- Right to use Network Services in closed-source cloud offerings
+- Enterprise support
+- Custom feature development
+- Service Level Agreements (SLA)
+
+---
+
+## RATIONALE
+
+**Why Apache 2.0 for the language?**
+We want Synapse to become a universal programming language. Developers 
+must be free to create commercial, closed-source applications without 
+legal concerns.
+
+**Why AGPL v3 for network services?**
+Cloud infrastructure is our competitive advantage. We prevent large 
+corporations from taking our distributed filesystem and selling it 
+without contributing back. This protects the sustainability of the 
+project while keeping it open source.
+
+**Why Dual Licensing?**
+This model (used by MongoDB, Elastic, and others) balances:
+- Maximum adoption (Apache 2.0 for developers)
+- Protection against exploitation (AGPL v3 for services)
+- Revenue for continued development (Commercial licenses)
+
+---
+
+## PATENT GRANT (Apache 2.0 Components)
+
+Contributors grant a perpetual, worldwide, non-exclusive, no-charge, 
+royalty-free, irrevocable patent license to users.
+
+If you initiate patent litigation against any entity alleging that 
+Synapse constitutes patent infringement, your patent licenses under 
+this agreement terminate.
+
+---
+
+## COMPONENT DIRECTORY STRUCTURE
+
+```
+SYNAPSE/
+├── src/              [Apache 2.0] - Compiler core
+├── include/          [Apache 2.0] - Language definitions
+├── stdlib/core.syn   [Apache 2.0] - Standard library
+├── stdlib/io.syn     [Apache 2.0] - I/O operations
+├── stdlib/crypto.syn [Apache 2.0] - Cryptographic primitives
+│
+├── stdlib/net/synapsefs.syn  [AGPL v3] - Blockchain filesystem
+├── stdlib/net/p2p.syn        [AGPL v3] - P2P protocol
+└── stdlib/swarm/hive.syn     [AGPL v3] - Swarm intelligence
+
+```
+
+---
+
+## CONTRIBUTIONS
+
+By contributing to this project, you agree to license your contributions 
+under the same terms as the component you're modifying:
+- Contributions to Apache 2.0 components → Apache 2.0
+- Contributions to AGPL v3 components → AGPL v3
+
+All contributions must include the Contributor License Agreement (CLA).
+
+---
+
+## TRADEMARKS
+
+"Synapse", "SynapseFS", "Synapse Chain", and the Synapse logo are 
+trademarks of Synapse Foundation. Use of these trademarks requires 
+explicit permission.
+
+---
+
+## NO WARRANTY
+
+This software is provided "AS IS", WITHOUT WARRANTY OF ANY KIND, 
+express or implied, including but not limited to the warranties of 
+merchantability, fitness for a particular purpose and noninfringement.
+
+---
+
+For questions about licensing:
+- GitHub: https://github.com/synapse-lang/synapse
+- Email: legal@synapse-lang.org
+- Website: https://synapse-lang.org/licensing
+
+Last updated: January 3, 2026

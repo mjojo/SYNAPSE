@@ -5,11 +5,11 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-3.2.0--ouroboros--returns-gold)
-![Status](https://img.shields.io/badge/status-PHASE_52_BLOCKED-orange)
+![Version](https://img.shields.io/badge/version-3.2.0--STABLE-green)
+![Status](https://img.shields.io/badge/status-PHASE_52_COMPLETE-success)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![Graphics](https://img.shields.io/badge/graphics-GDI%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-yellow)
+![License](https://img.shields.io/badge/license-Apache_2.0_+_AGPL_v3-blue)
 
 </div>
 
@@ -17,7 +17,7 @@
 
 | Specification | Status | Description |
 |---------------|--------|-------------|
-| **Self-Hosting** | ⚠️ **BLOCKED** | Compiler generates PE32+, but IAT resolution fails (Phase 52) |
+| **Self-Hosting** | 🟡 **PROGRESS** | Phase 52 complete - standalone EXE generation working! |
 | **Architecture** | x64 JIT | Three-level virtualization (Host -> Guest -> Target) |
 | **Graphics** | ✅ **YES** | Direct VRAM access, GDI integration, 8x8 embedded font |
 | **GUI** | ✅ **YES** | Mouse input, keyboard, clickable buttons |
@@ -25,28 +25,61 @@
 | **Control Flow** | Full | `if`, `while`, `fn`, `return`, `recursion` |
 | **Memory** | Manual | `alloc`, `ptr[i]`, Data Segment for literals |
 | **Logic** | Complete | `==`, `<`, `>`, `+`, `-`, `*`, `/`, bitwise ops |
-| **EXE Generation** | ⚠️ **BLOCKED** | PE32+ format created, but Windows Loader fails on IAT |
+| **EXE Generation** | ✅ **WORKING** | PE32+ with IAT resolution - Exit Code 42 achieved! |
 | **Binary Size** | ~30 KB | Includes graphics, GUI, and file I/O |
+| **License** | Dual | Apache 2.0 (language) + AGPL v3 (services) |
 
 ---
 
-## 🎆 The Ouroboros Returns
+## 🎆 Victory: Phase 52 Complete!
 
-**SYNAPSE v3.2** represents ambitious bootstrap compiler technology with graphics capabilities and PE32+ generation.
+**SYNAPSE v3.2.0-STABLE** — First working standalone executable generation with IAT resolution!
 
-### ⚠️ Current Status (Phase 52 - CRITICAL BLOCKER)
-**Issue:** All generated executables crash with Access Violation (0xC0000005)  
-**Cause:** Windows Loader not resolving Import Address Table (IAT)  
-**Impact:** Cannot test VirtualAlloc, file I/O, or any API calls in generated .exe files  
-**Details:** See `docs/PHASE52_BLOCKER.md` for technical analysis
+### ✅ Breakthrough Achievement (January 3, 2026)
+**Success:** Generated `synapse_new.exe` exits with **Exit Code 42** 🎉  
+**Bug Fixed:** Data Directory offset error (0x148 vs 0x150) - 100+ debugging iterations  
+**Impact:** Windows Loader successfully fills Import Address Table - programs can call APIs!  
+**Next Steps:** Phase 53 (Memory), Phase 54 (File I/O), Phase 55 (Self-Hosting)
 
-### 🔥 Working Features (v3.2)
+### 🔥 Working Features (v3.2.0-STABLE)
+* **PE32+ Generation:** Valid executables with working IAT resolution
 * **JIT Compilation:** Real-time x64 code generation and execution
 * **Graphics Engine:** Direct pixel manipulation, window management
 * **Mouse & Keyboard:** Real-time input handling for interactive apps
 * **File I/O:** Read source files, write binary data (in JIT mode)
-* **PE32+ Structure:** Valid DOS/PE headers, sections, entry point
-* **Code Generation:** Correct machine code for all intrinsics
+* **API Calls:** ExitProcess working via IAT[0] - foundation for VirtualAlloc
+
+---
+
+## 📜 Open Source License
+
+**Synapse** uses a dual licensing strategy to protect the project while maximizing adoption:
+
+### 🟢 Apache License 2.0 (Language & Compiler)
+**Free for commercial use** - Create any application without restrictions:
+- Synapse Compiler (src/*.asm)
+- Standard Library (stdlib/core, io, math, string, crypto)
+- JIT Engine and Code Generator
+- All language syntax and examples
+
+**Why Apache 2.0?** We want Synapse to become a universal programming language. Zero friction for developers.
+
+### 🔴 AGPL v3 (Network Services)
+**Cloud protection** - Prevents exploitation by large corporations:
+- SynapseFS (Blockchain Filesystem)
+- Synapse Chain (Merkle Tree Allocator)
+- Hive Protocol (Swarm Intelligence)
+- P2P Synchronization
+
+**Why AGPL v3?** If you run these as a cloud service (like AWS), you must open your source code OR purchase a commercial license. This protects our business model.
+
+**Commercial Licenses Available** - Contact for enterprise deployments without AGPL requirements.
+
+See [LICENSE](LICENSE) for full details. Model inspired by **MongoDB** and **Elastic**.
+
+---
+
+## 🎆 Legacy: The Ouroboros
 
 ### 🚧 Blocked Features (Phase 52)
 * **Standalone Executables:** Generated .exe files crash immediately

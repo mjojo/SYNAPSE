@@ -233,6 +233,15 @@ section '.data' data readable writeable
     str_invoke     db 'invoke',0   ; Call code at address
     str_alloc_exec db 'alloc_exec',0  ; Allocate executable memory
     
+    ; Phase 54: I/O Intrinsics
+    str_getstd     db 'getstd',0   ; GetStdHandle(-11=stdout, -10=stdin)
+    str_write      db 'write',0    ; WriteFile(handle, buffer, length)
+    str_read       db 'read',0     ; ReadFile(handle, buffer, length)
+    str_open       db 'open',0     ; CreateFileA(filename, mode)
+    str_close      db 'close',0    ; CloseHandle(handle)
+    str_setbyte    db 'setbyte',0  ; setbyte(ptr, offset, value)
+    str_getbyte    db 'getbyte',0  ; getbyte(ptr, offset)
+    
     class_name     db 'SYNAPSE_WND',0
     window_title   db 'SYNAPSE Graphics',0
     
@@ -1531,7 +1540,77 @@ parse_block:
     
 .not_alloc_stmt:
     pop rsi
-    ; --- End Inline Check ---
+    ; --- End Inline Check for alloc ---
+    
+    ; --- Inline Check for 'getstd' ---
+    push rsi
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 'g'
+    jne .not_getstd_stmt
+    cmp byte [rsi+1], 'e'
+    jne .not_getstd_stmt
+    cmp byte [rsi+2], 't'
+    jne .not_getstd_stmt
+    cmp byte [rsi+3], 's'
+    jne .not_getstd_stmt
+    cmp byte [rsi+4], 't'
+    jne .not_getstd_stmt
+    cmp byte [rsi+5], 'd'
+    jne .not_getstd_stmt
+    cmp byte [rsi+6], 0
+    jne .not_getstd_stmt
+    pop rsi
+    jmp .stmt_handle_getstd_intrinsic
+    
+.not_getstd_stmt:
+    pop rsi
+    
+    ; --- Inline Check for 'write' ---
+    push rsi
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 'w'
+    jne .not_write_stmt
+    cmp byte [rsi+1], 'r'
+    jne .not_write_stmt
+    cmp byte [rsi+2], 'i'
+    jne .not_write_stmt
+    cmp byte [rsi+3], 't'
+    jne .not_write_stmt
+    cmp byte [rsi+4], 'e'
+    jne .not_write_stmt
+    cmp byte [rsi+5], 0
+    jne .not_write_stmt
+    pop rsi
+    jmp .stmt_handle_write_intrinsic
+    
+.not_write_stmt:
+    pop rsi
+    
+    ; --- Inline Check for 'setbyte' ---
+    push rsi
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 's'
+    jne .not_setbyte_stmt
+    cmp byte [rsi+1], 'e'
+    jne .not_setbyte_stmt
+    cmp byte [rsi+2], 't'
+    jne .not_setbyte_stmt
+    cmp byte [rsi+3], 'b'
+    jne .not_setbyte_stmt
+    cmp byte [rsi+4], 'y'
+    jne .not_setbyte_stmt
+    cmp byte [rsi+5], 't'
+    jne .not_setbyte_stmt
+    cmp byte [rsi+6], 'e'
+    jne .not_setbyte_stmt
+    cmp byte [rsi+7], 0
+    jne .not_setbyte_stmt
+    pop rsi
+    jmp .stmt_handle_setbyte_intrinsic
+    
+.not_setbyte_stmt:
+    pop rsi
+    ; --- End Inline Checks ---
     
     ; Find function first (save address)
     lea rcx, [func_call_name]
@@ -1610,6 +1689,94 @@ parse_block:
     
     ; Generate IAT-based VirtualAlloc call
     call generate_alloc_iat
+    
+    jmp .stmt_loop
+
+.stmt_handle_getstd_intrinsic:
+    ; getstd(nStdHandle) - single argument
+    ; Parse argument (e.g., -11 for STD_OUTPUT_HANDLE)
+    call compile_expr
+    
+    ; Generate: PUSH RAX
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate IAT-based GetStdHandle call
+    call generate_getstd_iat
+    
+    jmp .stmt_loop
+
+.stmt_handle_write_intrinsic:
+    ; write(handle, buffer, length) - three arguments
+    
+    ; Argument 1: handle
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ','
+    call next_token
+    
+    ; Argument 2: buffer pointer
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ','
+    call next_token
+    
+    ; Argument 3: length
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate IAT-based WriteFile call
+    call generate_write_iat
+    
+    jmp .stmt_loop
+
+.stmt_handle_setbyte_intrinsic:
+    ; setbyte(ptr, offset, value) - write single byte to memory
+    
+    ; Argument 1: ptr (base address)
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ','
+    call next_token
+    
+    ; Argument 2: offset
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ','
+    call next_token
+    
+    ; Argument 3: value
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate setbyte code: MOV BYTE [ptr+offset], value
+    call generate_setbyte
     
     jmp .stmt_loop
     
@@ -5569,6 +5736,154 @@ generate_alloc_iat:
     mov [jit_cursor], rdi
     
     pop r12
+    pop rbx
+    ret
+
+; =============================================================================
+; generate_getstd_iat - Generate GetStdHandle call through IAT
+; Usage: getstd(-11) for stdout, getstd(-10) for stdin
+; IAT Index: 7 (GetStdHandle)
+; Input: Argument already compiled to RAX (handle ID)
+; Output: Handle in RAX
+; =============================================================================
+generate_getstd_iat:
+    push rbx
+    push r12
+    
+    mov rdi, [jit_cursor]
+    
+    ; POP argument into RCX (nStdHandle)
+    ; The caller pushed the argument before calling us
+    mov byte [rdi], 0x59        ; POP RCX
+    inc rdi
+    
+    ; Allocate shadow space: SUB RSP, 40 (0x28)
+    mov dword [rdi], 0x28EC8348
+    add rdi, 4
+    
+    ; Update cursor before IAT call
+    mov [jit_cursor], rdi
+    
+    ; Call GetStdHandle through IAT (index 7)
+    mov rcx, 7
+    call emit_iat_call
+    
+    ; Restore stack: ADD RSP, 40
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0x28C48348
+    add rdi, 4
+    
+    ; Update cursor
+    mov [jit_cursor], rdi
+    
+    pop r12
+    pop rbx
+    ret
+
+; =============================================================================
+; generate_write_iat - Generate WriteFile call through IAT
+; Usage: write(handle, buffer, length)
+; IAT Index: 3 (WriteFile)
+; Stack on entry: [length] [buffer] [handle] (top to bottom)
+; =============================================================================
+generate_write_iat:
+    push rbx
+    push r12
+    
+    mov rdi, [jit_cursor]
+    
+    ; Stack has 3 args: handle (deep), buffer, length (top)
+    ; We need: RCX=handle, RDX=buffer, R8=length, R9=lpWritten (NULL), [RSP+32]=lpOverlapped (NULL)
+    
+    ; POP R8 (length - top of stack)
+    mov word [rdi], 0x5841      ; POP R8 (41 58)
+    add rdi, 2
+    
+    ; POP RDX (buffer)
+    mov byte [rdi], 0x5A        ; POP RDX
+    inc rdi
+    
+    ; POP RCX (handle)
+    mov byte [rdi], 0x59        ; POP RCX
+    inc rdi
+    
+    ; XOR R9D, R9D (lpNumberOfBytesWritten = NULL)
+    mov dword [rdi], 0xC9314D   ; 4D 31 C9 = XOR R9, R9
+    add rdi, 3
+    
+    ; Allocate 48 bytes for shadow space + 5th arg + alignment
+    ; SUB RSP, 48 (0x30)
+    mov dword [rdi], 0x30EC8348
+    add rdi, 4
+    
+    ; Set 5th arg (lpOverlapped) = NULL at [RSP+32]
+    ; MOV QWORD [RSP+0x20], 0
+    mov byte [rdi], 0x48        ; REX.W
+    inc rdi
+    mov byte [rdi], 0xC7        ; MOV r/m64, imm32
+    inc rdi
+    mov byte [rdi], 0x44        ; ModRM: [RSP+disp8]
+    inc rdi
+    mov byte [rdi], 0x24        ; SIB: RSP
+    inc rdi
+    mov byte [rdi], 0x20        ; disp8 = 32
+    inc rdi
+    mov dword [rdi], 0x00000000 ; imm32 = 0
+    add rdi, 4
+    
+    ; Update cursor before IAT call
+    mov [jit_cursor], rdi
+    
+    ; Call WriteFile through IAT (index 3)
+    mov rcx, 3
+    call emit_iat_call
+    
+    ; Restore stack: ADD RSP, 48
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0x30C48348
+    add rdi, 4
+    
+    ; Update cursor
+    mov [jit_cursor], rdi
+    
+    pop r12
+    pop rbx
+    ret
+
+; =============================================================================
+; generate_setbyte - Generate code for setbyte(ptr, offset, value)
+; Stack on entry: [value] [offset] [ptr] (top to bottom)
+; Generates: MOV BYTE [ptr + offset], value
+; =============================================================================
+generate_setbyte:
+    push rbx
+    
+    mov rdi, [jit_cursor]
+    
+    ; POP RAX (value)
+    mov byte [rdi], 0x58        ; POP RAX
+    inc rdi
+    
+    ; POP RCX (offset)
+    mov byte [rdi], 0x59        ; POP RCX
+    inc rdi
+    
+    ; POP RDX (ptr)
+    mov byte [rdi], 0x5A        ; POP RDX
+    inc rdi
+    
+    ; MOV BYTE [RDX + RCX], AL
+    ; Encoding: 88 04 0A
+    mov byte [rdi], 0x88        ; MOV r/m8, r8
+    inc rdi
+    mov byte [rdi], 0x04        ; ModRM: [reg+reg*1]
+    inc rdi
+    mov byte [rdi], 0x0A        ; SIB: base=RDX, index=RCX, scale=1
+    inc rdi
+    
+    ; Update cursor
+    mov [jit_cursor], rdi
+    
     pop rbx
     ret
 

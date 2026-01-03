@@ -1,0 +1,16 @@
+// Phase 54 Test: Console Output
+// Output: "Hello!" followed by newline
+
+fn main() {
+    let h = getstd(-11)
+    let ptr = alloc(7)
+    setbyte(ptr, 0, 72)
+    setbyte(ptr, 1, 101)
+    setbyte(ptr, 2, 108)
+    setbyte(ptr, 3, 108)
+    setbyte(ptr, 4, 111)
+    setbyte(ptr, 5, 33)
+    setbyte(ptr, 6, 10)
+    write(h, ptr, 7)
+    return 0
+}

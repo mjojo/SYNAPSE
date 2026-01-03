@@ -1,0 +1,19 @@
+// Test str_len with more than 3 chars
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn main() {
+    let msg = alloc(5)
+    setbyte(msg, 0, 72)   // H
+    setbyte(msg, 1, 105)  // i
+    setbyte(msg, 2, 33)   // !
+    setbyte(msg, 3, 0)    // null
+    
+    let len = str_len(msg)
+    return len
+}

@@ -1,13 +1,50 @@
 # SYNAPSE Development Tasks
 
-## 🏆 Current Status: v3.3.0-CORTEX "The Cortex" (Phase 53 ✅ COMPLETE)
+## 🏆 Current Status: v3.4.0-NERVOUS "The Nervous System" (Phase 55 Step 8 ✅ COMPLETE)
 
-**Achievement:** Graphics Engine + GUI + Mouse + Self-Hosting JIT + Standalone EXE + IAT Resolution + **DYNAMIC MEMORY!**  
-**Victory:** VirtualAlloc works in standalone executables - `test_alloc_use.syn` returns Exit Code 99!
+**Achievement:** Complete PE generation pipeline with Import Table and IAT calls!  
+**Victory:** Generated `output.exe` successfully calls ExitProcess(42) through IAT! ⚡🧠
 
 ---
 
-## 🧠 BREAKTHROUGH: Phase 53 Complete!
+## ⚡ BREAKTHROUGH: Phase 55 Steps 6-8 Complete!
+
+### Victory: The Nervous System is Connected!
+- **Result**: Bootstrap compiler generates PE executables that call Windows API through IAT
+- **Test Chain**: `test_exit_call.syn` → `synapse_new.exe` → `output.exe` → **Exit Code 42!**
+
+### Phase 55 Step 6: The PE Builder ✅
+- [x] Created `emit_pe_header()` - generates complete PE32+ headers
+- [x] DOS Header + PE Signature + COFF Header + Optional Header
+- [x] Section Headers: .text (code) + .idata (imports)
+- [x] Data Directories pointing to Import Table and IAT
+- **Result**: Valid 1536-byte PE executable
+
+### Phase 55 Step 7: The Import Generator ✅
+- [x] Import Directory Table with ILT = IAT optimization
+- [x] IAT with 8 KERNEL32.DLL functions:
+  - [0] ExitProcess, [1] VirtualAlloc, [2] VirtualFree
+  - [3] WriteFile, [4] ReadFile, [5] CreateFileA
+  - [6] CloseHandle, [7] GetStdHandle
+- [x] Hint/Name table with proper 2-byte alignment
+- **Result**: Windows Loader successfully resolves all imports!
+
+### Phase 55 Step 8: The Caller ⚡ ✅
+- [x] `emit_iat_call(state, index)` - generates `CALL [RIP+disp32]`
+- [x] `emit_stack_setup/cleanup()` - Windows x64 shadow space (40 bytes)
+- [x] `parse_call()` - parses intrinsics: `exit(code)`, `getstd(n)`
+- [x] Integration with `parse_statement()` for function calls
+- **Generated Code**:
+  ```asm
+  B9 2A 00 00 00       ; MOV ECX, 42
+  48 83 EC 28          ; SUB RSP, 40
+  FF 15 19 10 00 00    ; CALL [RIP+0x1019] → ExitProcess@IAT
+  ```
+- **Result**: Real Windows API call from generated executable!
+
+---
+
+## 🧠 PREVIOUS: Phase 53 Complete!
 
 ### Victory: Dynamic Memory in Standalone Executables!
 - **Result**: `synapse_new.exe` allocates memory, writes/reads data, exits with code **99**
@@ -19,24 +56,11 @@
       return ptr[0]         // Read back — EXIT CODE 99!
   }
   ```
-- **Bugs Fixed**:
-  1. **Double next_token** — `compile_expr` and `.stmt_handle_alloc_intrinsic` both called `next_token`, skipping the argument (10→0)
-  2. **Global variable crash** — `compile_let` wrote to JIT addresses that don't exist in standalone EXE
-- **Stack Alignment**: SUB RSP, 48 (0x30) before Win64 API calls
-- **IAT[1]**: VirtualAlloc at RVA 0x2030, called via `FF 15 D5 0F 00 00`
-
-### Phase 53: The Cortex (Memory) ✅ COMPLETE
-- [x] **VirtualAlloc via IAT**: Working CALL [RIP+disp] to IAT[1]
-- [x] **Stack alignment**: Proper 48-byte shadow space for Win64 ABI
-- [x] **Argument passing**: Fixed double-token-consumption bug
-- [x] **Local variables only**: Removed global copy for standalone compatibility
-- [x] **Memory write**: `ptr[0] = 99` works on allocated memory
-- [x] **Memory read**: `return ptr[0]` correctly returns 99
-- **STATUS**: ✅ **DYNAMIC MEMORY FULLY OPERATIONAL IN STANDALONE EXE**
+- **STATUS**: ✅ **DYNAMIC MEMORY FULLY OPERATIONAL**
 
 ---
 
-## 🎉 PREVIOUS BREAKTHROUGH: Phase 52 Complete!
+## 🎉 PREVIOUS: Phase 52 Complete!
 
 ### Victory: IAT Resolution Working!
 - **Result**: `synapse_new.exe` exits with code **42** (0x0000002A)

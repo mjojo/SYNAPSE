@@ -1,0 +1,31 @@
+// Test if after function call
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn main() {
+    let msg = alloc(4)
+    setbyte(msg, 0, 72)   // H
+    setbyte(msg, 1, 73)   // I
+    setbyte(msg, 2, 0)
+    
+    io_print(msg)
+    
+    let len = str_len(msg)
+    // len should be 2
+    if len == 2 {
+        return 100
+    }
+    return len
+}

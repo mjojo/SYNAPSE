@@ -1,0 +1,18 @@
+// Test getbyte with variable index
+fn main() {
+    let code = "fn x"
+    
+    // Direct index
+    let ch0 = getbyte(code, 0)
+    
+    // Variable index
+    let idx = 0
+    let ch1 = getbyte(code, idx)
+    
+    // Variable index (non-zero)
+    let idx2 = 1
+    let ch2 = getbyte(code, idx2)
+    
+    // f=102 + f=102 + n=110 = 314
+    return ch0 + ch1 + ch2
+}

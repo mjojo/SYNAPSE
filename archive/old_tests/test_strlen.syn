@@ -1,0 +1,22 @@
+// Test strlen function - simplified
+fn my_strlen(ptr) {
+    let i = 0
+    let ch = getbyte(ptr, i)
+    while ch > 0 {
+        i = i + 1
+        ch = getbyte(ptr, i)
+    }
+    return i
+}
+
+fn main() {
+    let buf = alloc(5)
+    // "AB" = 65, 66, 0
+    setbyte(buf, 0, 65)
+    setbyte(buf, 1, 66)
+    setbyte(buf, 2, 0)
+    
+    let len = my_strlen(buf)
+    // len should be 2
+    return len
+}

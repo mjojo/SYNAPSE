@@ -1,0 +1,17 @@
+# Test open() with write mode
+# open(filename, mode) where mode: 0=read, 1=write
+
+fn main() {
+    # Create a test file for writing
+    let handle = open("test_output.txt", 1)
+    
+    # Write something
+    write(handle, "Hello from Synapse!\n", 20)
+    
+    # Close the file
+    close(handle)
+    
+    # Success
+    print(42)
+    return 0
+}

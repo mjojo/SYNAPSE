@@ -1,53 +1,62 @@
-# 🧠 SYNAPSE v3.2 "Ouroboros Returns"
+# 🧠 SYNAPSE v3.4 "The Nervous System"
 
 **Unhackable AI on Bare Metal Assembly**
 *The World's First Self-Hosting Blockchain AI Platform with Graphics & GUI*
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-3.2.0--STABLE-green)
-![Status](https://img.shields.io/badge/status-PHASE_52_COMPLETE-success)
+![Version](https://img.shields.io/badge/version-3.4.0--NERVOUS-green)
+![Status](https://img.shields.io/badge/status-PHASE_55_STEP_8_COMPLETE-success)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![Graphics](https://img.shields.io/badge/graphics-GDI%2B-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0_+_AGPL_v3-blue)
 
 </div>
 
-## 🚀 Technical Specifications (v3.2)
+## 🚀 Technical Specifications (v3.4)
 
 | Specification | Status | Description |
 |---------------|--------|-------------|
-| **Self-Hosting** | 🟡 **PROGRESS** | Phase 52 complete - standalone EXE generation working! |
+| **Self-Hosting** | 🟡 **PROGRESS** | Phase 55 Steps 6-8 complete - PE + Imports + API Calls! |
 | **Architecture** | x64 JIT | Three-level virtualization (Host -> Guest -> Target) |
+| **PE Generation** | ✅ **WORKING** | Full PE32+ with Import Table and IAT calls |
 | **Graphics** | ✅ **YES** | Direct VRAM access, GDI integration, 8x8 embedded font |
 | **GUI** | ✅ **YES** | Mouse input, keyboard, clickable buttons |
 | **Data Types** | Strong | `int` (64-bit), `ptr`, `string`, `array` |
 | **Control Flow** | Full | `if`, `while`, `fn`, `return`, `recursion` |
 | **Memory** | Manual | `alloc`, `ptr[i]`, Data Segment for literals |
-| **Logic** | Complete | `==`, `<`, `>`, `+`, `-`, `*`, `/`, bitwise ops |
-| **EXE Generation** | ✅ **WORKING** | PE32+ with IAT resolution - Exit Code 42 achieved! |
+| **Logic** | Complete | `==`, `<`, `>`, `<=`, `>=`, `+`, `-`, `*`, `/` |
+| **API Calls** | ✅ **WORKING** | ExitProcess, VirtualAlloc via IAT |
 | **Binary Size** | ~30 KB | Includes graphics, GUI, and file I/O |
 | **License** | Dual | Apache 2.0 (language) + AGPL v3 (services) |
 
 ---
 
-## 🎆 Victory: Phase 52 Complete!
+## 🎆 Victory: Phase 55 Steps 6-8 Complete!
 
-**SYNAPSE v3.2.0-STABLE** — First working standalone executable generation with IAT resolution!
+**SYNAPSE v3.4.0-NERVOUS** — The Nervous System is connected! ⚡🧠
 
 ### ✅ Breakthrough Achievement (January 3, 2026)
-**Success:** Generated `synapse_new.exe` exits with **Exit Code 42** 🎉  
-**Bug Fixed:** Data Directory offset error (0x148 vs 0x150) - 100+ debugging iterations  
-**Impact:** Windows Loader successfully fills Import Address Table - programs can call APIs!  
-**Next Steps:** Phase 53 (Memory), Phase 54 (File I/O), Phase 55 (Self-Hosting)
 
-### 🔥 Working Features (v3.2.0-STABLE)
-* **PE32+ Generation:** Valid executables with working IAT resolution
-* **JIT Compilation:** Real-time x64 code generation and execution
-* **Graphics Engine:** Direct pixel manipulation, window management
-* **Mouse & Keyboard:** Real-time input handling for interactive apps
-* **File I/O:** Read source files, write binary data (in JIT mode)
-* **API Calls:** ExitProcess working via IAT[0] - foundation for VirtualAlloc
+| Step | Name | Achievement |
+|------|------|-------------|
+| 55.6 | **The PE Builder** | Complete PE32+ generation with 2 sections |
+| 55.7 | **The Import Generator** | Full .idata section with KERNEL32.DLL |
+| 55.8 | **The Caller** | Working `CALL [RIP+disp]` through IAT! |
+
+**The Chain:**
+```
+test_exit_call.syn → synapse.exe → synapse_new.exe → output.exe (1536 bytes)
+                                                          ↓
+                                                   Exit Code: 42 ✅
+```
+
+### 🔥 Working Features (v3.4.0-NERVOUS)
+* **PE32+ Generation:** Valid executables with .text + .idata sections
+* **Import Table:** 8 KERNEL32.DLL functions ready to call
+* **IAT Calls:** `emit_iat_call()` generates RIP-relative CALL instructions
+* **Intrinsics:** `exit(code)` and `getstd(n)` compile to real API calls
+* **Stack ABI:** Proper shadow space for Windows x64 calling convention
 
 ---
 
@@ -79,12 +88,23 @@ See [LICENSE](LICENSE) for full details. Model inspired by **MongoDB** and **Ela
 
 ---
 
-## 🎆 Legacy: The Ouroboros
+## � The Ouroboros Journey (Phase 55)
 
-### 🚧 Blocked Features (Phase 52)
-* **Standalone Executables:** Generated .exe files crash immediately
-* **API Imports:** ExitProcess, VirtualAlloc not callable in generated code
-* **Self-Hosting:** Cannot bootstrap due to IAT issue
+### ✅ Completed Steps
+| Step | Name | Description |
+|------|------|-------------|
+| 55.1 | Bootstrap Kernel | io_print, io_println, str_len, str_eq |
+| 55.2 | Bootstrap Lexer | Tokenizer written in Synapse |
+| 55.6 | The PE Builder | PE32+ header generation |
+| 55.7 | The Import Generator | .idata section with KERNEL32.DLL |
+| 55.8 | The Caller | IAT call generation (exit, getstd) |
+
+### 🎯 Next Steps
+| Step | Name | Goal |
+|------|------|------|
+| 55.9 | Hello World | Print string via WriteFile + GetStdHandle |
+| 55.10 | The Parser | Full Synapse parser in Synapse |
+| 55.11 | The Ouroboros | Self-compiling compiler |
 
 ---
 
@@ -105,7 +125,7 @@ build_synapse.bat
 ```synapse
 // hello.syn
 fn main() {
-    puts("Hello from SYNAPSE v3.2!")
+    puts("Hello from SYNAPSE v3.4!")
     return 0
 }
 ```
@@ -142,7 +162,7 @@ fn main() {
 
 ## 📚 Documentation
 
-* [Development Tasks](TASKS.md) - Complete development history (Phases 1-51)
+* [Development Tasks](TASKS.md) - Complete development history (Phases 1-55)
 * [Current Spec](docs/CURRENT_v1_SPEC.md) - Language specification
 * [Synapse Grammar](docs/SYNAPSE_GRAMMAR.md) - Formal grammar
 * [Future Vision](docs/FUTURE_VISION_v2_SPEC.md) - Roadmap for v4.0
@@ -150,16 +170,26 @@ fn main() {
 
 ## 🏆 Major Milestones
 
-### Phase 50: Standalone EXE Generation ✅
-- PE32+ file format implementation
-- `hello.exe` (1024 bytes) that returns exit code 42
-- Full binary generation from JIT memory
+### Phase 55: The Ouroboros (Self-Hosting) 🔄
+- **Step 6:** PE Builder - complete PE32+ header generation
+- **Step 7:** Import Generator - KERNEL32.DLL with 8 functions
+- **Step 8:** The Caller - IAT call generation, exit(42) works!
+- Next: Hello World via WriteFile
 
-### Phase 51: Bootstrap Infrastructure ✅
-- `bootstrap.syn` - self-hosting compiler
-- File I/O for reading source code
-- PE writer with proper headers
-- Infrastructure ready for full self-compilation
+### Phase 53: Dynamic Memory ✅
+- VirtualAlloc working in standalone executables
+- Memory read/write: `ptr[0] = 99`, `return ptr[0]`
+- Exit code 99 confirmed!
+
+### Phase 52: IAT Resolution ✅
+- Windows Loader successfully fills Import Address Table
+- ExitProcess callable from generated code
+- Exit code 42 confirmed!
+
+### Phase 50-51: Standalone EXE Generation ✅
+- PE32+ file format implementation
+- `bootstrap.syn` - self-hosting compiler infrastructure
+- Full binary generation from JIT memory
 
 ### Phase 46-49: Graphics & GUI ✅
 - Direct VRAM access via `get_vram()`
@@ -172,16 +202,15 @@ fn main() {
 
 ```
 ┌─────────────────────────────────────────┐
-│   SYNAPSE v3.2 Architecture            │
+│   SYNAPSE v3.4 Architecture            │
 ├─────────────────────────────────────────┤
 │                                         │
 │  ┌─────────────────────────────────┐   │
 │  │   Bootstrap Compiler           │   │
-│  │   (bootstrap.syn)              │   │
-│  │   - Lexer                      │   │
-│  │   - Parser                     │   │
-│  │   - x64 Codegen                │   │
-│  │   - PE32+ Writer               │   │
+│  │   (test_simple_parser.syn)     │   │
+│  │   - Lexer + Parser             │   │
+│  │   - emit_iat_call()            │   │
+│  │   - PE32+ Writer + .idata      │   │
 │  └─────────────────────────────────┘   │
 │                ↓                        │
 │  ┌─────────────────────────────────┐   │
@@ -195,8 +224,8 @@ fn main() {
 │  ┌─────────────────────────────────┐   │
 │  │   Target Executable (.exe)     │   │
 │  │   - Standalone Windows binary  │   │
-│  │   - No dependencies            │   │
-│  │   - Direct OS syscalls         │   │
+│  │   - KERNEL32.DLL imports       │   │
+│  │   - IAT-based API calls        │   │
 │  └─────────────────────────────────┘   │
 │                                         │
 └─────────────────────────────────────────┘
@@ -205,4 +234,4 @@ fn main() {
 ---
 
 *© 2025-2026 SYNAPSE Project. Built with FASM, x64 Assembly, and Pure Determination.*
-*Last updated: January 2, 2026 - v3.2.0 "Ouroboros Returns"*
+*Last updated: January 3, 2026 - v3.4.0 "The Nervous System"*

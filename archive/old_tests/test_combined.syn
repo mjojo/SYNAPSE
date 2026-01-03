@@ -1,0 +1,25 @@
+// Test single function with str_len call and write call
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn print2(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return len
+}
+
+fn main() {
+    let a = alloc(4)
+    setbyte(a, 0, 65)  // A
+    setbyte(a, 1, 66)  // B  
+    setbyte(a, 2, 0)
+    
+    let r = print2(a)
+    return r
+}

@@ -1,0 +1,21 @@
+// Minimal copy debug
+fn main() {
+    let code = alloc(4)
+    setbyte(code, 0, 65)  // A
+    setbyte(code, 1, 0)
+    
+    let buf = alloc(4)
+    
+    // Read from code at 0
+    let ch = getbyte(code, 0)
+    
+    // Write to buf at 0
+    setbyte(buf, 0, ch)
+    setbyte(buf, 1, 0)
+    
+    // Print via write
+    let h = getstd(-11)
+    write(h, buf, 1)
+    
+    return ch
+}

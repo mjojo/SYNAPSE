@@ -1,0 +1,10 @@
+// Test: reassign with getbyte result
+fn main() {
+    let buf = alloc(5)
+    setbyte(buf, 0, 10)
+    setbyte(buf, 1, 20)
+    
+    let ch = 99
+    ch = getbyte(buf, 1)  // should set ch to 20
+    return ch
+}

@@ -1,0 +1,30 @@
+// Test if == 11 without any println
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn main() {
+    let msg = alloc(12)
+    setbyte(msg, 0, 72)   // H
+    setbyte(msg, 1, 101)  // e
+    setbyte(msg, 2, 108)  // l
+    setbyte(msg, 3, 108)  // l
+    setbyte(msg, 4, 111)  // o
+    setbyte(msg, 5, 32)   // space
+    setbyte(msg, 6, 87)   // W
+    setbyte(msg, 7, 111)  // o
+    setbyte(msg, 8, 114)  // r
+    setbyte(msg, 9, 108)  // l
+    setbyte(msg, 10, 100) // d
+    setbyte(msg, 11, 0)   // null
+    
+    let len = str_len(msg)
+    if len == 11 {
+        return 100
+    }
+    return 0
+}

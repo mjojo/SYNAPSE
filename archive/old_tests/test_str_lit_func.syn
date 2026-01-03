@@ -1,0 +1,9 @@
+// Test: getbyte from string literal via function
+fn read_at(s, i) {
+    return getbyte(s, i)
+}
+
+fn main() {
+    let ch = read_at("fn", 0)
+    return ch
+}

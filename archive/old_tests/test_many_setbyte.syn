@@ -1,0 +1,28 @@
+// Test many setbyte calls
+fn main() {
+    let code = alloc(24)
+    setbyte(code, 0, 102)   // f
+    setbyte(code, 1, 110)   // n
+    setbyte(code, 2, 32)    // space
+    setbyte(code, 3, 109)   // m
+    setbyte(code, 4, 97)    // a
+    setbyte(code, 5, 105)   // i
+    setbyte(code, 6, 110)   // n
+    setbyte(code, 7, 32)    // space
+    setbyte(code, 8, 123)   // {
+    setbyte(code, 9, 32)    // space
+    setbyte(code, 10, 114)  // r
+    setbyte(code, 11, 101)  // e
+    setbyte(code, 12, 116)  // t
+    setbyte(code, 13, 117)  // u
+    setbyte(code, 14, 114)  // r
+    setbyte(code, 15, 110)  // n
+    setbyte(code, 16, 32)   // space
+    setbyte(code, 17, 52)   // 4
+    setbyte(code, 18, 50)   // 2
+    setbyte(code, 19, 32)   // space
+    setbyte(code, 20, 125)  // }
+    setbyte(code, 21, 0)
+    
+    return 42
+}

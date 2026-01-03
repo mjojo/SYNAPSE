@@ -1,0 +1,14 @@
+// Test calling function with getstd twice
+fn get_out() {
+    let h = getstd(-11)
+    return h
+}
+
+fn main() {
+    let a = get_out()
+    let b = get_out()
+    if a == b {
+        return 1
+    }
+    return 0
+}

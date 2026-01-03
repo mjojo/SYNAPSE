@@ -1,0 +1,19 @@
+// Test getbyte with offset calculation
+fn main() {
+    let code = "fn x"
+    
+    // Direct getbyte at index 0
+    let ch0 = getbyte(code, 0)
+    
+    // Using variable offset
+    let offset = 0
+    let ch1 = getbyte(code, offset)
+    
+    // Using calculated offset
+    let start = 0
+    let k = 0
+    let ch2 = getbyte(code, start + k)
+    
+    // Return sum of all (should be 'f'=102 * 3 = 306)
+    return ch0 + ch1 + ch2
+}

@@ -1,0 +1,25 @@
+// Test calling str_len then using result with write
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn print_it(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return len
+}
+
+fn main() {
+    let msg = alloc(5)
+    setbyte(msg, 0, 88)   // X
+    setbyte(msg, 1, 89)   // Y
+    setbyte(msg, 2, 0)    // null
+    
+    let r = print_it(msg)
+    return r
+}

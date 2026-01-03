@@ -1,0 +1,7 @@
+// Minimal test for open() with two arguments
+
+fn main() {
+    let h = open("test.txt", 1)
+    print(h)
+    return 0
+}

@@ -1,0 +1,513 @@
+// ==========================================
+// SYNAPSE BOOTSTRAP PARSER v0.1
+// Phase 55, Step 3: From Tokens to Structure
+// ==========================================
+//
+// Token structure (16 bytes):
+//   offset 0 (t[0]): Type (1=ID, 2=NUM, 3=SYM)
+//   offset 8 (t[1]): Text pointer
+//
+// State structure (24 bytes):
+//   state[0]: tokens_buf pointer
+//   state[1]: tokens_count
+//   state[2]: parser position (pos)
+//
+// ==========================================
+
+// --- String Utilities ---
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    let h = getstd(-11)
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    write(h, nl, 1)
+    return 0
+}
+
+fn str_eq(a, b) {
+    let i = 0
+    let ca = 0
+    let cb = 0
+    let running = 1
+    
+    while running == 1 {
+        ca = getbyte(a, i)
+        cb = getbyte(b, i)
+        
+        if ca != cb {
+            return 0
+        }
+        
+        if ca == 0 {
+            running = 0
+        }
+        
+        i = i + 1
+    }
+    return 1
+}
+
+// --- Character Classification ---
+
+fn is_space(c) {
+    if c == 32 { return 1 }
+    if c == 10 { return 1 }
+    if c == 13 { return 1 }
+    if c == 9  { return 1 }
+    return 0
+}
+
+fn is_alpha(c) {
+    let result = 0
+    if c >= 97 {
+        if c <= 122 { result = 1 }
+    }
+    if result == 1 { return 1 }
+    if c >= 65 {
+        if c <= 90 { result = 1 }
+    }
+    if result == 1 { return 1 }
+    if c == 95 { return 1 }
+    return 0
+}
+
+fn is_digit(c) {
+    if c < 48 { return 0 }
+    if c > 57 { return 0 }
+    return 1
+}
+
+fn is_alnum(c) {
+    if is_alpha(c) == 1 { return 1 }
+    if is_digit(c) == 1 { return 1 }
+    return 0
+}
+
+// --- Token Management ---
+
+// Token types
+// TK_ID = 1, TK_NUM = 2, TK_SYM = 3
+
+fn add_token(state, type, text_ptr) {
+    // Get current count
+    let tokens_buf = state[0]
+    let count = state[1]
+    
+    // Create token object (16 bytes = 2 words)
+    let t = alloc(16)
+    t[0] = type
+    t[1] = text_ptr
+    
+    // Store in tokens list
+    tokens_buf[count] = t
+    
+    // Increment count
+    state[1] = count + 1
+    return 0
+}
+
+// Copy identifier from source starting at 'start' position
+fn copy_ident(source, start) {
+    // First, find length
+    let len = 0
+    let j = start
+    let ch = getbyte(source, j)
+    
+    while is_alnum(ch) == 1 {
+        len = len + 1
+        j = j + 1
+        ch = getbyte(source, j)
+    }
+    
+    // Allocate buffer for copy + null
+    let buf = alloc(len + 1)
+    
+    // Copy characters
+    let k = 0
+    while k < len {
+        let idx = start + k
+        ch = getbyte(source, idx)
+        setbyte(buf, k, ch)
+        k = k + 1
+    }
+    setbyte(buf, len, 0)
+    
+    return buf
+}
+
+// Copy number from source
+fn copy_number(source, start) {
+    let len = 0
+    let j = start
+    let ch = getbyte(source, j)
+    
+    while is_digit(ch) == 1 {
+        len = len + 1
+        j = j + 1
+        ch = getbyte(source, j)
+    }
+    
+    let buf = alloc(len + 1)
+    
+    let k = 0
+    while k < len {
+        let idx = start + k
+        ch = getbyte(source, idx)
+        setbyte(buf, k, ch)
+        k = k + 1
+    }
+    setbyte(buf, len, 0)
+    
+    return buf
+}
+
+// Copy single symbol
+fn copy_symbol(c) {
+    let buf = alloc(2)
+    setbyte(buf, 0, c)
+    setbyte(buf, 1, 0)
+    return buf
+}
+
+// --- Tokenizer (stores tokens instead of printing) ---
+
+fn tokenize(state, source) {
+    let i = 0
+    let c = 0
+    let running = 1
+    let is_sp = 0
+    let is_al = 0
+    let is_di = 0
+    
+    while running == 1 {
+        c = getbyte(source, i)
+        
+        if c == 0 {
+            running = 0
+        }
+        
+        if running == 1 {
+            is_sp = is_space(c)
+            is_al = is_alpha(c)
+            is_di = is_digit(c)
+            
+            // Skip whitespace
+            if is_sp == 1 {
+                i = i + 1
+            }
+            
+            // Identifier (type = 1)
+            if is_sp == 0 {
+                if is_al == 1 {
+                    let text = copy_ident(source, i)
+                    add_token(state, 1, text)
+                    
+                    while is_alnum(getbyte(source, i)) == 1 {
+                        i = i + 1
+                    }
+                }
+            }
+            
+            // Number (type = 2)
+            if is_sp == 0 {
+                if is_al == 0 {
+                    if is_di == 1 {
+                        let text = copy_number(source, i)
+                        add_token(state, 2, text)
+                        
+                        while is_digit(getbyte(source, i)) == 1 {
+                            i = i + 1
+                        }
+                    }
+                }
+            }
+            
+            // Symbol (type = 3)
+            if is_sp == 0 {
+                if is_al == 0 {
+                    if is_di == 0 {
+                        let text = copy_symbol(c)
+                        add_token(state, 3, text)
+                        i = i + 1
+                    }
+                }
+            }
+        }
+    }
+    return 0
+}
+
+// --- Parser Utilities ---
+
+fn get_token_type(state) {
+    let pos = state[2]
+    let count = state[1]
+    
+    if pos >= count {
+        return 0
+    }
+    
+    let tokens_buf = state[0]
+    let t = tokens_buf[pos]
+    return t[0]
+}
+
+fn get_token_text(state) {
+    let pos = state[2]
+    let count = state[1]
+    
+    if pos >= count {
+        return 0
+    }
+    
+    let tokens_buf = state[0]
+    let t = tokens_buf[pos]
+    return t[1]
+}
+
+fn advance(state) {
+    let pos = state[2]
+    state[2] = pos + 1
+    return 0
+}
+
+fn expect_sym(state, sym) {
+    let txt = get_token_text(state)
+    if txt == 0 {
+        io_println("Error: Unexpected EOF")
+        return 0
+    }
+    
+    if str_eq(txt, sym) == 1 {
+        advance(state)
+        return 1
+    }
+    
+    io_print("Error: Expected '")
+    io_print(sym)
+    io_print("' but got '")
+    io_print(txt)
+    io_println("'")
+    return 0
+}
+
+// --- Parser Logic ---
+
+fn parse_block(state) {
+    let count = state[1]
+    let pos = state[2]
+    
+    while pos < count {
+        let txt = get_token_text(state)
+        
+        if txt == 0 {
+            return 0
+        }
+        
+        // Check for closing brace
+        if str_eq(txt, "}") == 1 {
+            advance(state)
+            io_println("PARSER: Block End")
+            return 1
+        }
+        
+        // Check for 'return' statement
+        if str_eq(txt, "return") == 1 {
+            advance(state)
+            
+            // Get the return value
+            let val = get_token_text(state)
+            if val != 0 {
+                io_print("PARSER: Return -> ")
+                io_println(val)
+                advance(state)
+            }
+        }
+        
+        // Check for 'let' statement
+        if str_eq(txt, "let") == 1 {
+            advance(state)
+            
+            let varname = get_token_text(state)
+            if varname != 0 {
+                io_print("PARSER: Let -> ")
+                io_println(varname)
+                advance(state)
+                
+                // Skip '=' and value for now
+                advance(state)
+                advance(state)
+            }
+        }
+        
+        // Update pos for while condition
+        pos = state[2]
+    }
+    return 0
+}
+
+fn parse_function(state) {
+    let txt = get_token_text(state)
+    
+    if txt == 0 {
+        return 0
+    }
+    
+    // Check for 'fn' keyword
+    if str_eq(txt, "fn") == 1 {
+        advance(state)
+        
+        // Get function name
+        let name = get_token_text(state)
+        if name != 0 {
+            io_print("PARSER: Function -> ")
+            io_println(name)
+            advance(state)
+            
+            // Check for '(' - optional args
+            let next = get_token_text(state)
+            if next != 0 {
+                if str_eq(next, "(") == 1 {
+                    advance(state)
+                    // Skip until ')'
+                    let inner = get_token_text(state)
+                    while inner != 0 {
+                        if str_eq(inner, ")") == 1 {
+                            advance(state)
+                            inner = 0
+                        }
+                        if inner != 0 {
+                            advance(state)
+                            inner = get_token_text(state)
+                        }
+                    }
+                    next = get_token_text(state)
+                }
+            }
+            
+            // Expect '{'
+            if next != 0 {
+                if str_eq(next, "{") == 1 {
+                    advance(state)
+                    io_println("PARSER: Block Start")
+                    parse_block(state)
+                    return 1
+                }
+            }
+        }
+    }
+    
+    // Not a function, skip token
+    advance(state)
+    return 0
+}
+
+fn parse_program(state) {
+    let count = state[1]
+    let pos = state[2]
+    
+    while pos < count {
+        parse_function(state)
+        pos = state[2]
+    }
+    
+    io_println("PARSER: Done")
+    return 0
+}
+
+// --- Debug: Print all tokens ---
+
+fn debug_tokens(state) {
+    let count = state[1]
+    let tokens_buf = state[0]
+    let i = 0
+    
+    while i < count {
+        let t = tokens_buf[i]
+        let type = t[0]
+        let text = t[1]
+        
+        if type == 1 {
+            io_print("  ID: ")
+        }
+        if type == 2 {
+            io_print("  NUM: ")
+        }
+        if type == 3 {
+            io_print("  SYM: ")
+        }
+        io_println(text)
+        
+        i = i + 1
+    }
+    return 0
+}
+
+// --- Main Entry Point ---
+
+fn main() {
+    // Create state structure (3 words = 24 bytes)
+    let state = alloc(24)
+    
+    // state[0] = tokens_buf (array of token pointers)
+    state[0] = alloc(8000)
+    
+    // state[1] = tokens_count
+    state[1] = 0
+    
+    // state[2] = parser position
+    state[2] = 0
+    
+    // Test code: "fn main { return 42 }"
+    let code = alloc(24)
+    setbyte(code, 0, 102)   // f
+    setbyte(code, 1, 110)   // n
+    setbyte(code, 2, 32)    // space
+    setbyte(code, 3, 109)   // m
+    setbyte(code, 4, 97)    // a
+    setbyte(code, 5, 105)   // i
+    setbyte(code, 6, 110)   // n
+    setbyte(code, 7, 32)    // space
+    setbyte(code, 8, 123)   // {
+    setbyte(code, 9, 32)    // space
+    setbyte(code, 10, 114)  // r
+    setbyte(code, 11, 101)  // e
+    setbyte(code, 12, 116)  // t
+    setbyte(code, 13, 117)  // u
+    setbyte(code, 14, 114)  // r
+    setbyte(code, 15, 110)  // n
+    setbyte(code, 16, 32)   // space
+    setbyte(code, 17, 52)   // 4
+    setbyte(code, 18, 50)   // 2
+    setbyte(code, 19, 32)   // space
+    setbyte(code, 20, 125)  // }
+    setbyte(code, 21, 0)
+    
+    io_println("=== PHASE 1: LEXING ===")
+    tokenize(state, code)
+    
+    io_println("=== TOKENS ===")
+    debug_tokens(state)
+    
+    io_println("=== PHASE 2: PARSING ===")
+    parse_program(state)
+    
+    return 0
+}

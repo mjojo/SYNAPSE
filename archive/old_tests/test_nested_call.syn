@@ -1,0 +1,14 @@
+// Test calling function from function
+fn add_one(x) {
+    return x + 1
+}
+
+fn double_add(y) {
+    let r = add_one(y)
+    return r + r
+}
+
+fn main() {
+    let val = double_add(5)
+    return val
+}

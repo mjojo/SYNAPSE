@@ -1,0 +1,183 @@
+// Complete lexer - inline string building
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn is_space(c) {
+    if c == 32 { return 1 }
+    if c == 10 { return 1 }
+    return 0
+}
+
+fn is_alpha(c) {
+    let result = 0
+    if c >= 97 {
+        if c <= 122 { result = 1 }
+    }
+    if result == 1 { return 1 }
+    if c >= 65 {
+        if c <= 90 { result = 1 }
+    }
+    if result == 1 { return 1 }
+    if c == 95 { return 1 }
+    return 0
+}
+
+fn is_digit(c) {
+    if c < 48 { return 0 }
+    if c > 57 { return 0 }
+    return 1
+}
+
+fn is_alnum(c) {
+    if is_alpha(c) == 1 { return 1 }
+    if is_digit(c) == 1 { return 1 }
+    return 0
+}
+
+fn print_one(c) {
+    let buf = alloc(2)
+    setbyte(buf, 0, c)
+    setbyte(buf, 1, 0)
+    io_print(buf)
+    return 0
+}
+
+fn print_nl() {
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    io_print(nl)
+    return 0
+}
+
+fn print_ident(source, start) {
+    print_one(73)
+    print_one(68)
+    print_one(58)
+    
+    let j = start
+    let ch = getbyte(source, j)
+    while is_alnum(ch) == 1 {
+        print_one(ch)
+        j = j + 1
+        ch = getbyte(source, j)
+    }
+    print_nl()
+    return 0
+}
+
+fn print_number(source, start) {
+    print_one(78)
+    print_one(58)
+    
+    let j = start
+    let ch = getbyte(source, j)
+    while is_digit(ch) == 1 {
+        print_one(ch)
+        j = j + 1
+        ch = getbyte(source, j)
+    }
+    print_nl()
+    return 0
+}
+
+fn print_symbol(c) {
+    print_one(83)
+    print_one(58)
+    print_one(c)
+    print_nl()
+    return 0
+}
+
+fn tokenize(source) {
+    let i = 0
+    let c = 0
+    let running = 1
+    let is_sp = 0
+    let is_al = 0
+    let is_di = 0
+    
+    while running == 1 {
+        c = getbyte(source, i)
+        
+        if c == 0 {
+            running = 0
+        }
+        
+        if running == 1 {
+            is_sp = is_space(c)
+            is_al = is_alpha(c)
+            is_di = is_digit(c)
+            
+            if is_sp == 1 {
+                i = i + 1
+            }
+            
+            if is_sp == 0 {
+                if is_al == 1 {
+                    print_ident(source, i)
+                    while is_alnum(getbyte(source, i)) == 1 {
+                        i = i + 1
+                    }
+                }
+            }
+            
+            if is_sp == 0 {
+                if is_al == 0 {
+                    if is_di == 1 {
+                        print_number(source, i)
+                        while is_digit(getbyte(source, i)) == 1 {
+                            i = i + 1
+                        }
+                    }
+                }
+            }
+            
+            if is_sp == 0 {
+                if is_al == 0 {
+                    if is_di == 0 {
+                        print_symbol(c)
+                        i = i + 1
+                    }
+                }
+            }
+        }
+    }
+    return 0
+}
+
+fn main() {
+    // "fn main{ret 42}"
+    let code = alloc(20)
+    setbyte(code, 0, 102)   // f
+    setbyte(code, 1, 110)   // n
+    setbyte(code, 2, 32)    // space
+    setbyte(code, 3, 109)   // m
+    setbyte(code, 4, 97)    // a
+    setbyte(code, 5, 105)   // i
+    setbyte(code, 6, 110)   // n
+    setbyte(code, 7, 123)   // {
+    setbyte(code, 8, 114)   // r
+    setbyte(code, 9, 101)   // e
+    setbyte(code, 10, 116)  // t
+    setbyte(code, 11, 32)   // space
+    setbyte(code, 12, 52)   // 4
+    setbyte(code, 13, 50)   // 2
+    setbyte(code, 14, 125)  // }
+    setbyte(code, 15, 0)
+    
+    tokenize(code)
+    return 0
+}

@@ -1,0 +1,38 @@
+// Test println with newline
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn println(s) {
+    print(s)
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    print(nl)
+    return 0
+}
+
+fn main() {
+    let msg = alloc(8)
+    setbyte(msg, 0, 72)   // H
+    setbyte(msg, 1, 101)  // e
+    setbyte(msg, 2, 108)  // l
+    setbyte(msg, 3, 108)  // l
+    setbyte(msg, 4, 111)  // o
+    setbyte(msg, 5, 33)   // !
+    setbyte(msg, 6, 0)    // null
+    
+    println(msg)
+    return 42
+}

@@ -1,0 +1,30 @@
+// Simple char print - no loop
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_one(c) {
+    let buf = alloc(2)
+    setbyte(buf, 0, c)
+    setbyte(buf, 1, 0)
+    io_print(buf)
+    return 0
+}
+
+fn main() {
+    print_one(65)  // A
+    print_one(66)  // B
+    print_one(67)  // C
+    return 0
+}

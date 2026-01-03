@@ -1,0 +1,66 @@
+// Test token array (double indirection)
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    let h = getstd(-11)
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    write(h, nl, 1)
+    return 0
+}
+
+fn main() {
+    // Create first token
+    let str1 = alloc(4)
+    setbyte(str1, 0, 102)  // f
+    setbyte(str1, 1, 110)  // n
+    setbyte(str1, 2, 0)
+    
+    let t1 = alloc(16)
+    t1[0] = 1       // ID
+    t1[1] = str1
+    
+    // Create second token
+    let str2 = alloc(8)
+    setbyte(str2, 0, 109)  // m
+    setbyte(str2, 1, 97)   // a
+    setbyte(str2, 2, 105)  // i
+    setbyte(str2, 3, 110)  // n
+    setbyte(str2, 4, 0)
+    
+    let t2 = alloc(16)
+    t2[0] = 1       // ID
+    t2[1] = str2
+    
+    // Create tokens array
+    let tokens = alloc(80)
+    tokens[0] = t1
+    tokens[1] = t2
+    
+    // Read back first token
+    let tok = tokens[0]
+    let text = tok[1]
+    io_println(text)
+    
+    // Read back second token
+    tok = tokens[1]
+    text = tok[1]
+    io_println(text)
+    
+    return 0
+}

@@ -1,0 +1,10 @@
+// Test >= comparison
+fn main() {
+    let c = 90  // 'Z'
+    
+    // c >= 65?
+    if c >= 65 {
+        return 100
+    }
+    return 0
+}

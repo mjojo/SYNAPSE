@@ -1,0 +1,62 @@
+// Test minimal str_eq
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    io_print("\n")
+    return 0
+}
+
+fn str_eq(a, b) {
+    io_println("In str_eq")
+    let i = 0
+    let eq = 1
+    while eq == 1 {
+        io_println("Loop iter")
+        let ca = getbyte(a, i)
+        let cb = getbyte(b, i)
+        if ca != cb { eq = 0 }
+        if ca == 0 { return eq }
+        i = i + 1
+    }
+    return 0
+}
+
+fn main() {
+    io_println("Start")
+    
+    let a = alloc(4)
+    setbyte(a, 0, 65)  // A
+    setbyte(a, 1, 66)  // B
+    setbyte(a, 2, 0)
+    
+    io_println("Built a")
+    io_println(a)
+    
+    let b = alloc(4)
+    setbyte(b, 0, 65)  // A
+    setbyte(b, 1, 66)  // B
+    setbyte(b, 2, 0)
+    
+    io_println("Built b")
+    io_println(b)
+    
+    io_println("Calling str_eq")
+    let result = str_eq(a, b)
+    
+    io_println("Done")
+    return result
+}

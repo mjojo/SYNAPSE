@@ -1,0 +1,57 @@
+// Test storing pointers in array
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    let h = getstd(-11)
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    write(h, nl, 1)
+    return 0
+}
+
+fn main() {
+    // Create a string
+    let str1 = alloc(8)
+    setbyte(str1, 0, 72)   // H
+    setbyte(str1, 1, 105)  // i
+    setbyte(str1, 2, 0)
+    
+    // Create a token struct
+    let t = alloc(16)
+    t[0] = 1        // type = ID
+    t[1] = str1     // text ptr
+    
+    // Create tokens array
+    let tokens = alloc(80)
+    tokens[0] = t   // Store token pointer
+    
+    // Read back
+    let t2 = tokens[0]
+    let type = t2[0]
+    let text = t2[1]
+    
+    io_print("Type: ")
+    if type == 1 {
+        io_println("ID")
+    }
+    
+    io_print("Text: ")
+    io_println(text)
+    
+    return 0
+}

@@ -1,0 +1,22 @@
+// Simple getbyte test
+
+fn main() {
+    let buf = alloc(5)
+    setbyte(buf, 0, 65)   // A
+    setbyte(buf, 1, 66)   // B
+    setbyte(buf, 2, 67)   // C
+    setbyte(buf, 3, 10)   // newline
+    setbyte(buf, 4, 0)    // null
+    
+    // Test getbyte
+    let b0 = getbyte(buf, 0)
+    
+    // Write single byte
+    let h = getstd(-11)
+    let out = alloc(1)
+    setbyte(out, 0, b0)
+    write(h, out, 1)
+    
+    // Should output 'A'
+    return b0
+}

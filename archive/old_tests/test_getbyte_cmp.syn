@@ -1,0 +1,15 @@
+// Test: just read first byte, no loop
+fn main() {
+    let buf = alloc(5)
+    setbyte(buf, 0, 65)  // A
+    setbyte(buf, 1, 0)
+    
+    let ch = getbyte(buf, 0)
+    // ch should be 65
+    
+    // Check comparison
+    if ch > 0 {
+        return 1
+    }
+    return 0
+}

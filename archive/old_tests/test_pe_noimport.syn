@@ -1,0 +1,213 @@
+// Minimal PE builder - NO IMPORTS, just return 42
+
+fn init_pe_builder(state) {
+    state[5] = alloc(4096)
+    state[6] = 0
+    return 0
+}
+
+fn put_byte(state, b) {
+    let exe_buf = state[5]
+    let exe_pos = state[6]
+    setbyte(exe_buf, exe_pos, b)
+    state[6] = exe_pos + 1
+    return 0
+}
+
+fn put_word(state, w) {
+    put_byte(state, w % 256)
+    let w1 = w / 256
+    put_byte(state, w1 % 256)
+    return 0
+}
+
+fn put_dword(state, d) {
+    put_byte(state, d % 256)
+    let d1 = d / 256
+    put_byte(state, d1 % 256)
+    let d2 = d1 / 256
+    put_byte(state, d2 % 256)
+    let d3 = d2 / 256
+    put_byte(state, d3 % 256)
+    return 0
+}
+
+fn put_qword(state, q) {
+    put_dword(state, q)
+    put_dword(state, 0)
+    return 0
+}
+
+fn put_zeros(state, count) {
+    let i = 0
+    while i < count {
+        put_byte(state, 0)
+        i = i + 1
+    }
+    return 0
+}
+
+// --- MINIMAL PE HEADER (1 section, no imports) ---
+fn emit_pe_header(state, code_size) {
+    // 1. DOS Header (64 bytes)
+    put_word(state, 23117)   // 'MZ'
+    put_zeros(state, 58)     // DOS stub padding
+    put_dword(state, 64)     // e_lfanew: PE header at 0x40
+    
+    // 2. PE Signature
+    put_dword(state, 17744)  // 'PE\0\0'
+    
+    // 3. COFF File Header (20 bytes)
+    put_word(state, 34404)   // Machine: AMD64
+    put_word(state, 1)       // NumberOfSections: 1 (.text only)
+    put_dword(state, 0)      // TimeDateStamp
+    put_dword(state, 0)      // PointerToSymbolTable
+    put_dword(state, 0)      // NumberOfSymbols
+    put_word(state, 240)     // SizeOfOptionalHeader (0xF0)
+    put_word(state, 34)      // Characteristics
+    
+    // 4. Optional Header - Standard Fields (24 bytes)
+    put_word(state, 523)     // Magic: PE32+
+    put_byte(state, 1)       // MajorLinkerVersion
+    put_byte(state, 0)       // MinorLinkerVersion
+    put_dword(state, code_size) // SizeOfCode
+    put_dword(state, 0)      // SizeOfInitializedData
+    put_dword(state, 0)      // SizeOfUninitializedData
+    put_dword(state, 4096)   // AddressOfEntryPoint: 0x1000
+    put_dword(state, 4096)   // BaseOfCode: 0x1000
+    
+    // 5. Windows Specific (88 bytes)
+    put_qword(state, 4194304)  // ImageBase: 0x400000
+    put_dword(state, 4096)     // SectionAlignment
+    put_dword(state, 512)      // FileAlignment
+    put_word(state, 6)         // MajorOSVersion
+    put_word(state, 0)         // MinorOSVersion
+    put_word(state, 0)         // MajorImageVersion
+    put_word(state, 0)         // MinorImageVersion
+    put_word(state, 6)         // MajorSubsystemVersion
+    put_word(state, 0)         // MinorSubsystemVersion
+    put_dword(state, 0)        // Win32VersionValue
+    put_dword(state, 8192)     // SizeOfImage: 0x2000 (2 pages)
+    put_dword(state, 512)      // SizeOfHeaders
+    put_dword(state, 0)        // CheckSum
+    put_word(state, 3)         // Subsystem: CONSOLE
+    put_word(state, 0)         // DllCharacteristics
+    put_qword(state, 1048576)  // SizeOfStackReserve
+    put_qword(state, 4096)     // SizeOfStackCommit
+    put_qword(state, 1048576)  // SizeOfHeapReserve
+    put_qword(state, 4096)     // SizeOfHeapCommit
+    put_dword(state, 0)        // LoaderFlags
+    put_dword(state, 16)       // NumberOfRvaAndSizes
+    
+    // 6. Data Directories - ALL EMPTY (128 bytes)
+    put_zeros(state, 128)
+    
+    // 7. Section Header: .text (40 bytes)
+    put_byte(state, 46)        // '.'
+    put_byte(state, 116)       // 't'
+    put_byte(state, 101)       // 'e'
+    put_byte(state, 120)       // 'x'
+    put_byte(state, 116)       // 't'
+    put_zeros(state, 3)        // Padding
+    put_dword(state, code_size) // VirtualSize
+    put_dword(state, 4096)     // VirtualAddress: 0x1000
+    put_dword(state, 512)      // SizeOfRawData
+    put_dword(state, 512)      // PointerToRawData
+    put_zeros(state, 12)       // Relocations, LineNumbers
+    put_dword(state, 1610612768) // Characteristics: 0x60000020
+    
+    // 8. Pad to 512 bytes
+    let exe_pos = state[6]
+    while exe_pos < 512 {
+        put_byte(state, 0)
+        exe_pos = state[6]
+    }
+    
+    return 0
+}
+
+fn emit_code(state) {
+    // MOV RAX, 42; RET
+    put_byte(state, 72)    // 0x48 REX.W
+    put_byte(state, 199)   // 0xC7 MOV
+    put_byte(state, 192)   // 0xC0 RAX
+    put_byte(state, 42)    // value
+    put_byte(state, 0)
+    put_byte(state, 0)
+    put_byte(state, 0)
+    put_byte(state, 195)   // 0xC3 RET
+    
+    // Pad to 512 bytes
+    let exe_pos = state[6]
+    while exe_pos < 1024 {
+        put_byte(state, 0)
+        exe_pos = state[6]
+    }
+    return 0
+}
+
+fn save_exe(state, filename) {
+    let exe_buf = state[5]
+    let exe_pos = state[6]
+    let h = open(filename, 1)
+    write(h, exe_buf, exe_pos)
+    close(h)
+    return 0
+}
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_nl() {
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    io_print(nl)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    print_nl()
+    return 0
+}
+
+fn main() {
+    io_println("=== NO-IMPORT PE BUILDER ===")
+    
+    let state = alloc(40)
+    init_pe_builder(state)
+    
+    emit_pe_header(state, 8)
+    emit_code(state)
+    
+    let fname = alloc(16)
+    setbyte(fname, 0, 111)   // o
+    setbyte(fname, 1, 117)   // u
+    setbyte(fname, 2, 116)   // t
+    setbyte(fname, 3, 112)   // p
+    setbyte(fname, 4, 117)   // u
+    setbyte(fname, 5, 116)   // t
+    setbyte(fname, 6, 46)    // .
+    setbyte(fname, 7, 101)   // e
+    setbyte(fname, 8, 120)   // x
+    setbyte(fname, 9, 101)   // e
+    setbyte(fname, 10, 0)
+    
+    save_exe(state, fname)
+    
+    io_println("Created output.exe (1024 bytes, no imports)")
+    return 0
+}

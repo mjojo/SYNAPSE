@@ -1,0 +1,17 @@
+// Test simple pointer chain
+fn main() {
+    // Create a string
+    let str1 = alloc(8)
+    setbyte(str1, 0, 72)   // H
+    setbyte(str1, 1, 0)
+    
+    // Create token struct
+    let t = alloc(16)
+    t[0] = 1        // type
+    t[1] = str1     // text ptr
+    
+    // Read back type
+    let type = t[0]
+    
+    return type
+}

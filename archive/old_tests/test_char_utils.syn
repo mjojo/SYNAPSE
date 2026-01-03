@@ -1,0 +1,55 @@
+// Test char utils only
+fn is_digit(c) {
+    if c < 48 { return 0 }
+    if c > 57 { return 0 }
+    return 1
+}
+
+fn is_alpha(c) {
+    let result = 0
+    if c >= 97 {
+        if c <= 122 { 
+            result = 1 
+        }
+    }
+    if result == 1 { return 1 }
+    
+    if c >= 65 {
+        if c <= 90 { 
+            result = 1 
+        }
+    }
+    if result == 1 { return 1 }
+    
+    if c == 95 { return 1 }
+    
+    return 0
+}
+
+fn is_space(c) {
+    if c == 32 { return 1 }
+    if c == 10 { return 1 }
+    if c == 13 { return 1 }
+    if c == 9  { return 1 }
+    return 0
+}
+
+fn main() {
+    // Test is_digit
+    let d1 = is_digit(48)  // '0' -> should be 1
+    let d2 = is_digit(57)  // '9' -> should be 1
+    let d3 = is_digit(65)  // 'A' -> should be 0
+    
+    // Test is_alpha
+    let a1 = is_alpha(97)  // 'a' -> should be 1
+    let a2 = is_alpha(90)  // 'Z' -> should be 1
+    let a3 = is_alpha(48)  // '0' -> should be 0
+    
+    // Test is_space
+    let s1 = is_space(32)  // ' ' -> should be 1
+    let s2 = is_space(65)  // 'A' -> should be 0
+    
+    // Sum should be: 1+1+0 + 1+1+0 + 1+0 = 5
+    let sum = d1 + d2 + d3 + a1 + a2 + a3 + s1 + s2
+    return sum
+}

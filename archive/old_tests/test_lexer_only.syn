@@ -1,0 +1,215 @@
+// Test just lexer (no parser)
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    io_print("\n")
+    return 0
+}
+
+fn is_space(c) {
+    if c == 32 { return 1 }
+    if c == 10 { return 1 }
+    if c == 13 { return 1 }
+    if c == 9  { return 1 }
+    return 0
+}
+
+fn is_alpha(c) {
+    if c >= 97 {
+        if c <= 122 { return 1 }
+    }
+    if c >= 65 {
+        if c <= 90 { return 1 }
+    }
+    if c == 95 { return 1 }
+    return 0
+}
+
+fn is_digit(c) {
+    if c < 48 { return 0 }
+    if c > 57 { return 0 }
+    return 1
+}
+
+fn is_alnum(c) {
+    if is_alpha(c) == 1 { return 1 }
+    if is_digit(c) == 1 { return 1 }
+    return 0
+}
+
+fn add_token(state, type, text_ptr) {
+    let tokens_buf = state[0]
+    let count = state[1]
+    
+    let t = alloc(16)
+    t[0] = type
+    t[1] = text_ptr
+    
+    tokens_buf[count] = t
+    state[1] = count + 1
+    return 0
+}
+
+fn copy_ident(source, start) {
+    let len = 0
+    let j = start
+    let ch = getbyte(source, j)
+    
+    while is_alnum(ch) == 1 {
+        len = len + 1
+        j = j + 1
+        ch = getbyte(source, j)
+    }
+    
+    let buf = alloc(len + 1)
+    let k = 0
+    while k < len {
+        let idx = start + k
+        ch = getbyte(source, idx)
+        setbyte(buf, k, ch)
+        k = k + 1
+    }
+    setbyte(buf, len, 0)
+    return buf
+}
+
+fn copy_number(source, start) {
+    let len = 0
+    let j = start
+    let ch = getbyte(source, j)
+    
+    while is_digit(ch) == 1 {
+        len = len + 1
+        j = j + 1
+        ch = getbyte(source, j)
+    }
+    
+    let buf = alloc(len + 1)
+    let k = 0
+    while k < len {
+        let idx = start + k
+        ch = getbyte(source, idx)
+        setbyte(buf, k, ch)
+        k = k + 1
+    }
+    setbyte(buf, len, 0)
+    return buf
+}
+
+fn copy_symbol(c) {
+    let buf = alloc(2)
+    setbyte(buf, 0, c)
+    setbyte(buf, 1, 0)
+    return buf
+}
+
+fn tokenize(state, source) {
+    let len = str_len(source)
+    let i = 0
+    
+    while i < len {
+        let c = getbyte(source, i)
+        
+        if is_space(c) == 1 {
+            i = i + 1
+        }
+        
+        if is_space(c) == 0 {
+            if is_alpha(c) == 1 {
+                // Identifier
+                let text = copy_ident(source, i)
+                add_token(state, 1, text)
+                let j = i
+                while is_alnum(getbyte(source, j)) == 1 {
+                    j = j + 1
+                }
+                i = j
+            }
+            if is_alpha(c) == 0 {
+                if is_digit(c) == 1 {
+                    // Number
+                    let text = copy_number(source, i)
+                    add_token(state, 2, text)
+                    let j = i
+                    while is_digit(getbyte(source, j)) == 1 {
+                        j = j + 1
+                    }
+                    i = j
+                }
+                if is_digit(c) == 0 {
+                    // Symbol
+                    let text = copy_symbol(c)
+                    add_token(state, 3, text)
+                    i = i + 1
+                }
+            }
+        }
+    }
+    return 0
+}
+
+fn debug_tokens(state) {
+    let tokens_buf = state[0]
+    let count = state[1]
+    
+    let i = 0
+    while i < count {
+        let t = tokens_buf[i]
+        let type = t[0]
+        let text = t[1]
+        
+        io_print("Token ")
+        if type == 1 { io_print("ID") }
+        if type == 2 { io_print("NUM") }
+        if type == 3 { io_print("SYM") }
+        io_print(": ")
+        io_println(text)
+        
+        i = i + 1
+    }
+    return 0
+}
+
+fn main() {
+    let state = alloc(24)
+    state[0] = alloc(8000)  // tokens buffer
+    state[1] = 0            // count
+    state[2] = 0            // pos
+    
+    // "fn main { }"
+    let code = alloc(16)
+    setbyte(code, 0, 102)   // f
+    setbyte(code, 1, 110)   // n
+    setbyte(code, 2, 32)    // space
+    setbyte(code, 3, 109)   // m
+    setbyte(code, 4, 97)    // a
+    setbyte(code, 5, 105)   // i
+    setbyte(code, 6, 110)   // n
+    setbyte(code, 7, 32)    // space
+    setbyte(code, 8, 123)   // {
+    setbyte(code, 9, 32)    // space
+    setbyte(code, 10, 125)  // }
+    setbyte(code, 11, 0)
+    
+    io_println("=== LEXING ===")
+    tokenize(state, code)
+    
+    io_println("=== TOKENS ===")
+    debug_tokens(state)
+    
+    return state[1]
+}

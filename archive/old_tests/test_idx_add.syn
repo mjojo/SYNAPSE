@@ -1,0 +1,15 @@
+// Test arithmetic in getbyte index
+fn main() {
+    let code = "fn x"
+    
+    // Just read char at 0
+    let ch0 = getbyte(code, 0)
+    
+    // Now with 0 + 0
+    let a = 0
+    let b = 0
+    let idx = a + b
+    let ch1 = getbyte(code, idx)
+    
+    return ch0 + ch1
+}

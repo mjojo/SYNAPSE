@@ -1,0 +1,41 @@
+// Test: loop controlled by separate variable
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_chars(source, count) {
+    let i = 0
+    let buf = alloc(2)
+    setbyte(buf, 1, 0)
+    
+    while i < count {
+        let c = getbyte(source, i)
+        setbyte(buf, 0, c)
+        io_print(buf)
+        i = i + 1
+    }
+    return 0
+}
+
+fn main() {
+    let code = alloc(8)
+    setbyte(code, 0, 65)   // A
+    setbyte(code, 1, 66)   // B
+    setbyte(code, 2, 67)   // C
+    setbyte(code, 3, 0)
+    
+    print_chars(code, 3)
+    
+    return 0
+}

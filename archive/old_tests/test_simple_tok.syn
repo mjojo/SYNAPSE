@@ -1,0 +1,89 @@
+// Simple tokenize test
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    let h = getstd(-11)
+    let nl = alloc(1)
+    setbyte(nl, 0, 10)
+    write(h, nl, 1)
+    return 0
+}
+
+fn is_space(c) {
+    if c == 32 { return 1 }
+    if c == 10 { return 1 }
+    return 0
+}
+
+fn tokenize(source) {
+    let i = 0
+    let c = 0
+    let running = 1
+    
+    while running == 1 {
+        c = getbyte(source, i)
+        
+        if c == 0 {
+            running = 0
+        }
+        
+        if running == 1 {
+            if is_space(c) == 1 {
+                i = i + 1
+            }
+            
+            if is_space(c) == 0 {
+                // Print char
+                let buf = alloc(2)
+                setbyte(buf, 0, c)
+                setbyte(buf, 1, 0)
+                io_print(buf)
+                i = i + 1
+            }
+        }
+    }
+    return 0
+}
+
+fn main() {
+    let code = alloc(8)
+    setbyte(code, 0, 65)   // A
+    setbyte(code, 1, 32)   // space
+    setbyte(code, 2, 66)   // B
+    setbyte(code, 3, 0)
+    
+    let hdr = alloc(6)
+    setbyte(hdr, 0, 84)   // T
+    setbyte(hdr, 1, 69)   // E
+    setbyte(hdr, 2, 83)   // S
+    setbyte(hdr, 3, 84)   // T
+    setbyte(hdr, 4, 58)   // :
+    setbyte(hdr, 5, 0)
+    io_println(hdr)
+    
+    tokenize(code)
+    
+    let done = alloc(5)
+    setbyte(done, 0, 68)   // D
+    setbyte(done, 1, 79)   // O
+    setbyte(done, 2, 78)   // N
+    setbyte(done, 3, 69)   // E
+    setbyte(done, 4, 0)
+    io_println(done)
+    
+    return 0
+}

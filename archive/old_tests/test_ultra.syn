@@ -1,0 +1,6 @@
+// Ultra minimal test
+fn main() {
+    let h = getstd(-11)
+    write(h, "Hello\n", 6)
+    return 42
+}

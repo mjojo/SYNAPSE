@@ -1,0 +1,143 @@
+// ==========================================
+// SYNAPSE BOOTSTRAP KERNEL v0.1
+// Phase 55: The Ouroboros
+// ==========================================
+
+// --- String Utils ---
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn str_eq(s1, s2) {
+    let i = 0
+    while getbyte(s1, i) > 0 {
+        let b1 = getbyte(s1, i)
+        let b2 = getbyte(s2, i)
+        if b1 != b2 {
+            return 0
+        }
+        i = i + 1
+    }
+    
+    // If s1 ended, check if s2 also ended
+    if getbyte(s2, i) > 0 {
+        return 0
+    }
+    
+    return 1
+}
+
+// --- I/O Wrappers ---
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    let h = getstd(-11)
+    let nl = alloc(1)
+    setbyte(nl, 0, 10)
+    write(h, nl, 1)
+    return 0
+}
+
+// --- MAIN TEST ---
+
+fn main() {
+    // Test 1: Manual string creation and print
+    let msg = alloc(12)
+    setbyte(msg, 0, 72)   // H
+    setbyte(msg, 1, 101)  // e
+    setbyte(msg, 2, 108)  // l
+    setbyte(msg, 3, 108)  // l
+    setbyte(msg, 4, 111)  // o
+    setbyte(msg, 5, 32)   // space
+    setbyte(msg, 6, 87)   // W
+    setbyte(msg, 7, 111)  // o
+    setbyte(msg, 8, 114)  // r
+    setbyte(msg, 9, 108)  // l
+    setbyte(msg, 10, 100) // d
+    setbyte(msg, 11, 0)   // null
+    
+    io_println(msg)
+    
+    // Test 2: str_len
+    let len = str_len(msg)
+    let ok = alloc(11)
+    setbyte(ok, 0, 115)  // s
+    setbyte(ok, 1, 116)  // t
+    setbyte(ok, 2, 114)  // r
+    setbyte(ok, 3, 108)  // l
+    setbyte(ok, 4, 101)  // e
+    setbyte(ok, 5, 110)  // n
+    setbyte(ok, 6, 32)   // space
+    setbyte(ok, 7, 79)   // O
+    setbyte(ok, 8, 75)   // K
+    setbyte(ok, 9, 33)   // !
+    setbyte(ok, 10, 0)   // null
+    if len == 11 {
+        io_println(ok)
+    }
+    
+    // Test 3: streq - equal strings
+    let s1 = alloc(4)
+    setbyte(s1, 0, 97)   // a
+    setbyte(s1, 1, 98)   // b
+    setbyte(s1, 2, 99)   // c
+    setbyte(s1, 3, 0)    // null
+    
+    let s2 = alloc(4)
+    setbyte(s2, 0, 97)   // a
+    setbyte(s2, 1, 98)   // b
+    setbyte(s2, 2, 99)   // c
+    setbyte(s2, 3, 0)    // null
+    
+    let eq = alloc(10)
+    setbyte(eq, 0, 115)  // s
+    setbyte(eq, 1, 116)  // t
+    setbyte(eq, 2, 114)  // r
+    setbyte(eq, 3, 101)  // e
+    setbyte(eq, 4, 113)  // q
+    setbyte(eq, 5, 32)   // space
+    setbyte(eq, 6, 79)   // O
+    setbyte(eq, 7, 75)   // K
+    setbyte(eq, 8, 33)   // !
+    setbyte(eq, 9, 0)    // null
+    if str_eq(s1, s2) == 1 {
+        io_println(eq)
+    }
+    
+    // Test 4: streq - different strings
+    let s3 = alloc(4)
+    setbyte(s3, 0, 97)   // a
+    setbyte(s3, 1, 98)   // b
+    setbyte(s3, 2, 100)  // d (different!)
+    setbyte(s3, 3, 0)    // null
+    
+    let neq = alloc(13)
+    setbyte(neq, 0, 115)   // s
+    setbyte(neq, 1, 116)   // t
+    setbyte(neq, 2, 114)   // r
+    setbyte(neq, 3, 110)   // n
+    setbyte(neq, 4, 101)   // e
+    setbyte(neq, 5, 113)   // q
+    setbyte(neq, 6, 32)    // space
+    setbyte(neq, 7, 79)    // O
+    setbyte(neq, 8, 75)    // K
+    setbyte(neq, 9, 33)    // !
+    setbyte(neq, 10, 0)    // null
+    if str_eq(s1, s3) == 0 {
+        io_println(neq)
+    }
+    
+    return 42
+}

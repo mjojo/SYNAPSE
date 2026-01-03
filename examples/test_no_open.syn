@@ -1,0 +1,5 @@
+// Test simple without open
+
+fn main() {
+    return 42
+}

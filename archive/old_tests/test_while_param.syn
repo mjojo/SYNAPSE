@@ -1,0 +1,20 @@
+// Test: while loop inside function with parameters
+fn count_until_zero(ptr) {
+    let i = 0
+    let ch = getbyte(ptr, i)
+    while ch > 0 {
+        i = i + 1
+        ch = getbyte(ptr, i)
+    }
+    return i
+}
+
+fn main() {
+    let buf = alloc(5)
+    setbyte(buf, 0, 1)
+    setbyte(buf, 1, 2)
+    setbyte(buf, 2, 0)
+    
+    let len = count_until_zero(buf)
+    return len
+}

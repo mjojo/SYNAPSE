@@ -1,0 +1,6 @@
+// Test file for bootstrap compiler
+// This should compile to an EXE that calls ExitProcess(42)
+
+fn main {
+    exit(42)
+}

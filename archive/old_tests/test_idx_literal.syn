@@ -1,0 +1,11 @@
+// Test getbyte with literal index only
+fn main() {
+    let code = "fn x"
+    
+    let ch0 = getbyte(code, 0)
+    let ch1 = getbyte(code, 1)
+    let ch2 = getbyte(code, 2)
+    
+    // f=102 + n=110 + space=32 = 244
+    return ch0 + ch1 + ch2
+}

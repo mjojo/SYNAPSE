@@ -1,0 +1,13 @@
+// Minimal c > 0 test
+fn main() {
+    let code = alloc(8)
+    setbyte(code, 0, 65)
+    setbyte(code, 1, 0)
+    
+    let c = getbyte(code, 0)
+    
+    if c > 0 {
+        return 42
+    }
+    return 0
+}

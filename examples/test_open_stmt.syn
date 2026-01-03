@@ -1,0 +1,7 @@
+# Test open as statement
+
+fn main() {
+    open("test.txt", 0)
+    print(42)
+    return 0
+}

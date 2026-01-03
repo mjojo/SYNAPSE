@@ -1,0 +1,24 @@
+// Test if condition with == 
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn main() {
+    let msg = alloc(4)
+    setbyte(msg, 0, 65)  // A
+    setbyte(msg, 1, 66)  // B
+    setbyte(msg, 2, 67)  // C
+    setbyte(msg, 3, 0)
+    
+    let len = str_len(msg)
+    
+    // Should be 3
+    if len == 3 {
+        return 100
+    }
+    return len
+}

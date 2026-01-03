@@ -1,0 +1,163 @@
+// Minimal test with all functions but simple main
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_nl() {
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    io_print(nl)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    print_nl()
+    return 0
+}
+
+fn str_eq(a, b) {
+    let i = 0
+    let eq = 1
+    while eq == 1 {
+        let ca = getbyte(a, i)
+        let cb = getbyte(b, i)
+        if ca != cb { eq = 0 }
+        if ca == 0 { return eq }
+        i = i + 1
+    }
+    return 0
+}
+
+fn is_space(c) {
+    if c == 32 { return 1 }
+    return 0
+}
+
+fn is_alpha(c) {
+    if c >= 97 {
+        if c <= 122 { return 1 }
+    }
+    return 0
+}
+
+fn is_alnum(c) {
+    if is_alpha(c) == 1 { return 1 }
+    return 0
+}
+
+fn add_token(state, type, text_ptr) {
+    let tokens_buf = state[0]
+    let count = state[1]
+    
+    let t = alloc(16)
+    t[0] = type
+    t[1] = text_ptr
+    
+    tokens_buf[count] = t
+    state[1] = count + 1
+    return 0
+}
+
+fn copy_ident(source, start) {
+    let len = 0
+    let j = start
+    let ch = getbyte(source, j)
+    
+    while is_alnum(ch) == 1 {
+        len = len + 1
+        j = j + 1
+        ch = getbyte(source, j)
+    }
+    
+    let buf = alloc(len + 1)
+    let k = 0
+    while k < len {
+        let idx = start + k
+        ch = getbyte(source, idx)
+        setbyte(buf, k, ch)
+        k = k + 1
+    }
+    setbyte(buf, len, 0)
+    return buf
+}
+
+fn copy_symbol(c) {
+    let buf = alloc(2)
+    setbyte(buf, 0, c)
+    setbyte(buf, 1, 0)
+    return buf
+}
+
+fn get_token_type(state) {
+    let pos = state[2]
+    let count = state[1]
+    if pos >= count { return 0 }
+    let tokens_buf = state[0]
+    let t = tokens_buf[pos]
+    return t[0]
+}
+
+fn get_token_text(state) {
+    let pos = state[2]
+    let count = state[1]
+    if pos >= count { return 0 }
+    let tokens_buf = state[0]
+    let t = tokens_buf[pos]
+    return t[1]
+}
+
+fn advance(state) {
+    let pos = state[2]
+    state[2] = pos + 1
+    return 0
+}
+
+fn parse_function(state) {
+    let text = get_token_text(state)
+    io_print("PARSER: Token = ")
+    io_println(text)
+    
+    if str_eq(text, "fn") == 1 {
+        io_println("PARSER: Found fn keyword")
+        advance(state)
+        
+        let name = get_token_text(state)
+        io_print("PARSER: Function name = ")
+        io_println(name)
+        advance(state)
+        
+        let brace = get_token_text(state)
+        io_print("PARSER: Got brace = ")
+        io_println(brace)
+        
+        if str_eq(brace, "{") == 1 {
+            io_println("PARSER: Body start")
+            advance(state)
+            
+            let close = get_token_text(state)
+            if str_eq(close, "}") == 1 {
+                io_println("PARSER: Body end")
+                advance(state)
+            }
+        }
+    }
+    return 0
+}
+
+fn main() {
+    io_println("Hello from minimal!")
+    return 42
+}

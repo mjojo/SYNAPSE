@@ -1,0 +1,36 @@
+// Test reading text pointer from token
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn main() {
+    // Create a string
+    let str1 = alloc(8)
+    setbyte(str1, 0, 72)   // H
+    setbyte(str1, 1, 105)  // i
+    setbyte(str1, 2, 0)
+    
+    // Create token struct
+    let t = alloc(16)
+    t[0] = 1        // type
+    t[1] = str1     // text ptr
+    
+    // Read back text pointer
+    let text = t[1]
+    
+    // Print it
+    io_print(text)
+    
+    return 0
+}

@@ -1,0 +1,25 @@
+// Test calling str_len twice
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn main() {
+    let a = alloc(4)
+    setbyte(a, 0, 65)
+    setbyte(a, 1, 66)
+    setbyte(a, 2, 0)
+    
+    let b = alloc(5)
+    setbyte(b, 0, 88)
+    setbyte(b, 1, 89)
+    setbyte(b, 2, 90)
+    setbyte(b, 3, 0)
+    
+    let l1 = str_len(a)
+    let l2 = str_len(b)
+    return l1 + l2
+}

@@ -1,0 +1,7 @@
+// Ultra minimal: getbyte from literal with var index
+fn main() {
+    let s = "ab"
+    let i = 0
+    let c = getbyte(s, i)
+    return c
+}

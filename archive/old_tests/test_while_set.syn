@@ -1,0 +1,18 @@
+// Debug while with setbyte
+fn main() {
+    let buf = alloc(4)
+    
+    // While loop with setbyte
+    let k = 0
+    while k < 2 {
+        setbyte(buf, k, 65)  // A
+        k = k + 1
+    }
+    setbyte(buf, 2, 0)
+    
+    // Direct print
+    let h = getstd(-11)
+    write(h, buf, 2)
+    
+    return 0
+}

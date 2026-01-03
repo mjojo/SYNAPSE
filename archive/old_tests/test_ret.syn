@@ -1,0 +1,4 @@
+// Test return from main
+fn main() {
+    return 42
+}

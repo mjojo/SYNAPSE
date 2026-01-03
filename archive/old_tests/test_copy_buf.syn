@@ -1,0 +1,41 @@
+// Test copy with alloc source buffer
+fn str_len(s) {
+    let i = 0
+    let ch = getbyte(s, 0)
+    while ch > 0 {
+        i = i + 1
+        ch = getbyte(s, i)
+    }
+    return i
+}
+
+fn copy_to_buf(s) {
+    // First measure length with literal indices
+    let len = str_len(s)
+    
+    // Allocate buffer
+    let buf = alloc(len + 1)
+    
+    // Copy one by one using variable index on alloc'd buffer
+    let i = 0
+    while i < len {
+        let ch = getbyte(s, i)
+        setbyte(buf, i, ch)
+        i = i + 1
+    }
+    setbyte(buf, len, 0)
+    return buf
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    print_str(s, len)
+}
+
+fn main() {
+    let code = "fn x"
+    let buf = copy_to_buf(code)
+    io_print(buf)
+    io_print("\n")
+    return 0
+}

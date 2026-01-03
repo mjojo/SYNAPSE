@@ -1,0 +1,8 @@
+// Test: update variable in loop - without getbyte first
+fn main() {
+    let i = 5
+    while i > 0 {
+        i = i - 1
+    }
+    return i
+}

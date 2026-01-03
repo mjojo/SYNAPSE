@@ -1,0 +1,23 @@
+// Test: manually copy literal then work with buffer
+fn main() {
+    // Manually copy "fn" to buffer
+    let buf = alloc(4)
+    setbyte(buf, 0, 102)  // f
+    setbyte(buf, 1, 110)  // n
+    setbyte(buf, 2, 0)
+    
+    // Now read back with variable index
+    let i = 0
+    let ch = getbyte(buf, i)
+    
+    // Count length
+    let len = 0
+    while ch > 0 {
+        len = len + 1
+        i = i + 1
+        ch = getbyte(buf, i)
+    }
+    
+    // len should be 2
+    return len
+}

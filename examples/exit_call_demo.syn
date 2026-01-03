@@ -1,0 +1,484 @@
+// Minimal test: compile exit(42) directly to PE
+
+// --- CODEGEN HELPERS ---
+fn init_codegen(state) {
+    state[3] = alloc(4096)
+    state[4] = 0
+    return 0
+}
+
+fn emit(state, b) {
+    let code_buf = state[3]
+    let code_pos = state[4]
+    setbyte(code_buf, code_pos, b)
+    state[4] = code_pos + 1
+    return 0
+}
+
+fn emit_dword(state, n) {
+    emit(state, n % 256)
+    let n1 = n / 256
+    emit(state, n1 % 256)
+    emit(state, 0)
+    emit(state, 0)
+    return 0
+}
+
+// --- PE BUILDER HELPERS ---
+fn init_pe_builder(state) {
+    state[5] = alloc(8192)
+    state[6] = 0
+    return 0
+}
+
+fn put_byte(state, b) {
+    let exe_buf = state[5]
+    let exe_pos = state[6]
+    setbyte(exe_buf, exe_pos, b)
+    state[6] = exe_pos + 1
+    return 0
+}
+
+fn put_word(state, w) {
+    put_byte(state, w % 256)
+    let w1 = w / 256
+    put_byte(state, w1 % 256)
+    return 0
+}
+
+fn put_dword(state, d) {
+    put_byte(state, d % 256)
+    let d1 = d / 256
+    put_byte(state, d1 % 256)
+    let d2 = d1 / 256
+    put_byte(state, d2 % 256)
+    let d3 = d2 / 256
+    put_byte(state, d3 % 256)
+    return 0
+}
+
+fn put_qword(state, q) {
+    put_dword(state, q)
+    put_dword(state, 0)
+    return 0
+}
+
+fn put_zeros(state, count) {
+    let i = 0
+    while i < count {
+        put_byte(state, 0)
+        i = i + 1
+    }
+    return 0
+}
+
+fn emit_pe_header(state, code_size) {
+    // 1. DOS Header (64 bytes)
+    put_byte(state, 77)  // M
+    put_byte(state, 90)  // Z
+    put_zeros(state, 58) // Rest of DOS header
+    put_dword(state, 64) // e_lfanew = 0x40
+
+    // 2. PE Signature (4 bytes)
+    put_byte(state, 80)  // P
+    put_byte(state, 69)  // E
+    put_word(state, 0)
+
+    // 3. COFF Header (20 bytes)
+    put_word(state, 34404)  // Machine: AMD64 (0x8664)
+    put_word(state, 2)      // NumberOfSections: 2 (.text, .idata)
+    put_dword(state, 0)     // TimeDateStamp
+    put_dword(state, 0)     // PointerToSymbolTable
+    put_dword(state, 0)     // NumberOfSymbols
+    put_word(state, 240)    // SizeOfOptionalHeader (PE32+)
+    put_word(state, 34)     // Characteristics: EXECUTABLE_IMAGE | LARGE_ADDRESS_AWARE
+
+    // 4. Optional Header Standard Fields (24 bytes for PE32+)
+    put_word(state, 523)    // Magic: PE32+ (0x20B)
+    put_byte(state, 1)      // MajorLinkerVersion
+    put_byte(state, 0)      // MinorLinkerVersion
+    put_dword(state, 512)   // SizeOfCode
+    put_dword(state, 0)     // SizeOfInitializedData
+    put_dword(state, 0)     // SizeOfUninitializedData
+    put_dword(state, 4096)  // AddressOfEntryPoint: 0x1000 (start of .text)
+    put_dword(state, 4096)  // BaseOfCode: 0x1000
+
+    // 5. Optional Header Windows-Specific Fields (88 bytes for PE32+)
+    put_qword(state, 4194304)  // ImageBase: 0x400000
+    put_dword(state, 4096)     // SectionAlignment: 0x1000
+    put_dword(state, 512)      // FileAlignment: 0x200
+    put_word(state, 6)         // MajorOSVersion
+    put_word(state, 0)         // MinorOSVersion
+    put_word(state, 0)         // MajorImageVersion
+    put_word(state, 0)         // MinorImageVersion
+    put_word(state, 6)         // MajorSubsystemVersion
+    put_word(state, 0)         // MinorSubsystemVersion
+    put_dword(state, 0)        // Win32VersionValue
+    put_dword(state, 12288)    // SizeOfImage: 0x3000 (3 pages)
+    put_dword(state, 512)      // SizeOfHeaders: 0x200
+    put_dword(state, 0)        // CheckSum
+    put_word(state, 3)         // Subsystem: CONSOLE
+    put_word(state, 0)         // DllCharacteristics
+    put_qword(state, 1048576)  // SizeOfStackReserve: 1MB
+    put_qword(state, 4096)     // SizeOfStackCommit: 4KB
+    put_qword(state, 1048576)  // SizeOfHeapReserve: 1MB
+    put_qword(state, 4096)     // SizeOfHeapCommit: 4KB
+    put_dword(state, 0)        // LoaderFlags
+    put_dword(state, 16)       // NumberOfRvaAndSizes
+
+    // 6. Data Directories (128 bytes)
+    put_dword(state, 0)        // [0] Export
+    put_dword(state, 0)
+    put_dword(state, 8192)     // [1] Import RVA = 0x2000
+    put_dword(state, 40)       // Import Size
+    put_zeros(state, 80)       // [2-11] Empty
+    put_dword(state, 8232)     // [12] IAT RVA = 0x2028
+    put_dword(state, 72)       // IAT Size
+    put_zeros(state, 24)       // [13-15] Empty
+
+    // 7. Section Header: .text (40 bytes)
+    put_byte(state, 46)        // '.'
+    put_byte(state, 116)       // 't'
+    put_byte(state, 101)       // 'e'
+    put_byte(state, 120)       // 'x'
+    put_byte(state, 116)       // 't'
+    put_zeros(state, 3)
+    put_dword(state, code_size)
+    put_dword(state, 4096)     // VirtualAddress: 0x1000
+    put_dword(state, 512)      // SizeOfRawData
+    put_dword(state, 512)      // PointerToRawData
+    put_zeros(state, 12)
+    put_dword(state, 1610612768) // CODE|EXECUTE|READ
+
+    // 8. Section Header: .idata (40 bytes)
+    put_byte(state, 46)        // '.'
+    put_byte(state, 105)       // 'i'
+    put_byte(state, 100)       // 'd'
+    put_byte(state, 97)        // 'a'
+    put_byte(state, 116)       // 't'
+    put_byte(state, 97)        // 'a'
+    put_zeros(state, 2)
+    put_dword(state, 512)
+    put_dword(state, 8192)     // VirtualAddress: 0x2000
+    put_dword(state, 512)      // SizeOfRawData
+    put_dword(state, 1024)     // PointerToRawData
+    put_zeros(state, 12)
+    put_dword(state, 1073741888) // INITIALIZED_DATA|READ
+
+    // 9. Pad headers to 512 bytes
+    let exe_pos = state[6]
+    while exe_pos < 512 {
+        put_byte(state, 0)
+        exe_pos = state[6]
+    }
+    return 0
+}
+
+fn emit_import_table(state) {
+    let IDATA_RVA = 8192
+    let IAT_OFF = 40
+
+    // IDT entry
+    put_dword(state, IDATA_RVA + IAT_OFF)  // ILT = IAT
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, IDATA_RVA + 112)      // Name RVA
+    put_dword(state, IDATA_RVA + IAT_OFF)  // IAT RVA
+
+    // Null IDT entry
+    put_zeros(state, 20)
+
+    // IAT (8 entries + null)
+    let hint_base = IDATA_RVA + 126
+    put_qword(state, hint_base)        // ExitProcess
+    put_qword(state, hint_base + 14)   // VirtualAlloc
+    put_qword(state, hint_base + 30)   // VirtualFree
+    put_qword(state, hint_base + 44)   // WriteFile
+    put_qword(state, hint_base + 56)   // ReadFile
+    put_qword(state, hint_base + 68)   // CreateFileA
+    put_qword(state, hint_base + 82)   // CloseHandle
+    put_qword(state, hint_base + 96)   // GetStdHandle
+    put_qword(state, 0)                // Null
+
+    // DLL Name (14 bytes)
+    put_byte(state, 75)   // K
+    put_byte(state, 69)   // E
+    put_byte(state, 82)   // R
+    put_byte(state, 78)   // N
+    put_byte(state, 69)   // E
+    put_byte(state, 76)   // L
+    put_byte(state, 51)   // 3
+    put_byte(state, 50)   // 2
+    put_byte(state, 46)   // .
+    put_byte(state, 68)   // D
+    put_byte(state, 76)   // L
+    put_byte(state, 76)   // L
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // Hint/Name Table
+    // [0] ExitProcess
+    put_word(state, 0)
+    put_byte(state, 69)
+    put_byte(state, 120)
+    put_byte(state, 105)
+    put_byte(state, 116)
+    put_byte(state, 80)
+    put_byte(state, 114)
+    put_byte(state, 111)
+    put_byte(state, 99)
+    put_byte(state, 101)
+    put_byte(state, 115)
+    put_byte(state, 115)
+    put_byte(state, 0)
+
+    // [1] VirtualAlloc
+    put_word(state, 0)
+    put_byte(state, 86)
+    put_byte(state, 105)
+    put_byte(state, 114)
+    put_byte(state, 116)
+    put_byte(state, 117)
+    put_byte(state, 97)
+    put_byte(state, 108)
+    put_byte(state, 65)
+    put_byte(state, 108)
+    put_byte(state, 108)
+    put_byte(state, 111)
+    put_byte(state, 99)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // [2] VirtualFree
+    put_word(state, 0)
+    put_byte(state, 86)
+    put_byte(state, 105)
+    put_byte(state, 114)
+    put_byte(state, 116)
+    put_byte(state, 117)
+    put_byte(state, 97)
+    put_byte(state, 108)
+    put_byte(state, 70)
+    put_byte(state, 114)
+    put_byte(state, 101)
+    put_byte(state, 101)
+    put_byte(state, 0)
+
+    // [3] WriteFile
+    put_word(state, 0)
+    put_byte(state, 87)
+    put_byte(state, 114)
+    put_byte(state, 105)
+    put_byte(state, 116)
+    put_byte(state, 101)
+    put_byte(state, 70)
+    put_byte(state, 105)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+
+    // [4] ReadFile
+    put_word(state, 0)
+    put_byte(state, 82)
+    put_byte(state, 101)
+    put_byte(state, 97)
+    put_byte(state, 100)
+    put_byte(state, 70)
+    put_byte(state, 105)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // [5] CreateFileA
+    put_word(state, 0)
+    put_byte(state, 67)
+    put_byte(state, 114)
+    put_byte(state, 101)
+    put_byte(state, 97)
+    put_byte(state, 116)
+    put_byte(state, 101)
+    put_byte(state, 70)
+    put_byte(state, 105)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 65)
+    put_byte(state, 0)
+
+    // [6] CloseHandle
+    put_word(state, 0)
+    put_byte(state, 67)
+    put_byte(state, 108)
+    put_byte(state, 111)
+    put_byte(state, 115)
+    put_byte(state, 101)
+    put_byte(state, 72)
+    put_byte(state, 97)
+    put_byte(state, 110)
+    put_byte(state, 100)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+
+    // [7] GetStdHandle
+    put_word(state, 0)
+    put_byte(state, 71)
+    put_byte(state, 101)
+    put_byte(state, 116)
+    put_byte(state, 83)
+    put_byte(state, 116)
+    put_byte(state, 100)
+    put_byte(state, 72)
+    put_byte(state, 97)
+    put_byte(state, 110)
+    put_byte(state, 100)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // Pad to 1536
+    let exe_pos = state[6]
+    while exe_pos < 1536 {
+        put_byte(state, 0)
+        exe_pos = state[6]
+    }
+    return 0
+}
+
+fn save_exe(state, filename) {
+    let exe_buf = state[5]
+    let exe_pos = state[6]
+    let h = open(filename, 1)
+    write(h, exe_buf, exe_pos)
+    close(h)
+    return 0
+}
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_nl() {
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    io_print(nl)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    print_nl()
+    return 0
+}
+
+fn main() {
+    io_println("=== GENERATING exit(42) EXE ===")
+
+    let state = alloc(40)
+    init_codegen(state)
+    init_pe_builder(state)
+
+    // Generate code for exit(42):
+    // MOV ECX, 42        ; exit code
+    // SUB RSP, 40        ; shadow space
+    // CALL [ExitProcess] ; IAT[0]
+    
+    // B9 2A 00 00 00     = mov ecx, 42
+    emit(state, 185)
+    emit(state, 42)
+    emit(state, 0)
+    emit(state, 0)
+    emit(state, 0)
+
+    // 48 83 EC 28        = sub rsp, 40
+    emit(state, 72)
+    emit(state, 131)
+    emit(state, 236)
+    emit(state, 40)
+
+    // FF 15 xx xx xx xx  = call [RIP+disp32]
+    // Current code_pos = 9, instruction ends at 15
+    // RIP after = 0x1000 + 15 = 0x100F
+    // Target = 0x2028 (IAT[0])
+    // Disp = 0x2028 - 0x100F = 0x1019
+    emit(state, 255)
+    emit(state, 21)
+    emit(state, 25)   // 0x19
+    emit(state, 16)   // 0x10
+    emit(state, 0)
+    emit(state, 0)
+
+    let code_size = state[4]
+    io_print("Code size: ")
+    let dbuf = alloc(8)
+    let dv = code_size
+    let di = 0
+    while dv > 0 {
+        let dd = dv % 10
+        setbyte(dbuf, di, dd + 48)
+        dv = dv / 10
+        di = di + 1
+    }
+    setbyte(dbuf, di, 0)
+    let dj = 0
+    let dk = di - 1
+    while dj < dk {
+        let t1 = getbyte(dbuf, dj)
+        let t2 = getbyte(dbuf, dk)
+        setbyte(dbuf, dj, t2)
+        setbyte(dbuf, dk, t1)
+        dj = dj + 1
+        dk = dk - 1
+    }
+    io_println(dbuf)
+
+    io_println("Building PE header...")
+    emit_pe_header(state, code_size)
+
+    // Copy code to .text section (at offset 512)
+    let code_buf = state[3]
+    let exe_buf = state[5]
+    let ci = 0
+    while ci < code_size {
+        let cb = getbyte(code_buf, ci)
+        setbyte(exe_buf, 512 + ci, cb)
+        ci = ci + 1
+    }
+    
+    // Advance position past .text section to start of .idata (offset 1024)
+    state[6] = 1024
+
+    io_println("Writing import table...")
+    emit_import_table(state)
+
+    // Save
+    let fname = alloc(16)
+    setbyte(fname, 0, 111)   // o
+    setbyte(fname, 1, 117)   // u
+    setbyte(fname, 2, 116)   // t
+    setbyte(fname, 3, 112)   // p
+    setbyte(fname, 4, 117)   // u
+    setbyte(fname, 5, 116)   // t
+    setbyte(fname, 6, 46)    // .
+    setbyte(fname, 7, 101)   // e
+    setbyte(fname, 8, 120)   // x
+    setbyte(fname, 9, 101)   // e
+    setbyte(fname, 10, 0)
+
+    save_exe(state, fname)
+    io_println("Created output.exe")
+    return 0
+}

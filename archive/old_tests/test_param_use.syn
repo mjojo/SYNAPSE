@@ -1,0 +1,10 @@
+// Use param directly
+fn test_fn(x) {
+    let y = x
+    return y
+}
+
+fn main() {
+    let result = test_fn(77)
+    return result
+}

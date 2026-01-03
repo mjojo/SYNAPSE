@@ -1,0 +1,14 @@
+// Test getbyte in function call
+fn test_fn(buf) {
+    let ch = getbyte(buf, 0)
+    return ch
+}
+
+fn main() {
+    let buf = alloc(10)
+    setbyte(buf, 0, 77)  // 'M'
+    setbyte(buf, 1, 0)
+    
+    let result = test_fn(buf)
+    return result
+}

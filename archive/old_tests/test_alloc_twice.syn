@@ -1,0 +1,14 @@
+// Test calling function with alloc twice
+fn make_buf(x) {
+    let b = alloc(4)
+    setbyte(b, 0, x)
+    return b
+}
+
+fn main() {
+    let a = make_buf(65)
+    let b = make_buf(66)
+    let c1 = getbyte(a, 0)
+    let c2 = getbyte(b, 0)
+    return c1 + c2
+}

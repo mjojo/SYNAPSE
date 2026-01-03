@@ -1,0 +1,12 @@
+// Test nested if without assignment
+fn main() {
+    let c = 90  // 'Z'
+    
+    if c >= 65 {
+        if c <= 90 { 
+            return 1 
+        }
+    }
+    
+    return 0
+}

@@ -1,0 +1,7 @@
+// Test 65 > 0 directly
+fn main() {
+    if 65 > 0 {
+        return 42
+    }
+    return 0
+}

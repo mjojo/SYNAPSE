@@ -1,0 +1,12 @@
+// Test write directly, without str_len
+fn main() {
+    let msg = alloc(5)
+    setbyte(msg, 0, 72)   // H
+    setbyte(msg, 1, 105)  // i
+    setbyte(msg, 2, 33)   // !
+    setbyte(msg, 3, 0)    // null
+    
+    let h = getstd(-11)
+    write(h, msg, 3)
+    return 42
+}

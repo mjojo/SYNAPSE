@@ -288,6 +288,8 @@ section '.data' data readable writeable
     OP_RBRACKET = 15
     OP_NE       = 16     ; != operator
     OP_MOD      = 17     ; % modulo operator
+    OP_LE       = 18     ; <= less or equal
+    OP_GE       = 19     ; >= greater or equal
     
     ; Keyword table
     kw_fn       db 'fn',0
@@ -352,7 +354,7 @@ section '.data' data readable writeable
         dw 0,0                      ; Image Version
         dw 5,0                      ; Subsystem Version (5.0 = Windows 2000+)
         dd 0                        ; Win32VersionValue
-        dd 0x00003000               ; SizeOfImage (Headers + Code + Import = 3 sections)
+        dd 0x00006000               ; SizeOfImage (Headers + 16KB Code + Import = 6 pages)
         dd 0x00000200               ; SizeOfHeaders
         dd 0                        ; CheckSum
         dw 3                        ; Subsystem (3=Console, 2=GUI)
@@ -364,14 +366,14 @@ section '.data' data readable writeable
         
         ; --- DATA DIRECTORIES (16 entries) ---
         dd 0,0                      ; 1. Export (Empty)
-        dd 0x2000, 0x100            ; 2. IMPORT TABLE (RVA, Size = 256 bytes, Phase 54 full table)
+        dd 0x5000, 0x100            ; 2. IMPORT TABLE (RVA 0x5000, Size = 256 bytes, after 16KB .text)
         times 14 dd 0,0             ; 3-16. Rest Empty
         
         ; --- SECTION HEADER ---
         db '.text',0,0,0            ; Name
-        dd 0x00001000               ; VirtualSize
+        dd 0x00004000               ; VirtualSize (16KB for larger programs)
         dd 0x00001000               ; VirtualAddress
-        dd 0x00001000               ; SizeOfRawData (4096 bytes on disk - room for big programs!)
+        dd 0x00004000               ; SizeOfRawData (16384 bytes on disk - room for big programs!)
         dd 0x00000200               ; PointerToRawData (Offset 512 in file)
         dd 0,0,0                    ; Relocs/Lines
         dd 0x60000020               ; Characteristics (Code + Exec + Read)
@@ -379,9 +381,9 @@ section '.data' data readable writeable
         ; --- SECTION HEADER 2: Import Data ---
         db '.idata',0,0              ; Name
         dd 0x100                     ; VirtualSize (256 bytes - Phase 54 import data)
-        dd 0x00002000                ; VirtualAddress (RVA 0x2000)
+        dd 0x00005000                ; VirtualAddress (RVA 0x5000, after 16KB .text)
         dd 0x00000200                ; SizeOfRawData (512 bytes on disk)
-        dd 0x00001200                ; PointerToRawData (Offset 0x1200 in file, after 4KB .text)
+        dd 0x00004200                ; PointerToRawData (Offset 0x4200 in file, after 16KB .text)
         dd 0,0,0                     ; Relocs/Lines
         dd 0xC0000040                ; Characteristics (Read + Write + Initialized Data)
         
@@ -391,7 +393,7 @@ section '.data' data readable writeable
     hOutFile     dq 0
     temp_buffer  rb 16              ; Temporary buffer for patching
     out_bytes_written dq 0
-    pad_buffer   rb 4096              ; Increased for 4KB .text padding
+    pad_buffer   rb 16384             ; Increased for 16KB .text padding
     
     compile_mode_msg db '[COMPILE] Generating synapse_new.exe...',13,10,0
     compile_done_msg db '[SUCCESS] synapse_new.exe created!',13,10,0
@@ -402,27 +404,27 @@ section '.data' data readable writeable
     ; ENTRY POINT STUB (Call main() then ExitProcess)
     ; Total size: 21 bytes
     ; Offsets calculated relative to NEXT instruction (x86-64 convention)
-    ; IAT starts at RVA 0x2028 (no separate ILT), first entry is ExitProcess
+    ; IAT starts at RVA 0x5028 (after 16KB .text section)
     ; ============================================================================
     entry_stub:
         db 0x48, 0x83, 0xEC, 0x28          ; [0-3] sub rsp, 40
         db 0xE8, 0x0C, 0x00, 0x00, 0x00    ; [4-8] call +12 (next instr at 9, target at 21)
         db 0x48, 0x89, 0xC1                ; [9-11] mov rcx, rax
         db 0x48, 0x8B, 0x05                ; [12-14] mov rax, [rip + offset]
-        dd (0x2028 - 0x1000 - 19)          ; [15-18] Offset: next at RVA 0x1013, IAT[0] at 0x2028
+        dd (0x5028 - 0x1000 - 19)          ; [15-18] Offset: next at RVA 0x1013, IAT[0] at 0x5028
         db 0xFF, 0xD0                      ; [19-20] call rax
         
     entry_stub_size = $ - entry_stub
     
     ; ============================================================================
     ; PHASE 54: FULL IMPORT TABLE (I/O Support)
-    ; RVA Base: 0x2000
+    ; RVA Base: 0x5000 (after 16KB .text section)
     ; Key optimization: ILT=0 tells Windows Loader to use IAT for both lookup and storage
     ; Functions: ExitProcess, VirtualAlloc, VirtualFree, WriteFile, ReadFile,
     ;            CreateFileA, CloseHandle, GetStdHandle
     ; ============================================================================
     
-    IMPORT_RVA_BASE = 0x2000
+    IMPORT_RVA_BASE = 0x5000
     
     import_data_start:
         ; --- Import Directory Table (20 bytes) ---
@@ -620,6 +622,9 @@ section '.bss' data readable writeable
     ; String literal table
     string_table    rb 65536
     string_ptr      dq ?
+    
+    ; Modifiable entry stub buffer for EXE output
+    entry_stub_copy rb 32       ; Copy of entry_stub for patching
 
 section '.text' code readable executable
 
@@ -846,8 +851,36 @@ start:
     jz .compile_error
     
     ; 4. Write Entry Stub (startup code that calls main + ExitProcess)
+    ; PATCH: Calculate correct CALL offset to main()
+    ; main_offset = main_addr - jit_buffer (offset within JIT code)
+    ; CALL target = entry_stub_size + main_offset
+    ; CALL relative = target - 9 (CALL instruction ends at offset 9)
+    
+    ; Copy entry_stub to modifiable buffer
+    lea rsi, [entry_stub]
+    lea rdi, [entry_stub_copy]
+    mov rcx, entry_stub_size
+.copy_stub:
+    mov al, [rsi]
+    mov [rdi], al
+    inc rsi
+    inc rdi
+    dec rcx
+    jnz .copy_stub
+    
+    ; Calculate main() offset within JIT buffer
+    mov rax, [main_addr]
+    sub rax, [jit_buffer]       ; main_offset = main_addr - jit_buffer
+    add rax, entry_stub_size    ; target = entry_stub_size + main_offset
+    sub rax, 9                  ; relative = target - 9 (next instruction after CALL)
+    
+    ; Patch CALL offset at entry_stub_copy+5 (4 bytes)
+    lea rdi, [entry_stub_copy]
+    mov [rdi + 5], eax          ; Write 32-bit relative offset
+    
+    ; Write patched entry stub
     mov rcx, [hOutFile]
-    lea rdx, [entry_stub]
+    lea rdx, [entry_stub_copy]
     mov r8, entry_stub_size
     lea r9, [bytes_written]
     mov qword [rsp+32], 0
@@ -868,15 +901,15 @@ start:
     test eax, eax
     jz .compile_error
     
-; 6. PADDING CODE SECTION TO 4096 BYTES (0x1000 - new size!)
-    ; Секция кода на диске теперь 4KB чтобы вместить большие программы
+; 6. PADDING CODE SECTION TO 16384 BYTES (0x4000)
+    ; Секция кода на диске теперь 16KB чтобы вместить большие программы
     ; Total = entry_stub_size + code_size
     mov rax, entry_stub_size
     add rax, [out_bytes_written]
-    mov rbx, 0x1000             ; 4096 bytes (was 512)
+    mov rbx, 0x4000             ; 16384 bytes
     sub rbx, rax
     cmp rbx, 0
-    jle .write_import               ; Skip padding if >= 4096
+    jle .write_import               ; Skip padding if >= 16384
     
     mov rcx, [hOutFile]
     lea rdx, [pad_buffer]
@@ -890,8 +923,8 @@ start:
 
 .write_import:
     ; 7. WRITE IMPORT SECTION
-    ; File is now at offset 0x1200 (header 512 + .text 4096 = 4608 = 0x1200)
-    ; This corresponds to RVA 0x2000
+    ; File is now at offset 0x2200 (header 512 + .text 8192 = 8704 = 0x2200)
+    ; This corresponds to RVA 0x3000
     mov rcx, [hOutFile]
     lea rdx, [import_data_start]
     mov r8, import_data_size
@@ -1669,6 +1702,31 @@ parse_block:
     
 .not_close_stmt:
     pop rsi
+    
+    ; --- Inline Check for 'getbyte' ---
+    push rsi
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 'g'
+    jne .not_getbyte_stmt
+    cmp byte [rsi+1], 'e'
+    jne .not_getbyte_stmt
+    cmp byte [rsi+2], 't'
+    jne .not_getbyte_stmt
+    cmp byte [rsi+3], 'b'
+    jne .not_getbyte_stmt
+    cmp byte [rsi+4], 'y'
+    jne .not_getbyte_stmt
+    cmp byte [rsi+5], 't'
+    jne .not_getbyte_stmt
+    cmp byte [rsi+6], 'e'
+    jne .not_getbyte_stmt
+    cmp byte [rsi+7], 0
+    jne .not_getbyte_stmt
+    pop rsi
+    jmp .stmt_handle_getbyte_intrinsic
+    
+.not_getbyte_stmt:
+    pop rsi
     ; --- End Inline Checks ---
     
     ; Find function first (save address)
@@ -1876,10 +1934,19 @@ parse_block:
     jmp .stmt_loop
 
 .stmt_handle_open_intrinsic:
-    ; open(filename_ptr) - single argument, returns handle
-    ; CreateFileA with GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, NORMAL, NULL
+    ; open(filename_ptr, mode) - two arguments, returns handle
+    ; mode: 0 = read (OPEN_EXISTING), 1 = write (CREATE_ALWAYS)
     
     ; Argument 1: filename pointer
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ','
+    call next_token
+    
+    ; Argument 2: mode
     call compile_expr
     mov rdi, [jit_cursor]
     mov byte [rdi], 0x50    ; PUSH RAX
@@ -1907,6 +1974,32 @@ parse_block:
     
     ; Generate IAT-based CloseHandle call
     call generate_close_iat
+    
+    jmp .stmt_loop
+
+.stmt_handle_getbyte_intrinsic:
+    ; getbyte(ptr, offset) - read single byte from memory
+    
+    ; Argument 1: ptr (base address)
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ','
+    call next_token
+    
+    ; Argument 2: offset
+    call compile_expr
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate getbyte code: MOVZX RAX, BYTE [ptr+offset]
+    call generate_getbyte
     
     jmp .stmt_loop
     
@@ -2503,6 +2596,50 @@ compile_while:
     jmp .while_handle_alloc_intrinsic
     
 .not_alloc_while:
+    ; === [SAFE INLINE CHECK] Is it 'setbyte'? ===
+    cmp byte [rsi], 's'
+    jne .not_setbyte_while
+    cmp byte [rsi+1], 'e'
+    jne .not_setbyte_while
+    cmp byte [rsi+2], 't'
+    jne .not_setbyte_while
+    cmp byte [rsi+3], 'b'
+    jne .not_setbyte_while
+    cmp byte [rsi+4], 'y'
+    jne .not_setbyte_while
+    cmp byte [rsi+5], 't'
+    jne .not_setbyte_while
+    cmp byte [rsi+6], 'e'
+    jne .not_setbyte_while
+    cmp byte [rsi+7], 0
+    jne .not_setbyte_while
+    
+    pop rsi
+    jmp .while_handle_setbyte_intrinsic
+    
+.not_setbyte_while:
+    ; === [SAFE INLINE CHECK] Is it 'getbyte'? ===
+    cmp byte [rsi], 'g'
+    jne .not_getbyte_while
+    cmp byte [rsi+1], 'e'
+    jne .not_getbyte_while
+    cmp byte [rsi+2], 't'
+    jne .not_getbyte_while
+    cmp byte [rsi+3], 'b'
+    jne .not_getbyte_while
+    cmp byte [rsi+4], 'y'
+    jne .not_getbyte_while
+    cmp byte [rsi+5], 't'
+    jne .not_getbyte_while
+    cmp byte [rsi+6], 'e'
+    jne .not_getbyte_while
+    cmp byte [rsi+7], 0
+    jne .not_getbyte_while
+    
+    pop rsi
+    jmp .while_handle_getbyte_intrinsic
+    
+.not_getbyte_while:
     pop rsi
     ; --- End Inline Check ---
     
@@ -2598,6 +2735,93 @@ compile_while:
     push r12
     push r13
     call generate_alloc_iat
+    pop r13
+    pop r12
+    
+    jmp .body_loop
+
+.while_handle_setbyte_intrinsic:
+    ; setbyte(ptr, offset, value) inside while loop
+    ; Parse ptr
+    push r12
+    push r13
+    call compile_expr
+    pop r13
+    pop r12
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX (ptr)
+    inc qword [jit_cursor]
+    
+    ; Skip ','
+    call next_token
+    
+    ; Parse offset
+    push r12
+    push r13
+    call compile_expr
+    pop r13
+    pop r12
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX (offset)
+    inc qword [jit_cursor]
+    
+    ; Skip ','
+    call next_token
+    
+    ; Parse value
+    push r12
+    push r13
+    call compile_expr
+    pop r13
+    pop r12
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX (value)
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate setbyte code
+    push r12
+    push r13
+    call generate_setbyte
+    pop r13
+    pop r12
+    
+    jmp .body_loop
+
+.while_handle_getbyte_intrinsic:
+    ; getbyte(ptr, offset) inside while loop
+    ; Parse ptr
+    push r12
+    push r13
+    call compile_expr
+    pop r13
+    pop r12
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX (ptr)
+    inc qword [jit_cursor]
+    
+    ; Skip ','
+    call next_token
+    
+    ; Parse offset
+    push r12
+    push r13
+    call compile_expr
+    pop r13
+    pop r12
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX (offset)
+    inc qword [jit_cursor]
+    
+    ; Skip ')'
+    call next_token
+    
+    ; Generate getbyte code
+    push r12
+    push r13
+    call generate_getbyte
     pop r13
     pop r12
     
@@ -2710,6 +2934,10 @@ compile_if:
     je .if_do_eq
     cmp rax, OP_NE
     je .if_do_ne
+    cmp rax, OP_LE
+    je .if_do_le
+    cmp rax, OP_GE
+    je .if_do_ge
     jmp .if_after_cond
     
 .if_do_lt:
@@ -2800,6 +3028,54 @@ compile_if:
     mov rdi, [jit_cursor]
     mov dword [rdi], 0xC0950F    ; SETNE AL
     add qword [jit_cursor], 3
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    jmp .if_expr_loop_entry
+
+.if_do_le:
+    call next_token         ; Consume '<='
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    call next_token         ; Read right operand
+    call compile_term
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59    ; POP RCX
+    inc qword [jit_cursor]
+    ; CMP RCX, RAX
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    ; SETLE AL (0F 9E C0)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC09E0F
+    add qword [jit_cursor], 3
+    ; MOVZX RAX, AL
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC0B60F48
+    add qword [jit_cursor], 4
+    jmp .if_expr_loop_entry
+
+.if_do_ge:
+    call next_token         ; Consume '>='
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    call next_token         ; Read right operand
+    call compile_term
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x59    ; POP RCX
+    inc qword [jit_cursor]
+    ; CMP RCX, RAX
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC13948
+    add qword [jit_cursor], 3
+    ; SETGE AL (0F 9D C0)
+    mov rdi, [jit_cursor]
+    mov dword [rdi], 0xC09D0F
+    add qword [jit_cursor], 3
+    ; MOVZX RAX, AL
     mov rdi, [jit_cursor]
     mov dword [rdi], 0xC0B60F48
     add qword [jit_cursor], 4
@@ -4027,12 +4303,68 @@ compile_term:
     ret
 
 .string:
-    ; Treat string as pointer (number)
+    ; --- INLINE STRING IN CODE WITH JMP ---
+    ; String is stored at [cur_tok_value] (in compiler memory)
+    ; We embed it in the generated code with a JMP to skip over it
+    
+    push rbx
+    push r12
+    push r13
+    
+    ; 1. Calculate string length
+    mov rsi, [cur_tok_value]    ; Source string pointer
+    xor rcx, rcx                ; Length counter
+.str_len_loop:
+    mov al, [rsi + rcx]
+    test al, al
+    jz .str_len_done
+    inc rcx
+    jmp .str_len_loop
+.str_len_done:
+    inc rcx                     ; Include null terminator
+    mov r12, rcx                ; R12 = string length (including null)
+    
+    ; 2. Generate JMP rel32 (5 bytes) - jump offset = string_len + 10 (for MOV RAX)
+    ; Actually, JMP jumps OVER the string data only, MOV comes after
     mov rdi, [jit_cursor]
+    mov byte [rdi], 0xE9        ; JMP rel32
+    
+    ; rel32 = bytes to skip = string_len (offset is relative to NEXT instruction)
+    mov eax, r12d               ; String length
+    mov [rdi + 1], eax          ; Store jump offset
+    add rdi, 5                  ; Past JMP instruction
+    
+    ; 3. Record where the string data starts (for address calculation)
+    ; String Virtual Address = IMAGE_BASE + .text RVA + entry_stub_size + (current_offset - jit_buffer)
+    ; = 0x400000 + 0x1000 + 21 + (rdi - jit_buffer)
+    ; = 0x401015 + (rdi - jit_buffer)
+    mov r13, rdi                ; R13 = address where string data starts in buffer
+    sub r13, [jit_buffer]       ; R13 = offset from jit_buffer start
+    add r13, 0x401015           ; R13 = virtual address of string in exe
+    
+    ; 4. Copy string data into JIT buffer
+    mov rsi, [cur_tok_value]    ; Source
+    mov rcx, r12                ; Length
+.str_copy_loop:
+    mov al, [rsi]
+    mov [rdi], al
+    inc rsi
+    inc rdi
+    dec rcx
+    jnz .str_copy_loop
+    
+    ; 5. After string data, generate: MOV RAX, <string_va>
+    ; Opcode: 48 B8 <imm64>
     mov word [rdi], 0xB848      ; MOV RAX, imm64
-    mov rax, [cur_tok_value]
-    mov [rdi+2], rax
-    add qword [jit_cursor], 10
+    mov [rdi + 2], r13          ; Virtual address of the string
+    add rdi, 10
+    
+    ; 6. Update jit_cursor
+    mov [jit_cursor], rdi
+    
+    pop r13
+    pop r12
+    pop rbx
     ret
 
 .paren_expr:
@@ -4287,6 +4619,31 @@ compile_term:
     
 .not_close_intrinsic:
     pop rsi
+    
+    ; --- Inline Check for 'getbyte' ---
+    push rsi
+    lea rsi, [func_call_name]
+    cmp byte [rsi], 'g'
+    jne .not_getbyte_intrinsic
+    cmp byte [rsi+1], 'e'
+    jne .not_getbyte_intrinsic
+    cmp byte [rsi+2], 't'
+    jne .not_getbyte_intrinsic
+    cmp byte [rsi+3], 'b'
+    jne .not_getbyte_intrinsic
+    cmp byte [rsi+4], 'y'
+    jne .not_getbyte_intrinsic
+    cmp byte [rsi+5], 't'
+    jne .not_getbyte_intrinsic
+    cmp byte [rsi+6], 'e'
+    jne .not_getbyte_intrinsic
+    cmp byte [rsi+7], 0
+    jne .not_getbyte_intrinsic
+    pop rsi
+    jmp .handle_getbyte_intrinsic
+    
+.not_getbyte_intrinsic:
+    pop rsi
     ; --- End Inline Checks ---
     
     ; Find the function
@@ -4354,96 +4711,117 @@ compile_term:
 
 ; === INTRINSIC HANDLERS ===
 .handle_alloc_intrinsic:
-    ; Current token is '('
-    ; We need to skip '(' and parse the argument
-    ; But compile_expr calls next_token first, so it will read the argument!
-    ; Solution: Call next_token to skip '(', then cur_tok will be on argument,
-    ; then compile_expr will call next_token again and read NEXT token...
-    ; NO! That's wrong!
-    
-    ; Alternative: Don't call compile_expr, call compile_term directly
-    ; after next_token
-    call next_token         ; Skip '(', now cur_tok = first argument (e.g., 10)
-    call compile_term       ; Parse just the term (number 10)
+    ; alloc(size) - single argument
+    call next_token         ; Skip '(' -> cur_tok = size
+    call compile_term       ; Parse size
+    call next_token         ; Advance past size -> cur_tok = ')'
     
     ; Generate: PUSH RAX
     mov rdi, [jit_cursor]
     mov byte [rdi], 0x50
     inc qword [jit_cursor]
     
-    ; Skip ')' - cur_tok should now be on ')'
-    call next_token
-    
-    ; Generate IAT-based VirtualAlloc call
+    ; cur_tok is now ')' - no need to skip
     call generate_alloc_iat
-    
-    ; Return with RAX as result
     ret
 
 .handle_getstd_intrinsic:
     ; getstd(nStdHandle) - single argument, returns handle
-    call next_token         ; Skip '('
+    call next_token         ; Skip '(' -> cur_tok = arg
     call compile_term       ; Parse argument
+    call next_token         ; Advance past arg -> cur_tok = ')'
     
     mov rdi, [jit_cursor]
     mov byte [rdi], 0x50    ; PUSH RAX
     inc qword [jit_cursor]
     
-    call next_token         ; Skip ')'
     call generate_getstd_iat
     ret
 
 .handle_open_intrinsic:
-    ; open(filename_ptr) - single argument, returns handle
-    call next_token         ; Skip '('
-    call compile_term       ; Parse argument
+    ; open(filename_ptr, mode) - two arguments, returns handle
+    ; mode: 0 = read (OPEN_EXISTING), 1 = write (CREATE_ALWAYS)
+    call next_token         ; Skip '(' -> cur_tok = filename
+    call compile_term       ; Parse filename argument
+    call next_token         ; Advance past arg -> cur_tok = ','
     
     mov rdi, [jit_cursor]
-    mov byte [rdi], 0x50    ; PUSH RAX
+    mov byte [rdi], 0x50    ; PUSH RAX (filename)
     inc qword [jit_cursor]
     
-    call next_token         ; Skip ')'
+    call next_token         ; Skip ',' -> cur_tok = mode
+    call compile_term       ; Parse mode argument
+    call next_token         ; Advance -> cur_tok = ')'
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX (mode)
+    inc qword [jit_cursor]
+    
     call generate_open_iat
     ret
 
 .handle_read_intrinsic:
     ; read(handle, buffer, length) - three arguments
-    call next_token         ; Skip '('
+    call next_token         ; Skip '(' -> cur_tok = handle
     call compile_term       ; Parse handle
+    call next_token         ; Advance -> cur_tok = ','
     
     mov rdi, [jit_cursor]
     mov byte [rdi], 0x50    ; PUSH RAX
     inc qword [jit_cursor]
     
-    call next_token         ; Skip ','
+    call next_token         ; Skip ',' -> cur_tok = buffer
     call compile_term       ; Parse buffer
+    call next_token         ; Advance -> cur_tok = ','
     
     mov rdi, [jit_cursor]
     mov byte [rdi], 0x50    ; PUSH RAX
     inc qword [jit_cursor]
     
-    call next_token         ; Skip ','
+    call next_token         ; Skip ',' -> cur_tok = length
     call compile_term       ; Parse length
+    call next_token         ; Advance -> cur_tok = ')'
     
     mov rdi, [jit_cursor]
     mov byte [rdi], 0x50    ; PUSH RAX
     inc qword [jit_cursor]
     
-    call next_token         ; Skip ')'
     call generate_read_iat
     ret
 
 .handle_close_intrinsic:
     ; close(handle) - single argument
-    call next_token         ; Skip '('
+    call next_token         ; Skip '(' -> cur_tok = handle
     call compile_term       ; Parse handle
+    call next_token         ; Advance -> cur_tok = ')'
     
     mov rdi, [jit_cursor]
     mov byte [rdi], 0x50    ; PUSH RAX
     inc qword [jit_cursor]
     
-    call next_token         ; Skip ')'
     call generate_close_iat
+    ret
+
+.handle_getbyte_intrinsic:
+    ; getbyte(ptr, offset) - read single byte
+    call next_token         ; Skip '(' -> cur_tok = ptr
+    call compile_term       ; Parse ptr (uses cur_tok)
+    call next_token         ; Advance past ptr -> cur_tok = ','
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    call next_token         ; Skip ',' -> cur_tok = offset
+    call compile_term       ; Parse offset
+    call next_token         ; Advance past offset -> cur_tok = ')'
+    
+    mov rdi, [jit_cursor]
+    mov byte [rdi], 0x50    ; PUSH RAX
+    inc qword [jit_cursor]
+    
+    ; cur_tok is now ')' - no need to skip it, caller will handle
+    call generate_getbyte
     ret
     
 .func_not_found:
@@ -4780,9 +5158,39 @@ next_token:
     mov qword [cur_tok_value], OP_MOD
     jmp .done
 .op_lt:
+    ; Check for <=
+    cmp rsi, [lex_end]
+    jge .op_lt_single
+    
+    mov al, [rsi]
+    cmp al, '='
+    jne .op_lt_single
+    
+    ; It is <=
+    inc rsi
+    mov [lex_pos], rsi
+    mov qword [cur_tok_value], OP_LE
+    jmp .done
+    
+.op_lt_single:
     mov qword [cur_tok_value], OP_LT
     jmp .done
 .op_gt:
+    ; Check for >=
+    cmp rsi, [lex_end]
+    jge .op_gt_single
+    
+    mov al, [rsi]
+    cmp al, '='
+    jne .op_gt_single
+    
+    ; It is >=
+    inc rsi
+    mov [lex_pos], rsi
+    mov qword [cur_tok_value], OP_GE
+    jmp .done
+    
+.op_gt_single:
     mov qword [cur_tok_value], OP_GT
     jmp .done
 .op_eq:
@@ -5954,11 +6362,11 @@ emit_iat_call:
     add rdi, 2
     
     ; Calculate displacement
-    ; Target RVA = 0x2028 + (Index * 8)   ; IAT starts at 0x2028 (after 40-byte Import Directory)
+    ; Target RVA = 0x5028 + (Index * 8)   ; IAT starts at 0x5028 (after 16KB .text, 40-byte Import Directory offset)
     ; Current RVA = 0x1000 + entry_stub_size + (jit_cursor - jit_buffer)
     ; Disp = Target - (Current + 4)       ; +4 because disp is relative to END of instruction
     
-    mov rbx, 0x2028         ; IAT base RVA (first entry at 0x2028, no separate ILT)
+    mov rbx, 0x5028         ; IAT base RVA (first entry at 0x5028, after 16KB .text)
     mov rax, r12
     shl rax, 3              ; Index * 8
     add rbx, rax            ; Target RVA
@@ -6212,6 +6620,44 @@ generate_setbyte:
     ret
 
 ; =============================================================================
+; generate_getbyte - Generate code for getbyte(ptr, offset)
+; Stack on entry: [offset] [ptr] (top to bottom)
+; Generates: MOVZX RAX, BYTE [ptr + offset]
+; Returns: byte value in RAX (zero-extended)
+; =============================================================================
+generate_getbyte:
+    push rbx
+    
+    mov rdi, [jit_cursor]
+    
+    ; POP RCX (offset - top of stack)
+    mov byte [rdi], 0x59        ; POP RCX
+    inc rdi
+    
+    ; POP RDX (ptr)
+    mov byte [rdi], 0x5A        ; POP RDX
+    inc rdi
+    
+    ; MOVZX RAX, BYTE [RDX + RCX]
+    ; Encoding: 48 0F B6 04 0A
+    mov byte [rdi], 0x48        ; REX.W
+    inc rdi
+    mov byte [rdi], 0x0F        ; Two-byte opcode prefix
+    inc rdi
+    mov byte [rdi], 0xB6        ; MOVZX r64, r/m8
+    inc rdi
+    mov byte [rdi], 0x04        ; ModRM: [reg+reg*1]
+    inc rdi
+    mov byte [rdi], 0x0A        ; SIB: base=RDX, index=RCX, scale=1
+    inc rdi
+    
+    ; Update cursor
+    mov [jit_cursor], rdi
+    
+    pop rbx
+    ret
+
+; =============================================================================
 ; generate_read_iat - Generate ReadFile call through IAT
 ; Usage: read(handle, buffer, length)
 ; IAT Index: 4 (ReadFile)
@@ -6283,11 +6729,12 @@ generate_read_iat:
 
 ; =============================================================================
 ; generate_open_iat - Generate CreateFileA call through IAT
-; Usage: let handle = open(filename_ptr)
+; Usage: let handle = open(filename_ptr, mode)
+; mode: 0 = read (OPEN_EXISTING), 1 = write (CREATE_ALWAYS)
 ; IAT Index: 5 (CreateFileA)
 ; CreateFileA(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
 ;             dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile)
-; 7 arguments! First 4 in registers, last 3 on stack.
+; Stack at entry: [mode] [filename] (mode on top)
 ; =============================================================================
 generate_open_iat:
     push rbx
@@ -6295,27 +6742,87 @@ generate_open_iat:
     
     mov rdi, [jit_cursor]
     
-    ; POP RCX (filename pointer - already on stack from caller)
+    ; POP R10 (mode - 0=read, 1=write)
+    ; 41 5A
+    mov byte [rdi], 0x41
+    inc rdi
+    mov byte [rdi], 0x5A        ; POP R10
+    inc rdi
+    
+    ; POP RCX (filename pointer)
     mov byte [rdi], 0x59        ; POP RCX
     inc rdi
     
-    ; MOV RDX, 0x80000000 (GENERIC_READ)
-    ; 48 BA 00 00 00 80 00 00 00 00
-    mov byte [rdi], 0x48
+    ; We'll use a runtime check: if R10 == 1, use WRITE mode
+    ; CMP R10D, 1
+    ; 41 83 FA 01
+    mov byte [rdi], 0x41
     inc rdi
+    mov byte [rdi], 0x83
+    inc rdi
+    mov byte [rdi], 0xFA
+    inc rdi
+    mov byte [rdi], 0x01
+    inc rdi
+    
+    ; JE .write_mode (jump forward if mode==1)
+    ; 74 0D (jump +13 bytes to skip READ block)
+    mov byte [rdi], 0x74
+    inc rdi
+    mov byte [rdi], 0x0D        ; Offset to write_mode block
+    inc rdi
+    
+    ; === READ MODE (default) ===
+    ; MOV EDX, 0x80000000 (GENERIC_READ)
+    ; BA 00 00 00 80
     mov byte [rdi], 0xBA
     inc rdi
     mov dword [rdi], 0x80000000
     add rdi, 4
-    mov dword [rdi], 0x00000000
+    
+    ; MOV R11D, 3 (OPEN_EXISTING)
+    ; 41 BB 03 00 00 00
+    mov byte [rdi], 0x41
+    inc rdi
+    mov byte [rdi], 0xBB
+    inc rdi
+    mov dword [rdi], 0x00000003
     add rdi, 4
     
-    ; MOV R8D, 1 (FILE_SHARE_READ)
-    ; 41 B8 01 00 00 00
-    mov word [rdi], 0xB841      ; 41 B8
-    add rdi, 2
-    mov dword [rdi], 0x00000001
+    ; JMP .after_mode (+11 bytes to skip write block)
+    ; EB 0B
+    mov byte [rdi], 0xEB
+    inc rdi
+    mov byte [rdi], 0x0B
+    inc rdi
+    
+    ; === WRITE MODE ===
+    ; MOV EDX, 0x40000000 (GENERIC_WRITE)
+    ; BA 00 00 00 40
+    mov byte [rdi], 0xBA
+    inc rdi
+    mov dword [rdi], 0x40000000
     add rdi, 4
+    
+    ; MOV R11D, 2 (CREATE_ALWAYS)
+    ; 41 BB 02 00 00 00
+    mov byte [rdi], 0x41
+    inc rdi
+    mov byte [rdi], 0xBB
+    inc rdi
+    mov dword [rdi], 0x00000002
+    add rdi, 4
+    
+    ; === AFTER MODE ===
+    ; XOR R8D, R8D (FILE_SHARE = 0 for write, will be 1 for read - simplified)
+    ; For simplicity, we'll set R8D = 0 for both modes (no sharing)
+    ; 45 31 C0
+    mov byte [rdi], 0x45
+    inc rdi
+    mov byte [rdi], 0x31
+    inc rdi
+    mov byte [rdi], 0xC0
+    inc rdi
     
     ; XOR R9D, R9D (lpSecurityAttributes = NULL)
     ; 45 31 C9
@@ -6326,30 +6833,23 @@ generate_open_iat:
     mov byte [rdi], 0xC9
     inc rdi
     
-    ; Allocate stack space for shadow (32) + 3 stack args (24) + align = 56 bytes (0x38)
-    ; Actually need: shadow(32) + arg5(8) + arg6(8) + arg7(8) = 56 (0x38)
-    ; But need 16-byte alignment, so 64 (0x40)
     ; SUB RSP, 64 (0x40)
+    ; 48 83 EC 40
     mov dword [rdi], 0x40EC8348
     add rdi, 4
     
-    ; Stack layout after SUB RSP, 64:
-    ; [RSP+32] = 5th arg: dwCreationDisposition = OPEN_EXISTING (3)
-    ; [RSP+40] = 6th arg: dwFlagsAndAttributes = FILE_ATTRIBUTE_NORMAL (0x80)
-    ; [RSP+48] = 7th arg: hTemplateFile = NULL (0)
-    
-    ; MOV DWORD [RSP+32], 3 (OPEN_EXISTING)
-    ; C7 44 24 20 03 00 00 00
-    mov byte [rdi], 0xC7
-    inc rdi
+    ; MOV [RSP+32], R11D (dwCreationDisposition from R11)
+    ; 44 89 5C 24 20
     mov byte [rdi], 0x44
+    inc rdi
+    mov byte [rdi], 0x89
+    inc rdi
+    mov byte [rdi], 0x5C
     inc rdi
     mov byte [rdi], 0x24
     inc rdi
-    mov byte [rdi], 0x20        ; offset 32
+    mov byte [rdi], 0x20
     inc rdi
-    mov dword [rdi], 0x00000003 ; OPEN_EXISTING
-    add rdi, 4
     
     ; MOV DWORD [RSP+40], 128 (FILE_ATTRIBUTE_NORMAL = 0x80)
     ; C7 44 24 28 80 00 00 00
@@ -6537,14 +7037,20 @@ generate_call_common:
     add rdi, 4
     
     ; --- 3. EMIT CALL ---
-    ; MOV RAX, FuncAddr (48 B8 ...)
-    mov word [rdi], 0xB848
-    mov [rdi+2], r12
-    add rdi, 10
+    ; Use RELATIVE CALL (E8 rel32) for position-independent code
+    ; This works for both JIT and EXE output since relative offsets are preserved
+    ; rel32 = target - (current_rip + 5)  ; +5 for E8 instruction size
     
-    ; CALL RAX (FF D0)
-    mov word [rdi], 0xD0FF
-    add rdi, 2
+    mov byte [rdi], 0xE8        ; CALL rel32
+    
+    ; Calculate relative offset:
+    ; current_rip = rdi + 5 (after CALL instruction)  
+    ; relative = r12 (target) - (rdi + 5)
+    mov rax, r12                ; target address
+    lea rcx, [rdi + 5]          ; address of next instruction
+    sub rax, rcx                ; relative offset
+    mov [rdi + 1], eax          ; store 32-bit relative offset
+    add rdi, 5                  ; E8 + 4 bytes rel32
     
     ; --- 4. CLEANUP ---
     ; ADD RSP, 32 + Padding

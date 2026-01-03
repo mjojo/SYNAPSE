@@ -1,0 +1,9 @@
+// Super simple - just return 42, no params
+fn test_fn() {
+    return 42
+}
+
+fn main() {
+    let result = test_fn()
+    return result
+}

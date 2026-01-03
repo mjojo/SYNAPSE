@@ -1,0 +1,27 @@
+// Test function that calls str_len AND write
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn do_write(s) {
+    let h = getstd(-11)
+    write(h, s, 2)
+    return 0
+}
+
+fn main() {
+    let a = alloc(4)
+    setbyte(a, 0, 72)  // H
+    setbyte(a, 1, 105) // i
+    setbyte(a, 2, 0)
+    
+    // Call both separately
+    let len = str_len(a)
+    do_write(a)
+    
+    return len
+}

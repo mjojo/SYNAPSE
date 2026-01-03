@@ -1,0 +1,10 @@
+// Test calling any function twice
+fn add1(x) {
+    return x + 1
+}
+
+fn main() {
+    let a = add1(5)
+    let b = add1(10)
+    return a + b
+}

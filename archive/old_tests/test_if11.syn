@@ -1,0 +1,8 @@
+// Simplest if test
+fn main() {
+    let x = 11
+    if x == 11 {
+        return 100
+    }
+    return 0
+}

@@ -1,0 +1,15 @@
+=== CODEGEN TEST: return 42 ===
+=== LEXING ===
+=== PARSING + CODEGEN ===
+PARSER: Found fn keyword
+PARSER: Function name = main
+PARSER: Body Start
+  CODEGEN: RETURN statement
+  CODEGEN: MOV RAX, 42
+PARSER: Body End
+--- GENERATED MACHINE CODE ---
+48 C7 C0 2A 00 00 00 C3 
+------------------------------
+=== BUILDING PE ===
+Wrote output.exe (1024 bytes)
+=== DONE ===

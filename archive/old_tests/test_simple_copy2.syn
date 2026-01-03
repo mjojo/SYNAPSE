@@ -1,0 +1,39 @@
+// Debug copy loop
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn main() {
+    let code = alloc(8)
+    setbyte(code, 0, 102)  // f
+    setbyte(code, 1, 110)  // n
+    setbyte(code, 2, 0)
+    
+    let len = 2
+    let buf = alloc(len + 1)
+    
+    // Simple copy without using start variable
+    let k = 0
+    while k < len {
+        let ch = getbyte(code, k)
+        setbyte(buf, k, ch)
+        k = k + 1
+    }
+    setbyte(buf, len, 0)
+    
+    io_print(buf)
+    io_print("\n")
+    
+    return 0
+}

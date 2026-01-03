@@ -1,0 +1,20 @@
+// Test: getbyte assignment in loop body
+fn main() {
+    let buf = alloc(5)
+    setbyte(buf, 0, 3)
+    setbyte(buf, 1, 2)
+    setbyte(buf, 2, 1)
+    setbyte(buf, 3, 0)
+    
+    let i = 0
+    let ch = getbyte(buf, i)
+    
+    // Just do 2 iterations manually to check
+    if ch > 0 {
+        i = i + 1
+        ch = getbyte(buf, i)
+    }
+    
+    // ch should now be 2, i should be 1
+    return ch
+}

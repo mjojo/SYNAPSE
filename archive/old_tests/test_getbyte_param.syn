@@ -1,0 +1,15 @@
+// Test: getbyte with function parameter
+fn readbyte(ptr, idx) {
+    let val = getbyte(ptr, idx)
+    return val
+}
+
+fn main() {
+    let buf = alloc(5)
+    setbyte(buf, 0, 10)
+    setbyte(buf, 1, 20)
+    setbyte(buf, 2, 30)
+    
+    let v = readbyte(buf, 1)
+    return v
+}

@@ -1,0 +1,47 @@
+// Working pattern from test_loop_print
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_one(c) {
+    let buf = alloc(2)
+    setbyte(buf, 0, c)
+    setbyte(buf, 1, 0)
+    io_print(buf)
+    return 0
+}
+
+fn print_chars(source, count) {
+    let i = 0
+    let c = 0
+    
+    while i < count {
+        c = getbyte(source, i)
+        print_one(c)
+        i = i + 1
+    }
+    return 0
+}
+
+fn main() {
+    let code = alloc(8)
+    setbyte(code, 0, 65)   // A
+    setbyte(code, 1, 66)   // B
+    setbyte(code, 2, 67)   // C
+    setbyte(code, 3, 0)
+    
+    print_chars(code, 3)
+    
+    return 0
+}

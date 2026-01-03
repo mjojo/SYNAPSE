@@ -1,0 +1,41 @@
+// Test array indexing with 64-bit words
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    let h = getstd(-11)
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    write(h, nl, 1)
+    return 0
+}
+
+fn main() {
+    // Test: create a "struct" with 2 words (16 bytes)
+    let t = alloc(16)
+    
+    // Store values
+    t[0] = 42
+    t[1] = 99
+    
+    // Read back
+    let a = t[0]
+    let b = t[1]
+    
+    // Check: should be 42 + 99 = 141
+    return a + b
+}

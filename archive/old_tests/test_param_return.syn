@@ -1,0 +1,9 @@
+// Return param directly
+fn test_fn(x) {
+    return x
+}
+
+fn main() {
+    let result = test_fn(88)
+    return result
+}

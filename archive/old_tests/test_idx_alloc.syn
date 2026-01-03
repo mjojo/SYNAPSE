@@ -1,0 +1,16 @@
+// Test getbyte with alloc buffer
+fn main() {
+    let buf = alloc(8)
+    setbyte(buf, 0, 102)  // f
+    setbyte(buf, 1, 110)  // n
+    setbyte(buf, 2, 0)
+    
+    let idx = 0
+    let ch0 = getbyte(buf, idx)
+    
+    let idx1 = 1
+    let ch1 = getbyte(buf, idx1)
+    
+    // f=102 + n=110 = 212
+    return ch0 + ch1
+}

@@ -1,0 +1,6 @@
+// Minimal test: getbyte from string literal with literal 0
+fn main() {
+    let code = "fn"
+    let ch = getbyte(code, 0)
+    return ch
+}

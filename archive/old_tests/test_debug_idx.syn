@@ -1,0 +1,18 @@
+// Debug calculated index
+fn main() {
+    let buf = alloc(8)
+    setbyte(buf, 0, 65)  // A
+    setbyte(buf, 1, 66)  // B
+    setbyte(buf, 2, 67)  // C
+    setbyte(buf, 3, 0)
+    
+    let start = 0
+    let k = 2
+    let idx = start + k
+    
+    // Check idx value
+    let c = getbyte(buf, idx)
+    
+    // Should return C=67
+    return c
+}

@@ -1,0 +1,15 @@
+// Test simple while with getbyte
+fn main() {
+    let buf = alloc(10)
+    setbyte(buf, 0, 65)
+    setbyte(buf, 1, 66)
+    setbyte(buf, 2, 67)
+    setbyte(buf, 3, 0)
+    
+    // Manual strlen
+    let i = 0
+    let ch = getbyte(buf, i)
+    
+    // First byte should be 65
+    return ch
+}

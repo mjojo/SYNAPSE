@@ -1,0 +1,25 @@
+// Debug is_alpha
+fn is_alpha(c) {
+    // a-z: 97-122
+    if c >= 97 {
+        if c <= 122 { 
+            return 1 
+        }
+    }
+    // A-Z: 65-90
+    if c >= 65 {
+        if c <= 90 { 
+            return 1 
+        }
+    }
+    // _: 95
+    if c == 95 { return 1 }
+    return 0
+}
+
+fn main() {
+    // 'f' = 102
+    let ch = 102
+    let result = is_alpha(ch)
+    return result
+}

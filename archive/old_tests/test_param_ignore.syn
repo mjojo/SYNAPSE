@@ -1,0 +1,9 @@
+// Take param but ignore it
+fn test_fn(x) {
+    return 42
+}
+
+fn main() {
+    let result = test_fn(99)
+    return result
+}

@@ -1,0 +1,51 @@
+// Test: param preservation after REAL call
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn dummy() {
+    return 0
+}
+
+fn print_ab(source) {
+    // Get first char
+    let c = getbyte(source, 0)
+    let buf = alloc(2)
+    setbyte(buf, 0, c)
+    setbyte(buf, 1, 0)
+    io_print(buf)
+    
+    // Call dummy - corrupts source?
+    dummy()
+    
+    // Get second char
+    let c2 = getbyte(source, 1)
+    let buf2 = alloc(2)
+    setbyte(buf2, 0, c2)
+    setbyte(buf2, 1, 0)
+    io_print(buf2)
+    
+    return 0
+}
+
+fn main() {
+    let code = alloc(8)
+    setbyte(code, 0, 65)   // A
+    setbyte(code, 1, 66)   // B
+    setbyte(code, 2, 0)
+    
+    print_ab(code)
+    
+    return 0
+}

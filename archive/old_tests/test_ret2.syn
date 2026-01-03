@@ -1,0 +1,9 @@
+// Test return 42 with some code
+fn foo() {
+    return 0
+}
+
+fn main() {
+    let x = foo()
+    return 42
+}

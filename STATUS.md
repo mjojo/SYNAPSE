@@ -1,49 +1,46 @@
-# 🧠 SYNAPSE v3.3.0 "The Cortex" - Current Status
+# 🧠 SYNAPSE v3.4.0 "The Nervous System" - Current Status
 
 **Date:** January 3, 2026  
-**Build:** 20260103_CORTEX  
-**Phase:** 53 (Dynamic Memory in Standalone) - ✅ **COMPLETE**
+**Build:** 20260103_NERVOUS  
+**Phase:** 55.8 (The Caller) - ✅ **COMPLETE**
 
 ---
 
 ## 🎯 Executive Summary
 
-SYNAPSE v3.3 achieves a historic milestone: **dynamic memory allocation in standalone executables!** Phase 53 "The Cortex" enables generated PE32+ executables to call VirtualAlloc through the IAT, allocate memory at runtime, and read/write data. Exit code 99 confirmed! 🧠
+SYNAPSE v3.4 achieves a historic milestone: **complete PE generation with working API calls!** The "Nervous System" connects the brain (codegen) to the body (PE structure) through real Windows API calls via Import Address Table. Exit code 42 confirmed through ExitProcess! ⚡🧠
 
-**Phase 53 Fixes Applied:**
-1. **Argument compilation bug** — `compile_expr` was double-consuming tokens, causing `alloc(10)` to receive 0 instead of 10
-2. **Global variable removal** — JIT addresses are invalid in standalone executables; now uses only local stack variables via RBP
+**Phase 55 - The Ouroboros Journey:**
+- ✅ Phase 55.1: Bootstrap Kernel (io_print, io_println, str_len, str_eq)
+- ✅ Phase 55.2: Bootstrap Lexer (tokenizer written in Synapse!)
+- ✅ Phase 55.6: The PE Builder (complete PE32+ generation)
+- ✅ Phase 55.7: The Import Generator (.idata with KERNEL32.DLL)
+- ✅ Phase 55.8: The Caller (IAT calls - exit(42) works!)
+- 🎯 Phase 55.9: Hello World (print via WriteFile)
+
+**Compiler Improvements:**
+- ✅ Added `<=` (LE) and `>=` (GE) operators
+- ✅ Fixed nested if condition handling
+- ✅ Added `emit_iat_call()` for API calls
+- ✅ Added `parse_call()` for intrinsics
 
 ---
 
 ## ✅ Completed Features
 
-### Core Compiler (v3.3)
-- ✅ **Lexer v6**: Full tokenization with comments, identifiers, keywords
-- ✅ **Parser v9**: Recursive descent parser for complex syntax trees
-- ✅ **JIT v12**: x64 code generation with standalone-compatible memory allocation
-- ✅ **Codegen v8**: Proper function prologue/epilogue
-- ✅ **Symbol Table v3**: Global and local variable resolution
-- ✅ **Function Table v3**: Fast call resolution with jump tables
+### PE Generation (v3.4)
+- ✅ `emit_pe_header()` - Complete PE32+ headers
+- ✅ `emit_import_table()` - .idata section with KERNEL32.DLL
+- ✅ `emit_iat_call()` - RIP-relative CALL to IAT entries
+- ✅ 8 Windows API imports ready to use
+- ✅ Proper word alignment in Hint/Name table
 
-### File I/O (v3)
-- ✅ `fopen(filename, mode)` - Open files for read/write
-- ✅ `fread(handle, buffer, size)` - Read binary data
-- ✅ `fwrite(handle, buffer, size)` - Write binary data
-- ✅ `fclose(handle)` - Close file handles
-
-### Graphics Engine (v2)
-- ✅ Direct VRAM access via `get_vram()`
-- ✅ Window creation: `window(width, height)`
-- ✅ Pixel manipulation: `pixel(x, y, color)`
-- ✅ Text rendering: `draw_text(x, y, color, text)`
-- ✅ Window updates: `update_window()`
-- ✅ 8x8 embedded system font
-
-### Input System
-- ✅ Mouse: `mouse_x()`, `mouse_y()`, `mouse_btn()`
-- ✅ Keyboard: `get_key(vk_code)`
-- ✅ Real-time event handling
+### Bootstrap Compiler
+- ✅ Lexer with tokenization
+- ✅ Parser with expression handling  
+- ✅ Intrinsic calls: `exit(code)`, `getstd(n)`
+- ✅ Code generation to machine code buffer
+- ✅ PE file writing with all sections
 
 ### Memory Management (v4 — PHASE 53!)
 - ✅ `alloc(size)` - Dynamic memory allocation via VirtualAlloc **IN STANDALONE EXE!**
@@ -133,9 +130,33 @@ fn main() {
 ---
 
 ### Phase 55: The Ouroboros - Self-Hosting
-**Status:** Pending Phase 53-54
+**Status:** IN PROGRESS
 
-**Objective:** Feed bootstrap.syn to synapse_new.exe, generate compiler_v2.exe.
+**Objective:** Build a Synapse compiler in Synapse itself!
+
+**Completed:**
+- ✅ **Phase 55.1: Bootstrap Kernel**
+  - `str_len(s)` - String length using getbyte loop
+  - `str_eq(a, b)` - String comparison
+  - `io_print(s)` - Console output via write() intrinsic
+  - `io_println(s)` - Print with newline
+
+- ✅ **Phase 55.2: Bootstrap Lexer**
+  - `is_space(c)` - Whitespace detection
+  - `is_alpha(c)` - Letter/underscore detection
+  - `is_digit(c)` - Digit detection
+  - `is_alnum(c)` - Alphanumeric detection
+  - `tokenize(source)` - Full tokenizer!
+  - Output format: `ID:fn`, `N:42`, `S:{`
+  - Test: `"fn main{ret 42}"` → correctly tokenized!
+
+**New Operators Added:**
+- `<=` (OP_LE = 18) with SETLE instruction
+- `>=` (OP_GE = 19) with SETGE instruction
+
+**Next:**
+- Phase 55.3: Parser (build AST from tokens)
+- Phase 55.4: Code Generator (emit x64 machine code)
 
 ---
 

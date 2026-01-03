@@ -355,7 +355,7 @@ section '.data' data readable writeable
         
         ; --- DATA DIRECTORIES (16 entries) ---
         dd 0,0                      ; 1. Export (Empty)
-        dd 0x2000, 0x6C             ; 2. IMPORT TABLE (RVA, Size = 108 bytes, ILT=0)
+        dd 0x2000, 0x100            ; 2. IMPORT TABLE (RVA, Size = 256 bytes, Phase 54 full table)
         times 14 dd 0,0             ; 3-16. Rest Empty
         
         ; --- SECTION HEADER ---
@@ -369,7 +369,7 @@ section '.data' data readable writeable
         
         ; --- SECTION HEADER 2: Import Data ---
         db '.idata',0,0              ; Name
-        dd 0x6C                      ; VirtualSize (108 bytes - actual import data, ILT=0)
+        dd 0x100                     ; VirtualSize (256 bytes - Phase 54 import data)
         dd 0x00002000                ; VirtualAddress (RVA 0x2000)
         dd 0x00000200                ; SizeOfRawData (512 bytes on disk)
         dd 0x00000400                ; PointerToRawData (Offset 1024 in file)
@@ -406,11 +406,11 @@ section '.data' data readable writeable
     entry_stub_size = $ - entry_stub
     
     ; ============================================================================
-    ; ============================================================================
-    ; OPTIMIZED IMPORT TABLE (No ILT / Single Thunk)
+    ; PHASE 54: FULL IMPORT TABLE (I/O Support)
     ; RVA Base: 0x2000
     ; Key optimization: ILT=0 tells Windows Loader to use IAT for both lookup and storage
-    ; This matches FASM's approach and eliminates duplicate table overhead
+    ; Functions: ExitProcess, VirtualAlloc, VirtualFree, WriteFile, ReadFile,
+    ;            CreateFileA, CloseHandle, GetStdHandle
     ; ============================================================================
     
     IMPORT_RVA_BASE = 0x2000
@@ -427,11 +427,24 @@ section '.data' data readable writeable
         times 5 dd 0
 
         ; --- Import Address Table (IAT) ---
-        ; With ILT=0, Windows Loader reads function names from IAT entries,
-        ; resolves them, and OVERWRITES these RVAs with real function addresses
+        ; Index mapping:
+        ; [0] ExitProcess    - Terminate process
+        ; [1] VirtualAlloc   - Allocate memory
+        ; [2] VirtualFree    - Free memory
+        ; [3] WriteFile      - Write to file/console
+        ; [4] ReadFile       - Read from file
+        ; [5] CreateFileA    - Open/create file
+        ; [6] CloseHandle    - Close file handle
+        ; [7] GetStdHandle   - Get stdin/stdout/stderr handle
     import_address_table:
-        dq hint_exit - import_data_start + IMPORT_RVA_BASE
-        dq hint_alloc - import_data_start + IMPORT_RVA_BASE
+        dq hint_exit - import_data_start + IMPORT_RVA_BASE      ; [0]
+        dq hint_alloc - import_data_start + IMPORT_RVA_BASE     ; [1]
+        dq hint_free - import_data_start + IMPORT_RVA_BASE      ; [2]
+        dq hint_write - import_data_start + IMPORT_RVA_BASE     ; [3]
+        dq hint_read - import_data_start + IMPORT_RVA_BASE      ; [4]
+        dq hint_create - import_data_start + IMPORT_RVA_BASE    ; [5]
+        dq hint_close - import_data_start + IMPORT_RVA_BASE     ; [6]
+        dq hint_getstd - import_data_start + IMPORT_RVA_BASE    ; [7]
         dq 0                    ; End of IAT
 
         ; --- Names & Hints ---
@@ -445,6 +458,30 @@ section '.data' data readable writeable
     hint_alloc:
         dw 0
         db 'VirtualAlloc',0
+        align 2
+    hint_free:
+        dw 0
+        db 'VirtualFree',0
+        align 2
+    hint_write:
+        dw 0
+        db 'WriteFile',0
+        align 2
+    hint_read:
+        dw 0
+        db 'ReadFile',0
+        align 2
+    hint_create:
+        dw 0
+        db 'CreateFileA',0
+        align 2
+    hint_close:
+        dw 0
+        db 'CloseHandle',0
+        align 2
+    hint_getstd:
+        dw 0
+        db 'GetStdHandle',0
         align 2
 
     import_data_size = $ - import_data_start

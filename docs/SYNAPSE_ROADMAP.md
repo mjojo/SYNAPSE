@@ -1,7 +1,7 @@
 # SYNAPSE ROADMAP: POST-SINGULARITY ERA
 
-**Статус:** v3.2.0-STABLE — Phase 52 Complete ✅ (Standalone PE32+ Executables Working!)  
-**Достижение:** Exit Code 42 — первый работающий автономный исполняемый файл  
+**Статус:** v3.4.0-NERVOUS — Phase 55.8 Complete ✅ (IAT Call Generation Working!)  
+**Достижение:** ExitProcess(42) через IAT — нервная система компилятора работает!  
 **Философия:** "Прагматизм сегодня + Инновации завтра" — строим стабильное ядро с расширяемой архитектурой  
 **Парадигма:** "Безопасность на уровне ДНК" — защита встроена в компилятор, не добавляется позже  
 **Лицензия:** Dual Licensing (Apache 2.0 + AGPL v3) — защита от корпораций, свобода для разработчиков
@@ -66,18 +66,19 @@ graph LR
     P50["Phase 50<br/>PE Generation"]
     P51["Phase 51<br/>Standalone EXE"]
     P52["Phase 52<br/>IAT Working ✅"]
-    P53["Phase 53<br/>Memory"]
-    P55["Phase 55<br/>Self-Hosting"]
+    P53["Phase 53<br/>Memory ✅"]
+    P55["Phase 55.8<br/>IAT Calls ✅"]
+    P56["Phase 55.9<br/>Hello World"]
     P60["Phase 60<br/>AI-Native"]
     P70["Phase 70<br/>Multi-Arch"]
     P100["Phase 100<br/>Titan OS"]
     
-    TITAN --> P50 --> P51 --> P52 --> P53 --> P55 --> P60 --> P70 --> P100
+    TITAN --> P50 --> P51 --> P52 --> P53 --> P55 --> P56 --> P60 --> P70 --> P100
     
-    style P52 fill:#0f0
+    style P55 fill:#0f0
 ```
 
-**Где мы сейчас:** Phase 52 ✅ → Phase 53 (Memory) — следующая цель
+**Где мы сейчас:** Phase 55.8 ✅ → Phase 55.9 (Hello World via WriteFile) — следующая цель
 
 ---
 
@@ -126,28 +127,49 @@ graph LR
 
 ---
 
-### Phase 55: The Ouroboros (Self-Hosting) 🐍
+### Phase 55: The Nervous System (IAT Call Generation) 🧠⚡
 
-**Цель:** СИНГУЛЯРНОСТЬ — компилятор компилирует сам себя
+**Цель:** Научить сгенерированные EXE вызывать Windows API через IAT
 
-**Статус:** ⏳ Запланировано
+**Статус:** ✅ Steps 6-8 Complete!
 
 | # | Задача | Описание | Статус |
 |---|--------|----------|--------|
-| 55.1 | **Bootstrap Compiler** | Создать `bootstrap.syn` — минимальный самокомпилирующийся компилятор | ⬜ |
-| 55.2 | **Generation 1** | `synapse.exe` (Host FASM) → `compiler_v1.exe` | ⬜ |
-| 55.3 | **Generation 2** | `compiler_v1.exe` → `compiler_v2.exe` | ⬜ |
-| 55.4 | **Verification** | Сравнить поведение v1 и v2 (идентичный вывод на тестах) | ⬜ |
-| 55.5 | **Independence Day** | Удалить `synapse.asm` из репозитория (если v2 стабильна) | ⬜ |
+| 55.1 | **Bootstrap Compiler** | Создать `bootstrap.syn` — минимальный самокомпилирующийся компилятор | ✅ |
+| 55.2 | **Lexer** | Токенизация исходного кода (ident, number, string, operators) | ✅ |
+| 55.3 | **Parser** | Парсинг let, if, while, fn, return, print | ✅ |
+| 55.4 | **Codegen** | Генерация x64 машинного кода | ✅ |
+| 55.5 | **PE Header** | Полноценный PE32+ заголовок с секциями | ✅ |
+| 55.6 | **PE Builder** | `emit_pe_header()` в Synapse — генерация DOS/PE/Sections | ✅ |
+| 55.7 | **Import Generator** | `emit_import_table()` — IAT с 8 функциями KERNEL32.DLL | ✅ |
+| 55.8 | **The Caller** | `emit_iat_call()` — RIP-relative CALL через IAT | ✅ |
+| 55.9 | **Hello World** | WriteFile через IAT — вывод в консоль | ⬜ |
+| 55.10 | **Self-Hosting** | compiler_v1.exe → compiler_v2.exe → verification | ⬜ |
 
-**Риск:** Самая сложная фаза — любая ошибка в генерации кода умножается на себя  
-**Итог:** Язык становится полностью автономным, FASM больше не нужен
+**Достижение:** `output.exe` успешно вызывает `ExitProcess(42)` через IAT! 🎉
+
+**Ключевые функции:**
+- `emit_iat_call(state, index)` — генерирует `FF 15 xx xx xx xx` (CALL [RIP+disp32])
+- `emit_stack_setup()` — SUB RSP, 40 (Windows x64 ABI shadow space)
+- RIP-relative displacement: `target_RVA - (current_RVA + 6)`
+
+**IAT Functions (RVA 0x2028):**
+| Index | Function | Usage |
+|-------|----------|-------|
+| 0 | ExitProcess | ✅ Working! |
+| 1 | VirtualAlloc | Memory allocation |
+| 2 | VirtualFree | Memory deallocation |
+| 3 | WriteFile | Console/file output |
+| 4 | ReadFile | File input |
+| 5 | CreateFileA | File operations |
+| 6 | CloseHandle | Handle cleanup |
+| 7 | GetStdHandle | Console handles |
 
 **Тест:** 
 ```bash
-compiler_v1.exe bootstrap.syn -o compiler_v2.exe
-compiler_v2.exe bootstrap.syn -o compiler_v3.exe
-diff compiler_v2.exe compiler_v3.exe  # Должен быть пустым
+synapse_new.exe examples/exit_call_demo.syn
+output.exe
+echo %ERRORLEVEL%  # Returns 42
 ```
 
 ---
@@ -430,16 +452,23 @@ AI Suggestion: Added '}' and optimized loop. Apply? [y/n]
 | 1-49 | Foundation → JIT | Лексер, парсер, JIT-компилятор, self-hosting compiler | 2025 |
 | 50 | The Exporter | PE32+ Header Generation | Dec 2025 |
 | 51 | The Exodus | Standalone EXE (Exit Code 42/99) | Jan 2026 |
-| **52** | **The Standard Library** | **IAT Working! Bug 0x148→0x150 Fixed** | **Jan 3, 2026** ✅ |
+| 52 | The Standard Library | IAT Working! Bug 0x148→0x150 Fixed | Jan 3, 2026 ✅ |
+| 53 | The Cortex | VirtualAlloc память работает | Jan 3, 2026 ✅ |
+| **55.6** | **PE Builder** | **emit_pe_header() в Synapse** | **Jan 3, 2026** ✅ |
+| **55.7** | **Import Generator** | **emit_import_table() с 8 API функциями** | **Jan 3, 2026** ✅ |
+| **55.8** | **The Caller** | **emit_iat_call() — ExitProcess(42) через IAT!** | **Jan 3, 2026** ✅ |
 
 ### Прогресс по Эрам
 
 ```
 ЭРА 1: ФУНДАМЕНТ
 ├─ Phase 52 [██████████] 100% ✅ — IAT Working
-├─ Phase 53 [░░░░░░░░░░]   0% 🔄 — Memory (NEXT)
-├─ Phase 54 [░░░░░░░░░░]   0% ⏳ — File I/O
-└─ Phase 55 [░░░░░░░░░░]   0% ⏳ — Self-Hosting
+├─ Phase 53 [██████████] 100% ✅ — Memory (VirtualAlloc)
+├─ Phase 54 [░░░░░░░░░░]   0% ⏳ — File I/O  
+├─ Phase 55.6 [██████████] 100% ✅ — PE Builder
+├─ Phase 55.7 [██████████] 100% ✅ — Import Generator
+├─ Phase 55.8 [██████████] 100% ✅ — IAT Calls (ExitProcess!)
+└─ Phase 55.9 [░░░░░░░░░░]   0% 🔄 — Hello World (NEXT)
 
 ЭРА 2: ПОЛИМОРФИЗМ + БЕЗОПАСНОСТЬ
 ├─ Phase 56 [░░░░░░░░░░]   0% 🔵 — Multi-Arch Backend
@@ -461,26 +490,27 @@ AI Suggestion: Added '}' and optimized loop. Apply? [y/n]
 └─ Phase 100 [░░░░░░░░░░]  0% 🔮 — Synapse OS (Bare Metal)
 ```
 
-**Общий прогресс проекта:** 52/100 фаз = **52% завершено**
+**Общий прогресс проекта:** 58/100 фаз = **58% завершено**
 
 ---
 
-## 🎯 Ближайшие Приоритеты (Next 2 Weeks)
+## 🎯 Ближайшие Приоритеты (Next Week)
 
-1. **Phase 53 (Memory)** 🔥 КРИТИЧНО
-   - Исправить stack alignment для VirtualAlloc
-   - Тест: `arrays.exe` выделяет массив и сортирует
+1. **Phase 55.9 (Hello World)** 🔥 NEXT
+   - WriteFile через IAT — вывод "Hello, World!" в консоль
+   - GetStdHandle(-11) → WriteFile(handle, buffer, len)
+   - Тест: `hello.exe` выводит текст и возвращает 0
    
-2. **Phase 54 (File I/O)** 🔥 КРИТИЧНО
-   - Расширить IAT (CreateFile, ReadFile, WriteFile)
-   - Тест: `cat.exe` читает и выводит файл
+2. **Phase 55.10 (Self-Hosting)** 🏆 MILESTONE
+   - `bootstrap_compiler.syn` → `compiler_v1.exe` → `compiler_v2.exe`
+   - Проверка: v1 и v2 генерируют идентичный код
+   - Результат: FASM больше не нужен для development
    
-3. **Phase 55 (Self-Hosting)** 🏆 MILESTONE
-   - `bootstrap.syn` → `compiler_v1.exe` → `compiler_v2.exe`
-   - Проверка: v1 и v2 работают идентично
-   - Результат: FASM больше не нужен
+3. **Phase 56 (Backend Split)** 🔵 ARCHITECTURE
+   - Разделение на Frontend (AST) и Backend (codegen)
+   - Подготовка к ARM64/RISC-V бэкендам
 
-**После этого:** Мы переходим к Эре 2 (Мультиархитектура + AI)
+**После этого:** Эра 2 (Мультиархитектура + AI + Security)
 
 ---
 
@@ -715,8 +745,8 @@ fn main() {
 ---
 
 *Дата обновления: 2026-01-03*  
-*Версия: v3.2.0-STABLE (Post-Singularity Edition)*  
-*Статус: Phase 52 Complete ✅ → Phase 53 Next 🔄*  
+*Версия: v3.4.0-NERVOUS (The Nervous System Edition)*  
+*Статус: Phase 55.8 Complete ✅ → Phase 55.9 (Hello World) Next 🔄*  
 *Философия: "Прагматизм сегодня + Инновации завтра"*
 
 ---

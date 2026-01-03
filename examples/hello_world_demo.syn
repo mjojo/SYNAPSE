@@ -1,0 +1,697 @@
+// Phase 55 Step 9: Hello World via WriteFile
+// Generates an EXE that prints "Hello World!" to console
+
+// --- CODEGEN HELPERS ---
+fn init_codegen(state) {
+    state[3] = alloc(4096)   // code_buf
+    state[4] = 0             // code_pos
+    state[7] = alloc(4096)   // data_buf (NEW!)
+    state[8] = 0             // data_pos (NEW!)
+    return 0
+}
+
+fn emit(state, b) {
+    let code_buf = state[3]
+    let code_pos = state[4]
+    setbyte(code_buf, code_pos, b)
+    state[4] = code_pos + 1
+    return 0
+}
+
+fn emit_dword(state, n) {
+    emit(state, n % 256)
+    let n1 = n / 256
+    emit(state, n1 % 256)
+    let n2 = n1 / 256
+    emit(state, n2 % 256)
+    let n3 = n2 / 256
+    emit(state, n3 % 256)
+    return 0
+}
+
+fn emit_qword(state, n) {
+    emit_dword(state, n)
+    emit_dword(state, 0)
+    return 0
+}
+
+// --- DATA SECTION HELPERS ---
+fn add_string_data(state, str_ptr) {
+    let data_buf = state[7]
+    let data_pos = state[8]
+    let offset = data_pos
+    
+    let i = 0
+    let c = getbyte(str_ptr, 0)
+    while c > 0 {
+        setbyte(data_buf, data_pos, c)
+        data_pos = data_pos + 1
+        i = i + 1
+        c = getbyte(str_ptr, i)
+    }
+    setbyte(data_buf, data_pos, 0)
+    data_pos = data_pos + 1
+    
+    state[8] = data_pos
+    return offset
+}
+
+// --- PE BUILDER HELPERS ---
+fn init_pe_builder(state) {
+    state[5] = alloc(8192)
+    state[6] = 0
+    return 0
+}
+
+fn put_byte(state, b) {
+    let exe_buf = state[5]
+    let exe_pos = state[6]
+    setbyte(exe_buf, exe_pos, b)
+    state[6] = exe_pos + 1
+    return 0
+}
+
+fn put_word(state, w) {
+    put_byte(state, w % 256)
+    let w1 = w / 256
+    put_byte(state, w1 % 256)
+    return 0
+}
+
+fn put_dword(state, d) {
+    put_byte(state, d % 256)
+    let d1 = d / 256
+    put_byte(state, d1 % 256)
+    let d2 = d1 / 256
+    put_byte(state, d2 % 256)
+    let d3 = d2 / 256
+    put_byte(state, d3 % 256)
+    return 0
+}
+
+fn put_qword(state, q) {
+    put_dword(state, q)
+    put_dword(state, 0)
+    return 0
+}
+
+fn put_zeros(state, count) {
+    let i = 0
+    while i < count {
+        put_byte(state, 0)
+        i = i + 1
+    }
+    return 0
+}
+
+fn emit_pe_header(state, code_size, data_size) {
+    // 1. DOS Header (64 bytes)
+    put_byte(state, 77)  // M
+    put_byte(state, 90)  // Z
+    put_zeros(state, 58)
+    put_dword(state, 64) // e_lfanew = 0x40
+
+    // 2. PE Signature
+    put_byte(state, 80)  // P
+    put_byte(state, 69)  // E
+    put_word(state, 0)
+
+    // 3. COFF Header (20 bytes)
+    put_word(state, 34404)  // AMD64
+    put_word(state, 2)      // 2 sections
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_word(state, 240)    // OptionalHeader size
+    put_word(state, 34)     // Characteristics
+
+    // 4. Optional Header Standard Fields
+    put_word(state, 523)    // PE32+ Magic
+    put_byte(state, 1)
+    put_byte(state, 0)
+    put_dword(state, 512)   // SizeOfCode
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 4096)  // EntryPoint = 0x1000
+    put_dword(state, 4096)  // BaseOfCode
+
+    // 5. Optional Header Windows-Specific
+    put_qword(state, 4194304)  // ImageBase: 0x400000
+    put_dword(state, 4096)     // SectionAlignment
+    put_dword(state, 512)      // FileAlignment
+    put_word(state, 6)
+    put_word(state, 0)
+    put_word(state, 0)
+    put_word(state, 0)
+    put_word(state, 6)
+    put_word(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 12288)    // SizeOfImage: 0x3000
+    put_dword(state, 512)      // SizeOfHeaders
+    put_dword(state, 0)
+    put_word(state, 3)         // CONSOLE
+    put_word(state, 0)
+    put_qword(state, 1048576)
+    put_qword(state, 4096)
+    put_qword(state, 1048576)
+    put_qword(state, 4096)
+    put_dword(state, 0)
+    put_dword(state, 16)
+
+    // 6. Data Directories
+    put_dword(state, 0)        // Export
+    put_dword(state, 0)
+    put_dword(state, 8192)     // Import RVA = 0x2000
+    put_dword(state, 40)
+    put_zeros(state, 80)
+    put_dword(state, 8232)     // IAT RVA = 0x2028
+    put_dword(state, 72)
+    put_zeros(state, 24)
+
+    // 7. .text section header
+    put_byte(state, 46)
+    put_byte(state, 116)
+    put_byte(state, 101)
+    put_byte(state, 120)
+    put_byte(state, 116)
+    put_zeros(state, 3)
+    put_dword(state, code_size + data_size)  // VirtualSize
+    put_dword(state, 4096)     // VirtualAddress
+    put_dword(state, 512)      // SizeOfRawData
+    put_dword(state, 512)      // PointerToRawData
+    put_zeros(state, 12)
+    put_dword(state, 1610612768)  // CODE|EXECUTE|READ
+
+    // 8. .idata section header
+    put_byte(state, 46)
+    put_byte(state, 105)
+    put_byte(state, 100)
+    put_byte(state, 97)
+    put_byte(state, 116)
+    put_byte(state, 97)
+    put_zeros(state, 2)
+    put_dword(state, 512)
+    put_dword(state, 8192)     // VirtualAddress
+    put_dword(state, 512)
+    put_dword(state, 1024)
+    put_zeros(state, 12)
+    put_dword(state, 1073741888)
+
+    // Pad to 512
+    let exe_pos = state[6]
+    while exe_pos < 512 {
+        put_byte(state, 0)
+        exe_pos = state[6]
+    }
+    return 0
+}
+
+fn emit_import_table(state) {
+    let IDATA_RVA = 8192
+    let IAT_OFF = 40
+
+    // IDT entry
+    put_dword(state, IDATA_RVA + IAT_OFF)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, IDATA_RVA + 112)
+    put_dword(state, IDATA_RVA + IAT_OFF)
+
+    // Null IDT
+    put_zeros(state, 20)
+
+    // IAT (8 entries + null)
+    let hint_base = IDATA_RVA + 126
+    put_qword(state, hint_base)        // [0] ExitProcess
+    put_qword(state, hint_base + 14)   // [1] VirtualAlloc
+    put_qword(state, hint_base + 30)   // [2] VirtualFree
+    put_qword(state, hint_base + 44)   // [3] WriteFile
+    put_qword(state, hint_base + 56)   // [4] ReadFile
+    put_qword(state, hint_base + 68)   // [5] CreateFileA
+    put_qword(state, hint_base + 82)   // [6] CloseHandle
+    put_qword(state, hint_base + 96)   // [7] GetStdHandle
+    put_qword(state, 0)
+
+    // DLL Name
+    put_byte(state, 75)
+    put_byte(state, 69)
+    put_byte(state, 82)
+    put_byte(state, 78)
+    put_byte(state, 69)
+    put_byte(state, 76)
+    put_byte(state, 51)
+    put_byte(state, 50)
+    put_byte(state, 46)
+    put_byte(state, 68)
+    put_byte(state, 76)
+    put_byte(state, 76)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // Hint/Name Table
+    // [0] ExitProcess
+    put_word(state, 0)
+    put_byte(state, 69)
+    put_byte(state, 120)
+    put_byte(state, 105)
+    put_byte(state, 116)
+    put_byte(state, 80)
+    put_byte(state, 114)
+    put_byte(state, 111)
+    put_byte(state, 99)
+    put_byte(state, 101)
+    put_byte(state, 115)
+    put_byte(state, 115)
+    put_byte(state, 0)
+
+    // [1] VirtualAlloc
+    put_word(state, 0)
+    put_byte(state, 86)
+    put_byte(state, 105)
+    put_byte(state, 114)
+    put_byte(state, 116)
+    put_byte(state, 117)
+    put_byte(state, 97)
+    put_byte(state, 108)
+    put_byte(state, 65)
+    put_byte(state, 108)
+    put_byte(state, 108)
+    put_byte(state, 111)
+    put_byte(state, 99)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // [2] VirtualFree
+    put_word(state, 0)
+    put_byte(state, 86)
+    put_byte(state, 105)
+    put_byte(state, 114)
+    put_byte(state, 116)
+    put_byte(state, 117)
+    put_byte(state, 97)
+    put_byte(state, 108)
+    put_byte(state, 70)
+    put_byte(state, 114)
+    put_byte(state, 101)
+    put_byte(state, 101)
+    put_byte(state, 0)
+
+    // [3] WriteFile
+    put_word(state, 0)
+    put_byte(state, 87)
+    put_byte(state, 114)
+    put_byte(state, 105)
+    put_byte(state, 116)
+    put_byte(state, 101)
+    put_byte(state, 70)
+    put_byte(state, 105)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+
+    // [4] ReadFile
+    put_word(state, 0)
+    put_byte(state, 82)
+    put_byte(state, 101)
+    put_byte(state, 97)
+    put_byte(state, 100)
+    put_byte(state, 70)
+    put_byte(state, 105)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // [5] CreateFileA
+    put_word(state, 0)
+    put_byte(state, 67)
+    put_byte(state, 114)
+    put_byte(state, 101)
+    put_byte(state, 97)
+    put_byte(state, 116)
+    put_byte(state, 101)
+    put_byte(state, 70)
+    put_byte(state, 105)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 65)
+    put_byte(state, 0)
+
+    // [6] CloseHandle
+    put_word(state, 0)
+    put_byte(state, 67)
+    put_byte(state, 108)
+    put_byte(state, 111)
+    put_byte(state, 115)
+    put_byte(state, 101)
+    put_byte(state, 72)
+    put_byte(state, 97)
+    put_byte(state, 110)
+    put_byte(state, 100)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+
+    // [7] GetStdHandle
+    put_word(state, 0)
+    put_byte(state, 71)
+    put_byte(state, 101)
+    put_byte(state, 116)
+    put_byte(state, 83)
+    put_byte(state, 116)
+    put_byte(state, 100)
+    put_byte(state, 72)
+    put_byte(state, 97)
+    put_byte(state, 110)
+    put_byte(state, 100)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // Pad to 1536
+    let exe_pos = state[6]
+    while exe_pos < 1536 {
+        put_byte(state, 0)
+        exe_pos = state[6]
+    }
+    return 0
+}
+
+// Generate IAT call (RIP-relative CALL)
+// IAT layout: [0]=ExitProcess, [1]=VirtualAlloc, ..., [7]=GetStdHandle
+fn emit_iat_call(state, iat_index) {
+    // IAT base = 0x2028, each entry = 8 bytes
+    // For index 0: target = 0x2028
+    // For index 7: target = 0x2028 + 56 = 0x2060
+    
+    let iat_offset = iat_index * 8
+    let target_rva = 8232 + iat_offset   // 0x2028 + offset
+    
+    let code_pos = state[4]
+    // RIP points to NEXT instruction (current + 6 bytes for FF 15 xx xx xx xx)
+    let next_rip = 4096 + code_pos + 6   // 0x1000 + code_pos + 6
+    
+    // Signed displacement
+    let disp = target_rva - next_rip
+    
+    // Emit CALL [RIP+disp32]
+    emit(state, 255)
+    emit(state, 21)
+    
+    // Emit displacement as little-endian dword
+    emit(state, disp % 256)
+    let d1 = disp / 256
+    emit(state, d1 % 256)
+    let d2 = d1 / 256
+    emit(state, d2 % 256)
+    let d3 = d2 / 256
+    emit(state, d3 % 256)
+    
+    return 0
+}
+
+fn save_exe(state, filename) {
+    let exe_buf = state[5]
+    let exe_pos = state[6]
+    let h = open(filename, 1)
+    write(h, exe_buf, exe_pos)
+    close(h)
+    return 0
+}
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_nl() {
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    io_print(nl)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    print_nl()
+    return 0
+}
+
+fn main() {
+    io_println("=== GENERATING Hello World EXE ===")
+
+    let state = alloc(80)
+    init_codegen(state)
+    init_pe_builder(state)
+
+    // Store the string "Hello World!" at data_buf
+    // The string will be at RVA 0x1000 + code_offset
+    let hello_str = alloc(16)
+    setbyte(hello_str, 0, 72)   // H
+    setbyte(hello_str, 1, 101)  // e
+    setbyte(hello_str, 2, 108)  // l
+    setbyte(hello_str, 3, 108)  // l
+    setbyte(hello_str, 4, 111)  // o
+    setbyte(hello_str, 5, 32)   // space
+    setbyte(hello_str, 6, 87)   // W
+    setbyte(hello_str, 7, 111)  // o
+    setbyte(hello_str, 8, 114)  // r
+    setbyte(hello_str, 9, 108)  // l
+    setbyte(hello_str, 10, 100) // d
+    setbyte(hello_str, 11, 33)  // !
+    setbyte(hello_str, 12, 10)  // \n
+    setbyte(hello_str, 13, 0)
+
+    let str_offset = add_string_data(state, hello_str)
+    io_println("String stored in data section")
+
+    // ======================================
+    // Generate code for:
+    //   let h = getstd(-11)
+    //   write(h, "Hello World!\n", 13)
+    //   exit(0)
+    // ======================================
+
+    // --- STEP 1: SUB RSP, 56 (stack alignment + shadow space + stack args)
+    // 48 83 EC 38
+    emit(state, 72)
+    emit(state, 131)
+    emit(state, 236)
+    emit(state, 56)
+
+    // --- STEP 2: GetStdHandle(-11) ---
+    // MOV ECX, -11 (0xFFFFFFF5)
+    // B9 F5 FF FF FF
+    emit(state, 185)
+    emit(state, 245)   // 0xF5
+    emit(state, 255)
+    emit(state, 255)
+    emit(state, 255)
+
+    // CALL GetStdHandle (IAT index 7)
+    emit_iat_call(state, 7)
+
+    // Save handle: MOV R12, RAX (49 89 C4)
+    emit(state, 73)
+    emit(state, 137)
+    emit(state, 196)
+
+    // --- STEP 3: WriteFile(handle, buffer, length, &written, 0) ---
+    // RCX = handle (R12)
+    // RDX = buffer pointer (string at code_end)
+    // R8 = length (13)
+    // R9 = 0 (lpNumberOfBytesWritten, we'll use stack)
+    // [RSP+32] = 0 (lpOverlapped)
+
+    // MOV RCX, R12 (4C 89 E1)
+    emit(state, 76)
+    emit(state, 137)
+    emit(state, 225)
+
+    // String address = ImageBase + .text RVA + code_size + str_offset
+    // We'll calculate this after we know code_size
+    // For now: LEA RDX, [RIP + offset_to_string]
+    // We'll patch this later, or use absolute address
+    
+    // The string is at: 0x401000 + code_size + str_offset
+    // We know code will be around 80 bytes, data starts at offset 128 (aligned)
+    // String at 0x401080
+    
+    // Actually, let's put data at fixed offset 256 (0x100) from .text start
+    // So string VA = 0x401100
+    // MOV RDX, 0x401100 (absolute)
+    // 48 BA xx xx xx xx 00 00 00 00
+    emit(state, 72)
+    emit(state, 186)  // MOV RDX, imm64
+    // We need to emit the VA of the string
+    // Let's calculate: 0x400000 + 0x1000 + 0x100 + str_offset = 0x401100
+    let str_va = 4194304 + 4096 + 256 + str_offset
+    emit(state, str_va % 256)
+    let sv1 = str_va / 256
+    emit(state, sv1 % 256)
+    let sv2 = sv1 / 256
+    emit(state, sv2 % 256)
+    let sv3 = sv2 / 256
+    emit(state, sv3 % 256)
+    emit(state, 0)
+    emit(state, 0)
+    emit(state, 0)
+    emit(state, 0)
+
+    // MOV R8D, 13 (length of "Hello World!\n")
+    // 41 B8 0D 00 00 00
+    emit(state, 65)
+    emit(state, 184)
+    emit(state, 13)
+    emit(state, 0)
+    emit(state, 0)
+    emit(state, 0)
+
+    // LEA R9, [RSP+48] - use stack for lpNumberOfBytesWritten
+    // 4C 8D 4C 24 30
+    emit(state, 76)
+    emit(state, 141)
+    emit(state, 76)
+    emit(state, 36)
+    emit(state, 48)
+
+    // MOV QWORD [RSP+32], 0 - lpOverlapped = NULL
+    // 48 C7 44 24 20 00 00 00 00
+    emit(state, 72)
+    emit(state, 199)
+    emit(state, 68)
+    emit(state, 36)
+    emit(state, 32)
+    emit(state, 0)
+    emit(state, 0)
+    emit(state, 0)
+    emit(state, 0)
+
+    // CALL WriteFile (IAT index 3)
+    emit_iat_call(state, 3)
+
+    // --- STEP 4: ExitProcess(0) ---
+    // XOR ECX, ECX (31 C9)
+    emit(state, 49)
+    emit(state, 201)
+
+    // CALL ExitProcess (IAT index 0)
+    emit_iat_call(state, 0)
+
+    let code_size = state[4]
+    let data_size = state[8]
+
+    io_print("Code size: ")
+    let dbuf = alloc(16)
+    let dv = code_size
+    let di = 0
+    if dv == 0 {
+        setbyte(dbuf, 0, 48)
+        di = 1
+    }
+    while dv > 0 {
+        let dd = dv % 10
+        setbyte(dbuf, di, dd + 48)
+        dv = dv / 10
+        di = di + 1
+    }
+    setbyte(dbuf, di, 0)
+    let dj = 0
+    let dk = di - 1
+    while dj < dk {
+        let t1 = getbyte(dbuf, dj)
+        let t2 = getbyte(dbuf, dk)
+        setbyte(dbuf, dj, t2)
+        setbyte(dbuf, dk, t1)
+        dj = dj + 1
+        dk = dk - 1
+    }
+    io_println(dbuf)
+
+    io_print("Data size: ")
+    dv = data_size
+    di = 0
+    if dv == 0 {
+        setbyte(dbuf, 0, 48)
+        di = 1
+    }
+    while dv > 0 {
+        let dd = dv % 10
+        setbyte(dbuf, di, dd + 48)
+        dv = dv / 10
+        di = di + 1
+    }
+    setbyte(dbuf, di, 0)
+    dj = 0
+    dk = di - 1
+    while dj < dk {
+        let t1 = getbyte(dbuf, dj)
+        let t2 = getbyte(dbuf, dk)
+        setbyte(dbuf, dj, t2)
+        setbyte(dbuf, dk, t1)
+        dj = dj + 1
+        dk = dk - 1
+    }
+    io_println(dbuf)
+
+    io_println("Building PE header...")
+    emit_pe_header(state, code_size, data_size)
+
+    // Copy code to .text section (at offset 512)
+    let code_buf = state[3]
+    let exe_buf = state[5]
+    let ci = 0
+    while ci < code_size {
+        let cb = getbyte(code_buf, ci)
+        setbyte(exe_buf, 512 + ci, cb)
+        ci = ci + 1
+    }
+
+    // Copy data to .text section (at offset 512 + 256)
+    let data_buf = state[7]
+    let di2 = 0
+    while di2 < data_size {
+        let db = getbyte(data_buf, di2)
+        setbyte(exe_buf, 512 + 256 + di2, db)
+        di2 = di2 + 1
+    }
+
+    // Advance to .idata
+    state[6] = 1024
+
+    io_println("Writing import table...")
+    emit_import_table(state)
+
+    // Save
+    let fname = alloc(16)
+    setbyte(fname, 0, 111)   // o
+    setbyte(fname, 1, 117)   // u
+    setbyte(fname, 2, 116)   // t
+    setbyte(fname, 3, 112)   // p
+    setbyte(fname, 4, 117)   // u
+    setbyte(fname, 5, 116)   // t
+    setbyte(fname, 6, 46)    // .
+    setbyte(fname, 7, 101)   // e
+    setbyte(fname, 8, 120)   // x
+    setbyte(fname, 9, 101)   // e
+    setbyte(fname, 10, 0)
+
+    save_exe(state, fname)
+    io_println("Created output.exe")
+    io_println("")
+    io_println("Run: output.exe")
+    io_println("Expected: Hello World!")
+    return 0
+}

@@ -1,0 +1,38 @@
+======================================================================
+IMPORT DIRECTORY TABLE ANALYSIS
+======================================================================
+
+Import Directory Entry #1:
+  OriginalFirstThunk (ILT) RVA: 0x00000000
+  TimeDateStamp:                 0x00000000
+  ForwarderChain:                0x00000000
+  Name RVA:                      0x00002070
+  FirstThunk (IAT) RVA:          0x00002028
+
+DLL Name at RVA 0x2070: 'KERNEL32.DLL'
+
+Import Lookup Table (ILT):
+  ILT[0]: 0x0000000000000000 (terminator)
+
+Import Address Table (IAT) - BEFORE LoaderFill:
+  IAT[0] at file:0x428 (RVA:0x2028): 0x000000000000207E
+  IAT[1] at file:0x430 (RVA:0x2030): 0x000000000000208C
+  IAT[2] at file:0x438 (RVA:0x2038): 0x000000000000209C
+  IAT[3] at file:0x440 (RVA:0x2040): 0x00000000000020AA
+  IAT[4] at file:0x448 (RVA:0x2048): 0x00000000000020B6
+  IAT[5] at file:0x450 (RVA:0x2050): 0x00000000000020C2
+  IAT[6] at file:0x458 (RVA:0x2058): 0x00000000000020D0
+  IAT[7] at file:0x460 (RVA:0x2060): 0x00000000000020DE
+
+======================================================================
+EXPECTED BEHAVIOR:
+======================================================================
+Windows Loader should:
+  1. Read ILT entries to find function names
+  2. Resolve each name in KERNEL32.DLL
+  3. OVERWRITE IAT entries with real function addresses
+  4. After load, IAT should contain addresses like 0x00007FF8XXXXX
+
+If IAT still contains RVAs (0x20XX) after load, it means:
+  - Loader didn't process the import table
+  - Something is wrong with Import Directory structure

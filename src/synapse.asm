@@ -341,7 +341,7 @@ section '.data' data readable writeable
         dd 0x00000200               ; FileAlignment
         dw 4,0                      ; OS Version
         dw 0,0                      ; Image Version
-        dw 4,0                      ; Subsystem Version
+        dw 5,0                      ; Subsystem Version (5.0 = Windows 2000+)
         dd 0                        ; Win32VersionValue
         dd 0x00003000               ; SizeOfImage (Headers + Code + Import = 3 sections)
         dd 0x00000200               ; SizeOfHeaders
@@ -355,7 +355,7 @@ section '.data' data readable writeable
         
         ; --- DATA DIRECTORIES (16 entries) ---
         dd 0,0                      ; 1. Export (Empty)
-        dd 0x2000, 256              ; 2. IMPORT TABLE (RVA, Size - hardcoded)
+        dd 0x2000, 0x6C             ; 2. IMPORT TABLE (RVA, Size = 108 bytes, ILT=0)
         times 14 dd 0,0             ; 3-16. Rest Empty
         
         ; --- SECTION HEADER ---
@@ -369,7 +369,7 @@ section '.data' data readable writeable
         
         ; --- SECTION HEADER 2: Import Data ---
         db '.idata',0,0              ; Name
-        dd 256                       ; VirtualSize (hardcoded - must match import_data_size)
+        dd 0x6C                      ; VirtualSize (108 bytes - actual import data, ILT=0)
         dd 0x00002000                ; VirtualAddress (RVA 0x2000)
         dd 0x00000200                ; SizeOfRawData (512 bytes on disk)
         dd 0x00000400                ; PointerToRawData (Offset 1024 in file)
@@ -393,61 +393,46 @@ section '.data' data readable writeable
     ; ENTRY POINT STUB (Call main() then ExitProcess)
     ; Total size: 21 bytes
     ; Offsets calculated relative to NEXT instruction (x86-64 convention)
-    ; IAT starts at RVA 0x2070 (not 0x2000!), first entry is ExitProcess
+    ; IAT starts at RVA 0x2028 (no separate ILT), first entry is ExitProcess
     ; ============================================================================
-    align 16
     entry_stub:
         db 0x48, 0x83, 0xEC, 0x28          ; [0-3] sub rsp, 40
         db 0xE8, 0x0C, 0x00, 0x00, 0x00    ; [4-8] call +12 (next instr at 9, target at 21)
         db 0x48, 0x89, 0xC1                ; [9-11] mov rcx, rax
         db 0x48, 0x8B, 0x05                ; [12-14] mov rax, [rip + offset]
-        dd (0x2070 - 0x1000 - 19)          ; [15-18] Offset: next at RVA 0x1013, IAT at 0x2070
+        dd (0x2028 - 0x1000 - 19)          ; [15-18] Offset: next at RVA 0x1013, IAT[0] at 0x2028
         db 0xFF, 0xD0                      ; [19-20] call rax
         
     entry_stub_size = $ - entry_stub
     
     ; ============================================================================
-    ; IMPORT TABLE TEMPLATE (KERNEL32.DLL Only)
-    ; RVA Base: 0x2000 (We assume Code is at 0x1000 and < 4KB)
+    ; ============================================================================
+    ; OPTIMIZED IMPORT TABLE (No ILT / Single Thunk)
+    ; RVA Base: 0x2000
+    ; Key optimization: ILT=0 tells Windows Loader to use IAT for both lookup and storage
+    ; This matches FASM's approach and eliminates duplicate table overhead
     ; ============================================================================
     
     IMPORT_RVA_BASE = 0x2000
     
-    align 16
     import_data_start:
         ; --- Import Directory Table (20 bytes) ---
-        dd import_lookup_table - import_data_start + IMPORT_RVA_BASE  ; OriginalFirstThunk (ILT RVA)
+        dd 0                    ; OriginalFirstThunk (ILT) = 0 (use IAT for lookup)
         dd 0                    ; TimeDateStamp
         dd 0                    ; ForwarderChain
         dd sz_kernel32 - import_data_start + IMPORT_RVA_BASE          ; Name (RVA)
         dd import_address_table - import_data_start + IMPORT_RVA_BASE ; FirstThunk (IAT RVA)
         
-        ; Null Entry (End of Table)
+        ; Null Entry (End of Directory)
         times 5 dd 0
 
-        ; --- Import Lookup Table (ILT) ---
-    import_lookup_table:
-        dq hint_exit - import_data_start + IMPORT_RVA_BASE
-        dq hint_alloc - import_data_start + IMPORT_RVA_BASE
-        dq hint_free - import_data_start + IMPORT_RVA_BASE
-        dq hint_write - import_data_start + IMPORT_RVA_BASE
-        dq hint_read - import_data_start + IMPORT_RVA_BASE
-        dq hint_create - import_data_start + IMPORT_RVA_BASE
-        dq hint_close - import_data_start + IMPORT_RVA_BASE
-        dq hint_std - import_data_start + IMPORT_RVA_BASE
-        dq 0                    ; End of List
-
         ; --- Import Address Table (IAT) ---
+        ; With ILT=0, Windows Loader reads function names from IAT entries,
+        ; resolves them, and OVERWRITES these RVAs with real function addresses
     import_address_table:
         dq hint_exit - import_data_start + IMPORT_RVA_BASE
         dq hint_alloc - import_data_start + IMPORT_RVA_BASE
-        dq hint_free - import_data_start + IMPORT_RVA_BASE
-        dq hint_write - import_data_start + IMPORT_RVA_BASE
-        dq hint_read - import_data_start + IMPORT_RVA_BASE
-        dq hint_create - import_data_start + IMPORT_RVA_BASE
-        dq hint_close - import_data_start + IMPORT_RVA_BASE
-        dq hint_std - import_data_start + IMPORT_RVA_BASE
-        dq 0
+        dq 0                    ; End of IAT
 
         ; --- Names & Hints ---
     sz_kernel32 db 'KERNEL32.DLL',0
@@ -460,30 +445,6 @@ section '.data' data readable writeable
     hint_alloc:
         dw 0
         db 'VirtualAlloc',0
-        align 2
-    hint_free:
-        dw 0
-        db 'VirtualFree',0
-        align 2
-    hint_write:
-        dw 0
-        db 'WriteFile',0
-        align 2
-    hint_read:
-        dw 0
-        db 'ReadFile',0
-        align 2
-    hint_create:
-        dw 0
-        db 'CreateFileA',0
-        align 2
-    hint_close:
-        dw 0
-        db 'CloseHandle',0
-        align 2
-    hint_std:
-        dw 0
-        db 'GetStdHandle',0
         align 2
 
     import_data_size = $ - import_data_start
@@ -822,31 +783,6 @@ start:
     
     test eax, eax
     jz .compile_error
-    
-    ; 2b. PATCH Import Directory in header (at offset 0x148 = 0x80+0xC8)
-    ; SetFilePointer(hFile, 0x148, NULL, FILE_BEGIN)
-    mov rcx, [hOutFile]
-    mov edx, 0x148              ; Distance to move
-    xor r8, r8                  ; lpDistanceToMoveHigh = NULL
-    xor r9, r9                  ; dwMoveMethod = FILE_BEGIN
-    call [SetFilePointer]
-    
-    ; Write Import RVA and Size
-    mov dword [temp_buffer], 0x2000      ; RVA
-    mov dword [temp_buffer+4], 256       ; Size
-    mov rcx, [hOutFile]
-    lea rdx, [temp_buffer]
-    mov r8, 8
-    lea r9, [bytes_written]
-    mov qword [rsp+32], 0
-    call [WriteFile]
-    
-    ; Seek back to end of header for padding
-    mov rcx, [hOutFile]
-    mov edx, pe_header_size     ; Distance
-    xor r8, r8
-    xor r9, r9
-    call [SetFilePointer]
     
     ; 3. PADDING HEADER TO 512 BYTES
     ; FileAlignment = 0x200. We must pad until offset 512.
@@ -5547,19 +5483,20 @@ emit_iat_call:
     add rdi, 2
     
     ; Calculate displacement
-    ; Target RVA = 0x2070 + (Index * 8)   ; IAT starts at 0x2070
-    ; Current RVA = 0x1000 + (jit_cursor - jit_buffer)
+    ; Target RVA = 0x2028 + (Index * 8)   ; IAT starts at 0x2028 (after 40-byte Import Directory)
+    ; Current RVA = 0x1000 + entry_stub_size + (jit_cursor - jit_buffer)
     ; Disp = Target - (Current + 4)       ; +4 because disp is relative to END of instruction
     
-    mov rbx, 0x2070         ; IAT base RVA (first entry at 0x2070)
+    mov rbx, 0x2028         ; IAT base RVA (first entry at 0x2028, no separate ILT)
     mov rax, r12
     shl rax, 3              ; Index * 8
     add rbx, rax            ; Target RVA
     
-    ; Current position = 0x1000 + offset
+    ; Current position = 0x1000 + entry_stub_size + offset
     mov rax, rdi
     sub rax, [jit_buffer]   ; Offset in code section
     add rax, 0x1000         ; Add base RVA
+    add rax, entry_stub_size ; Account for 21-byte entry_stub that precedes JIT code in PE file
     add rax, 4              ; Account for disp32 size
     
     ; Calculate displacement

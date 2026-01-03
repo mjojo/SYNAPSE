@@ -6,7 +6,7 @@
 <div align="center">
 
 ![Version](https://img.shields.io/badge/version-3.2.0--ouroboros--returns-gold)
-![Status](https://img.shields.io/badge/status-SELF_HOSTING-brightgreen)
+![Status](https://img.shields.io/badge/status-PHASE_52_BLOCKED-orange)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![Graphics](https://img.shields.io/badge/graphics-GDI%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
@@ -17,7 +17,7 @@
 
 | Specification | Status | Description |
 |---------------|--------|-------------|
-| **Self-Hosting** | ✅ **YES** | Compiler can compile itself and generate standalone EXE |
+| **Self-Hosting** | ⚠️ **BLOCKED** | Compiler generates PE32+, but IAT resolution fails (Phase 52) |
 | **Architecture** | x64 JIT | Three-level virtualization (Host -> Guest -> Target) |
 | **Graphics** | ✅ **YES** | Direct VRAM access, GDI integration, 8x8 embedded font |
 | **GUI** | ✅ **YES** | Mouse input, keyboard, clickable buttons |
@@ -25,23 +25,33 @@
 | **Control Flow** | Full | `if`, `while`, `fn`, `return`, `recursion` |
 | **Memory** | Manual | `alloc`, `ptr[i]`, Data Segment for literals |
 | **Logic** | Complete | `==`, `<`, `>`, `+`, `-`, `*`, `/`, bitwise ops |
-| **EXE Generation** | ✅ **YES** | PE32+ format, standalone executables |
+| **EXE Generation** | ⚠️ **BLOCKED** | PE32+ format created, but Windows Loader fails on IAT |
 | **Binary Size** | ~30 KB | Includes graphics, GUI, and file I/O |
 
 ---
 
 ## 🎆 The Ouroboros Returns
 
-**SYNAPSE v3.2** represents the pinnacle of bootstrap compiler technology. Not only does it compile itself,
-but it can generate **standalone Windows executables** that run without any dependencies.
+**SYNAPSE v3.2** represents ambitious bootstrap compiler technology with graphics capabilities and PE32+ generation.
 
-### 🔥 New in v3.2 (Phase 51)
-* **Bootstrap Infrastructure:** `bootstrap.syn` - full self-hosting compiler
-* **PE32+ Generation:** Creates real `.exe` files from Synapse source
-* **Enhanced File I/O:** `fopen`, `fread`, `fwrite` for reading source files
-* **x64 Codegen:** Proper function prologue/epilogue with stack frames
-* **Graphics Engine:** Direct pixel manipulation, drawing primitives
-* **Mouse & Keyboard:** Real-time input handling for interactive applications
+### ⚠️ Current Status (Phase 52 - CRITICAL BLOCKER)
+**Issue:** All generated executables crash with Access Violation (0xC0000005)  
+**Cause:** Windows Loader not resolving Import Address Table (IAT)  
+**Impact:** Cannot test VirtualAlloc, file I/O, or any API calls in generated .exe files  
+**Details:** See `docs/PHASE52_BLOCKER.md` for technical analysis
+
+### 🔥 Working Features (v3.2)
+* **JIT Compilation:** Real-time x64 code generation and execution
+* **Graphics Engine:** Direct pixel manipulation, window management
+* **Mouse & Keyboard:** Real-time input handling for interactive apps
+* **File I/O:** Read source files, write binary data (in JIT mode)
+* **PE32+ Structure:** Valid DOS/PE headers, sections, entry point
+* **Code Generation:** Correct machine code for all intrinsics
+
+### 🚧 Blocked Features (Phase 52)
+* **Standalone Executables:** Generated .exe files crash immediately
+* **API Imports:** ExitProcess, VirtualAlloc not callable in generated code
+* **Self-Hosting:** Cannot bootstrap due to IAT issue
 
 ---
 

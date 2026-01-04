@@ -1,0 +1,603 @@
+// test_cmd_bootstrap.syn - Generate EXE that prints command line
+// Phase 56.1: Test GetCommandLineA in IAT
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) != 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_nl() {
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    io_print(nl)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    print_nl()
+    return 0
+}
+
+fn init_state(state) {
+    let exe_buf = alloc(4096)
+    state[5] = exe_buf
+    state[6] = 0
+    return 0
+}
+
+fn put_byte(state, b) {
+    let exe_buf = state[5]
+    let pos = state[6]
+    setbyte(exe_buf, pos, b)
+    state[6] = pos + 1
+    return 0
+}
+
+fn put_word(state, w) {
+    put_byte(state, w & 255)
+    put_byte(state, (w >> 8) & 255)
+    return 0
+}
+
+fn put_dword(state, d) {
+    put_byte(state, d & 255)
+    put_byte(state, (d >> 8) & 255)
+    put_byte(state, (d >> 16) & 255)
+    put_byte(state, (d >> 24) & 255)
+    return 0
+}
+
+fn put_qword(state, q) {
+    put_dword(state, q & 4294967295)
+    put_dword(state, 0)
+    return 0
+}
+
+fn put_zeros(state, count) {
+    let i = 0
+    while i < count {
+        put_byte(state, 0)
+        i = i + 1
+    }
+    return 0
+}
+
+fn emit_pe_header(state) {
+    put_byte(state, 77)
+    put_byte(state, 90)
+    put_zeros(state, 58)
+    put_dword(state, 64)
+
+    put_byte(state, 80)
+    put_byte(state, 69)
+    put_word(state, 0)
+
+    put_word(state, 34404)
+    put_word(state, 2)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_word(state, 240)
+    put_word(state, 34)
+
+    put_word(state, 523)
+    put_byte(state, 1)
+    put_byte(state, 0)
+    put_dword(state, 512)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 4096)
+    put_dword(state, 4096)
+
+    put_qword(state, 4194304)
+    put_dword(state, 4096)
+    put_dword(state, 512)
+    put_word(state, 6)
+    put_word(state, 0)
+    put_word(state, 0)
+    put_word(state, 0)
+    put_word(state, 6)
+    put_word(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 12288)
+    put_dword(state, 512)
+    put_dword(state, 0)
+    put_word(state, 3)
+    put_word(state, 0)
+    put_qword(state, 1048576)
+    put_qword(state, 4096)
+    put_qword(state, 1048576)
+    put_qword(state, 4096)
+    put_dword(state, 0)
+    put_dword(state, 16)
+
+    // Data Directories
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 8192)
+    put_dword(state, 40)
+    put_zeros(state, 80)
+    put_dword(state, 8232)
+    put_dword(state, 80)
+    put_zeros(state, 24)
+
+    put_byte(state, 46)
+    put_byte(state, 116)
+    put_byte(state, 101)
+    put_byte(state, 120)
+    put_byte(state, 116)
+    put_zeros(state, 3)
+    put_dword(state, 512)
+    put_dword(state, 4096)
+    put_dword(state, 512)
+    put_dword(state, 512)
+    put_zeros(state, 12)
+    put_dword(state, 1610612768)
+
+    put_byte(state, 46)
+    put_byte(state, 105)
+    put_byte(state, 100)
+    put_byte(state, 97)
+    put_byte(state, 116)
+    put_byte(state, 97)
+    put_zeros(state, 2)
+    put_dword(state, 512)
+    put_dword(state, 8192)
+    put_dword(state, 512)
+    put_dword(state, 1024)
+    put_zeros(state, 12)
+    put_dword(state, 1073741888)
+
+    let exe_pos = state[6]
+    while exe_pos < 512 {
+        put_byte(state, 0)
+        exe_pos = state[6]
+    }
+    return 0
+}
+
+fn emit_import_table(state) {
+    let IDATA_RVA = 8192
+
+    put_dword(state, IDATA_RVA + 40)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, IDATA_RVA + 120)
+    put_dword(state, IDATA_RVA + 40)
+    put_zeros(state, 20)
+
+    let hint_base = IDATA_RVA + 134
+    put_qword(state, hint_base)
+    put_qword(state, hint_base + 14)
+    put_qword(state, hint_base + 30)
+    put_qword(state, hint_base + 44)
+    put_qword(state, hint_base + 56)
+    put_qword(state, hint_base + 68)
+    put_qword(state, hint_base + 82)
+    put_qword(state, hint_base + 96)
+    put_qword(state, hint_base + 112)
+    put_qword(state, 0)
+
+    // KERNEL32.DLL
+    put_byte(state, 75)
+    put_byte(state, 69)
+    put_byte(state, 82)
+    put_byte(state, 78)
+    put_byte(state, 69)
+    put_byte(state, 76)
+    put_byte(state, 51)
+    put_byte(state, 50)
+    put_byte(state, 46)
+    put_byte(state, 68)
+    put_byte(state, 76)
+    put_byte(state, 76)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // ExitProcess
+    put_word(state, 0)
+    put_byte(state, 69)
+    put_byte(state, 120)
+    put_byte(state, 105)
+    put_byte(state, 116)
+    put_byte(state, 80)
+    put_byte(state, 114)
+    put_byte(state, 111)
+    put_byte(state, 99)
+    put_byte(state, 101)
+    put_byte(state, 115)
+    put_byte(state, 115)
+    put_byte(state, 0)
+
+    // VirtualAlloc
+    put_word(state, 0)
+    put_byte(state, 86)
+    put_byte(state, 105)
+    put_byte(state, 114)
+    put_byte(state, 116)
+    put_byte(state, 117)
+    put_byte(state, 97)
+    put_byte(state, 108)
+    put_byte(state, 65)
+    put_byte(state, 108)
+    put_byte(state, 108)
+    put_byte(state, 111)
+    put_byte(state, 99)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // VirtualFree
+    put_word(state, 0)
+    put_byte(state, 86)
+    put_byte(state, 105)
+    put_byte(state, 114)
+    put_byte(state, 116)
+    put_byte(state, 117)
+    put_byte(state, 97)
+    put_byte(state, 108)
+    put_byte(state, 70)
+    put_byte(state, 114)
+    put_byte(state, 101)
+    put_byte(state, 101)
+    put_byte(state, 0)
+
+    // WriteFile
+    put_word(state, 0)
+    put_byte(state, 87)
+    put_byte(state, 114)
+    put_byte(state, 105)
+    put_byte(state, 116)
+    put_byte(state, 101)
+    put_byte(state, 70)
+    put_byte(state, 105)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+
+    // ReadFile
+    put_word(state, 0)
+    put_byte(state, 82)
+    put_byte(state, 101)
+    put_byte(state, 97)
+    put_byte(state, 100)
+    put_byte(state, 70)
+    put_byte(state, 105)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // CreateFileA
+    put_word(state, 0)
+    put_byte(state, 67)
+    put_byte(state, 114)
+    put_byte(state, 101)
+    put_byte(state, 97)
+    put_byte(state, 116)
+    put_byte(state, 101)
+    put_byte(state, 70)
+    put_byte(state, 105)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 65)
+    put_byte(state, 0)
+
+    // CloseHandle
+    put_word(state, 0)
+    put_byte(state, 67)
+    put_byte(state, 108)
+    put_byte(state, 111)
+    put_byte(state, 115)
+    put_byte(state, 101)
+    put_byte(state, 72)
+    put_byte(state, 97)
+    put_byte(state, 110)
+    put_byte(state, 100)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+
+    // GetStdHandle
+    put_word(state, 0)
+    put_byte(state, 71)
+    put_byte(state, 101)
+    put_byte(state, 116)
+    put_byte(state, 83)
+    put_byte(state, 116)
+    put_byte(state, 100)
+    put_byte(state, 72)
+    put_byte(state, 97)
+    put_byte(state, 110)
+    put_byte(state, 100)
+    put_byte(state, 108)
+    put_byte(state, 101)
+    put_byte(state, 0)
+    put_byte(state, 0)
+
+    // GetCommandLineA
+    put_word(state, 0)
+    put_byte(state, 71)
+    put_byte(state, 101)
+    put_byte(state, 116)
+    put_byte(state, 67)
+    put_byte(state, 111)
+    put_byte(state, 109)
+    put_byte(state, 109)
+    put_byte(state, 97)
+    put_byte(state, 110)
+    put_byte(state, 100)
+    put_byte(state, 76)
+    put_byte(state, 105)
+    put_byte(state, 110)
+    put_byte(state, 101)
+    put_byte(state, 65)
+    put_byte(state, 0)
+
+    let exe_pos = state[6]
+    while exe_pos < 1536 {
+        put_byte(state, 0)
+        exe_pos = state[6]
+    }
+    return 0
+}
+
+fn save_exe(state, fname) {
+    let exe_buf = state[5]
+    let exe_size = state[6]
+    let fd = open(fname, 1)
+    write(fd, exe_buf, exe_size)
+    close(fd)
+    return 0
+}
+
+fn main() {
+    io_println("=== CMD LINE TEST GENERATOR ===")
+    
+    let state = alloc(64)
+    init_state(state)
+    
+    emit_pe_header(state)
+    
+    // Generate code that:
+    // 1. Calls GetCommandLineA -> RAX = pointer to command line
+    // 2. Calculates length (simple: assume 50 chars)
+    // 3. Gets stdout handle
+    // 4. Writes command line to stdout
+    // 5. Exits
+    
+    let exe_buf = state[5]
+    let code_start = 512
+    let pos = 0
+    
+    // SUB RSP, 56 (stack frame)
+    setbyte(exe_buf, code_start + pos, 72)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 131)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 236)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 56)
+    pos = pos + 1
+    
+    // CALL [GetCommandLineA] - IAT[8]
+    // IAT base = 0x2028, entry 8 = 0x2028 + 8*8 = 0x2068
+    // Current RIP after this instruction = 0x1000 + 4 + 6 = 0x100A
+    // Displacement = 0x2068 - 0x100A = 0x105E
+    setbyte(exe_buf, code_start + pos, 255)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 21)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 94)   // 0x5E
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 16)   // 0x10
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    
+    // MOV R12, RAX (save command line pointer)
+    setbyte(exe_buf, code_start + pos, 73)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 137)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 196)
+    pos = pos + 1
+    
+    // MOV ECX, -11 (STD_OUTPUT_HANDLE)
+    setbyte(exe_buf, code_start + pos, 185)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 245)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 255)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 255)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 255)
+    pos = pos + 1
+    
+    // CALL [GetStdHandle] - IAT[7]
+    // IAT[7] = 0x2028 + 7*8 = 0x2060
+    // Current RIP = 0x1000 + pos + 6 = 0x1018
+    // Wait, let me recalculate...
+    // After GetCommandLineA call: pos = 10
+    // After MOV R12, RAX: pos = 13
+    // After MOV ECX, -11: pos = 18
+    // Now RIP = 0x1000 + 18 + 6 = 0x1018
+    // Target = 0x2060
+    // Displacement = 0x2060 - 0x1018 = 0x1048
+    setbyte(exe_buf, code_start + pos, 255)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 21)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 72)   // 0x48
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 16)   // 0x10
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    
+    // Now RAX = stdout handle, R12 = command line pointer
+    // MOV R13, RAX (save handle)
+    setbyte(exe_buf, code_start + pos, 73)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 137)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 197)
+    pos = pos + 1
+    
+    // WriteFile(handle, buffer, length, &written, NULL)
+    // RCX = handle (R13)
+    // RDX = buffer (R12 = command line)
+    // R8 = length (50)
+    // R9 = &written (RSP+48)
+    // [RSP+32] = NULL
+    
+    // MOV RCX, R13
+    setbyte(exe_buf, code_start + pos, 76)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 137)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 233)
+    pos = pos + 1
+    
+    // MOV RDX, R12
+    setbyte(exe_buf, code_start + pos, 76)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 137)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 226)
+    pos = pos + 1
+    
+    // MOV R8D, 50
+    setbyte(exe_buf, code_start + pos, 65)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 184)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 50)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    
+    // LEA R9, [RSP+48]
+    setbyte(exe_buf, code_start + pos, 76)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 141)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 76)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 36)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 48)
+    pos = pos + 1
+    
+    // MOV QWORD [RSP+32], 0
+    setbyte(exe_buf, code_start + pos, 72)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 199)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 68)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 36)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 32)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    
+    // CALL [WriteFile] - IAT[3]
+    // IAT[3] = 0x2028 + 3*8 = 0x2040
+    // Current pos = 51
+    // RIP after = 0x1000 + 51 + 6 = 0x1039
+    // Displacement = 0x2040 - 0x1039 = 0x1007
+    setbyte(exe_buf, code_start + pos, 255)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 21)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 7)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 16)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    
+    // XOR ECX, ECX (exit code 0)
+    setbyte(exe_buf, code_start + pos, 49)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 201)
+    pos = pos + 1
+    
+    // CALL [ExitProcess] - IAT[0]
+    // IAT[0] = 0x2028
+    // Current pos = 59
+    // RIP after = 0x1000 + 59 + 6 = 0x1041
+    // Displacement = 0x2028 - 0x1041 = 0x0FE7
+    setbyte(exe_buf, code_start + pos, 255)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 21)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 231)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 15)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    setbyte(exe_buf, code_start + pos, 0)
+    pos = pos + 1
+    
+    io_println("Code generated!")
+    
+    state[6] = 1024
+    emit_import_table(state)
+    
+    // Save
+    let outname = alloc(16)
+    setbyte(outname, 0, 99)   // c
+    setbyte(outname, 1, 109)  // m
+    setbyte(outname, 2, 100)  // d
+    setbyte(outname, 3, 95)   // _
+    setbyte(outname, 4, 116)  // t
+    setbyte(outname, 5, 101)  // e
+    setbyte(outname, 6, 115)  // s
+    setbyte(outname, 7, 116)  // t
+    setbyte(outname, 8, 46)   // .
+    setbyte(outname, 9, 101)  // e
+    setbyte(outname, 10, 120) // x
+    setbyte(outname, 11, 101) // e
+    setbyte(outname, 12, 0)
+    
+    save_exe(state, outname)
+    
+    io_println("Created cmd_test.exe!")
+    io_println("")
+    io_println("Test: cmd_test.exe arg1 arg2")
+    io_println("Should print the full command line!")
+    
+    return 0
+}

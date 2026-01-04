@@ -1,0 +1,16 @@
+// cmd_test.syn - Test GetCommandLineA
+// This uses the host compiler intrinsics
+
+fn main() {
+    // GetCommandLineA returns pointer to command line string
+    let cmd = get_cmd_line()
+    
+    // Get stdout handle
+    let h = getstd(-11)
+    
+    // Write first 50 chars of command line
+    write(h, cmd, 50)
+    
+    exit(0)
+    return 0
+}

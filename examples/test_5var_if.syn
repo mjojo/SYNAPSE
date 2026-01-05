@@ -1,0 +1,16 @@
+fn test() {
+    let a = 10
+    let b = 20
+    let c = 30
+    let d = 40
+    let e = a + b
+    if e == 30 {
+        io_println("SUCCESS!")
+    }
+    io_println("test finished")
+}
+
+fn main() {
+    test()
+    exit(0)
+}

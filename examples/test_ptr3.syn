@@ -1,0 +1,22 @@
+fn main() {
+    let ptr = 1234567
+    
+    // Store in buf
+    let buf = alloc(16)
+    let b0 = ptr % 256
+    setbyte(buf, 0, b0)
+    
+    let d1 = ptr / 256
+    let b1 = d1 % 256
+    setbyte(buf, 1, b1)
+    
+    // Read back
+    let r0 = getbyte(buf, 0)
+    let r1 = getbyte(buf, 1)
+    
+    // Check first byte
+    if r0 == b0 {
+        exit(42)
+    }
+    exit(1)
+}

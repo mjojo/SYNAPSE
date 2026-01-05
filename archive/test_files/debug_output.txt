@@ -1,0 +1,55 @@
+=================================
+  SYNAPSE v3.6 - FULL COMPILER  
+=================================
+
+Source: simple_exit.syn
+Target: debug42.exe
+
+Loading... OK
+Tokenizing... (10 tokens)
+  Token 0: [fn]
+  Token 1: [main]
+  Token 2: [(]
+  Token 3: [)]
+  Token 4: [{]
+  Token 5: [exit]
+  Token 6: [(]
+  Token 7: [42]
+  Token 8: [)]
+  Token 9: [}]
+Compiling...   EMIT[0]: 
+  EMIT[0]: 
+  EMIT[0]: 
+  EMIT[0]: 
+  [DEBUG] Parsing number: (
+  [DEBUG] Converted to: -0
+  EMIT[0]: 
+  EMIT[0]: 
+  EMIT[0]: 
+  EMIT[0]: 
+  EMIT[0]: 
+  EMIT[0]: 
+  EMIT[00]: 
+  EMIT[00]: 
+  EMIT[00]: 
+  EMIT[00]: 
+  EMIT[00]: 
+  EMIT[00]: 
+  EMIT[00]: 
+  EMIT[00]: 
+  EMIT[00]: 
+  [DEBUG] Parsing number: )
+  [DEBUG] Converted to: -0
+  EMIT[00]: 
+  EMIT[00]: 
+  EMIT[00]: 
+  EMIT[00]: 
+  EMIT[00]: 
+OK
+Building PE... 
+  code_size: non-zero
+OK
+Writing debug42.exe... OK
+
+=================================
+  SUCCESS! Created 

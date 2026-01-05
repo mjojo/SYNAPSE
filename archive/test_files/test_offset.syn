@@ -1,0 +1,4 @@
+fn main() {
+    io_println("MARKER_STRING_XYZ")
+    return 0
+}

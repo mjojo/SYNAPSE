@@ -1,0 +1,21 @@
+fn get_test(x) {
+    if x == 0 { return 100 }
+    if x == 1 { return 200 }
+    return 999
+}
+
+fn main() {
+    let r0 = get_test(0)
+    print_num(r0)
+    io_print(" ")
+    
+    let r1 = get_test(1)
+    print_num(r1)
+    io_print(" ")
+    
+    let r2 = get_test(2)
+    print_num(r2)
+    io_println("")
+    
+    exit(0)
+}

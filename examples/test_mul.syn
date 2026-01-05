@@ -1,0 +1,6 @@
+fn main() {
+    // Test simple multiplication
+    let a = 3
+    let b = a * 2
+    exit(b)
+}

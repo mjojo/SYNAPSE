@@ -1,0 +1,6 @@
+fn main() {
+    let arr = alloc(64)
+    arr[0] = 42
+    let val = arr[0]
+    exit(val)
+}

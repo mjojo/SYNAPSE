@@ -1,0 +1,9 @@
+fn main() {
+    let b0 = 135
+    let b1 = 214
+    
+    // Without parentheses
+    let ptr2 = b0 + b1 * 256
+    
+    exit(ptr2 % 256)
+}

@@ -1,0 +1,9 @@
+fn main() {
+    let ptr = alloc(64)
+    if ptr == 0 {
+        io_println("alloc returned 0!")
+        exit(1)
+    }
+    io_println("alloc SUCCESS!")
+    exit(0)
+}

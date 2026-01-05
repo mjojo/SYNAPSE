@@ -1,0 +1,12 @@
+// simple_write.syn - Simplest possible write test
+
+fn main() {
+    let h = getstd(-11)
+    let msg = alloc(16)
+    setbyte(msg, 0, 72)   // H
+    setbyte(msg, 1, 105)  // i
+    setbyte(msg, 2, 10)   // newline
+    setbyte(msg, 3, 0)
+    write(h, msg, 3)
+    return 0
+}

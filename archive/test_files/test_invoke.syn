@@ -1,0 +1,5 @@
+fn main() {
+    // invoke(func_ptr, arg1, ...)
+    // We don't have a func ptr.
+    return 0
+}

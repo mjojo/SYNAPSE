@@ -1,0 +1,70 @@
+============================================
+  SYNAPSE v3.5.0 - The Singularity
+  Full Pipeline: Lex -> Parse -> JIT -> Run
+============================================
+
+[LOAD] Reading source file...
+[LEX] Tokenizing...
+[PARSE] Building AST...
+[JIT] Generating machine code...
+[JIT] Compiling fn: get_arr
+> [JIT] Compiling fn: set_arr
+> [JIT] Compiling fn: str_len
+> [JIT] Compiling fn: str_eq
+> [JIT] Compiling fn: is_digit
+> [JIT] Compiling fn: is_alpha
+> [JIT] Compiling fn: is_alnum
+> [JIT] Compiling fn: io_print
+> [JIT] Compiling fn: print_nl
+> [JIT] Compiling fn: io_println
+> [JIT] Compiling fn: print_hex_byte
+> [JIT] Compiling fn: print_num
+> [JIT] Compiling fn: copy_str
+> [JIT] Compiling fn: init_compiler
+> [JIT] Compiling fn: emit
+> [JIT] Compiling fn: emit_dword
+> [JIT] Compiling fn: emit_qword
+> [JIT] Compiling fn: emit_iat_call
+> [JIT] Compiling fn: emit_mov_rax_imm64
+> [JIT] Compiling fn: emit_mov_ecx_imm32
+> [JIT] Compiling fn: add_string_data
+> [JIT] Compiling fn: put_byte
+> [JIT] Compiling fn: put_word
+> [JIT] Compiling fn: put_dword
+> [JIT] Compiling fn: put_qword
+> [JIT] Compiling fn: put_zeros
+> [JIT] Compiling fn: emit_pe_header
+> [JIT] Compiling fn: emit_import_table
+> [JIT] Compiling fn: add_token
+> [JIT] Compiling fn: get_token_type
+> [JIT] Compiling fn: get_token_text
+> [JIT] Compiling fn: is_space
+> [JIT] Compiling fn: scan_ident
+> [JIT] Compiling fn: scan_number
+> [JIT] Compiling fn: scan_operator
+> [JIT] Compiling fn: scan_string
+> [JIT] Compiling fn: tokenize
+> [JIT] Compiling fn: current_token_type
+> [JIT] Compiling fn: current_token_text
+> [JIT] Compiling fn: advance
+> [JIT] Compiling fn: expect_text
+> [JIT] Compiling fn: lookup_var
+> [JIT] Compiling fn: add_var
+> [JIT] Compiling fn: parse_number
+> [JIT] Compiling fn: parse_ident
+> [JIT] Compiling fn: parse_call
+> [JIT] Compiling fn: parse_expr
+> [JIT] Compiling fn: parse_let
+> [JIT] Compiling fn: parse_statement
+> [JIT] Compiling fn: parse_function
+> [JIT] Compiling fn: parse_program
+> [JIT] Compiling fn: main
+> [DEBUG] Functions compiled: 78
+[DEBUG] main() address: 1616920
+[DEBUG] JIT code size: 48938
+[DEBUG] main() JIT bytes: 55 48 89 E5 48 81 EC 00 20 00 00 48 89 4D 10 48 89 55 18 4C 89 45 20 4C 89 4D 28 E9 22 00 00 00 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 00 48 B8 4D BC 40 00 00 00 00 00 50 59 48 83 EC 20 E8 41 84 FF FF 48 83 C4 20 E9 21 00 00 00 20 20 53 59 4E 41 50 53 45 20 76 33 2E 36 20 2D 20 46 55 4C 4C 20 43 4F 4D 50 49 4C 45 52 20 20 00 48 B8 8D BC 40 00 00 00 00 00 50 59 48 83 EC 20 E8 02 84 FF FF 48 83 C4 20 E9 22 00 00 00 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 3D 00 48 B8 CC BC 40 00 00 00 00 00 50 59 48 83 EC 20 E8 C2 83 FF FF 48 83 C4 20 E9 01 
+[DEBUG] factorial() address: 0
+[COMPILE] Generating synapse_new.exe...
+21
+[INFO] Code size: 48938
+[SUCCESS] synapse_new.exe created!

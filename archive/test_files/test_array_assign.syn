@@ -1,0 +1,14 @@
+fn main() {
+    let arr = alloc(64)
+    io_print("arr = ")
+    print_num(arr)
+    io_println("")
+    
+    arr[0] = 99
+    
+    io_print("arr[0] = ")
+    print_num(arr[0])
+    io_println("")
+    
+    exit(arr[0])
+}

@@ -1,0 +1,76 @@
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_nl() {
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    io_print(nl)
+    return 0
+}
+
+fn cli_skip_spaces(cmd, pos) {
+    while getbyte(cmd, pos) == 32 {
+        pos = pos + 1
+    }
+    return pos
+}
+
+fn cli_find_arg_end(cmd, pos) {
+    let c = getbyte(cmd, pos)
+    while c > 0 {
+        if c == 32 {
+            return pos
+        }
+        pos = pos + 1
+        c = getbyte(cmd, pos)
+    }
+    return pos
+}
+
+fn cli_copy_arg(cmd, start, end, dest) {
+    let i = 0
+    while start < end {
+        setbyte(dest, i, getbyte(cmd, start))
+        i = i + 1
+        start = start + 1
+    }
+    setbyte(dest, i, 0)
+    return i
+}
+
+fn main() {
+    let cmd = get_cmd_line()
+    
+    // Skip program name
+    let pos = 0
+    pos = cli_skip_spaces(cmd, pos)
+    let arg_end = cli_find_arg_end(cmd, pos)
+    pos = arg_end
+    
+    // Skip spaces after program
+    pos = cli_skip_spaces(cmd, pos)
+    
+    // Copy next arg to buffer
+    let buf = alloc(256)
+    arg_end = cli_find_arg_end(cmd, pos)
+    cli_copy_arg(cmd, pos, arg_end, buf)
+    
+    io_print(buf)
+    print_nl()
+    
+    return 0
+}

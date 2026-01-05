@@ -1,0 +1,7 @@
+// Minimal test
+fn main() {
+    let h = getstd(-11)
+    write(h, "A", 1)
+    exit(0)
+    return 0
+}

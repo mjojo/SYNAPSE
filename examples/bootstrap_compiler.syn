@@ -722,6 +722,134 @@ fn parse_call(state, name) {
         return 1
     }
     
+    // --- alloc(size) -> VirtualAlloc ---
+    if str_eq(name, "alloc") == 1 {
+        io_println("  CODEGEN: alloc() -> VirtualAlloc")
+        
+        advance(state)
+        let lparen = get_token_text(state)
+        if str_eq(lparen, "(") == 0 {
+            io_println("  ERROR: Expected '(' after alloc")
+            return 0
+        }
+        advance(state)
+        
+        parse_expr(state) // Result in RAX
+        
+        let rparen = get_token_text(state)
+        if str_eq(rparen, ")") == 0 {
+            io_println("  ERROR: Expected ')' after alloc argument")
+            return 0
+        }
+        advance(state)
+        
+        // MOV RDX, RAX (size)
+        emit(state, 72); emit(state, 137); emit(state, 194)
+        
+        // XOR ECX, ECX (NULL)
+        emit(state, 49); emit(state, 201)
+        
+        // MOV R8D, 0x3000 (MEM_COMMIT|MEM_RESERVE)
+        emit(state, 65); emit(state, 184); emit_dword(state, 12288)
+        
+        // MOV R9D, 4 (PAGE_READWRITE)
+        emit(state, 65); emit(state, 185); emit_dword(state, 4)
+        
+        emit_stack_setup(state)
+        emit_iat_call(state, 1) // VirtualAlloc
+        emit_stack_cleanup(state)
+        
+        return 1
+    }
+
+    // --- getbyte(base, index) ---
+    if str_eq(name, "getbyte") == 1 {
+        advance(state); advance(state) // skip 'getbyte', '('
+        
+        parse_expr(state) // base -> RAX
+        emit(state, 80)   // PUSH RAX
+        
+        advance(state) // skip ','
+        
+        parse_expr(state) // index -> RAX
+        emit(state, 80)   // PUSH RAX
+        
+        advance(state) // skip ')'
+        
+        // POP RCX (index)
+        emit(state, 89)
+        // POP RDX (base)
+        emit(state, 90)
+        
+        // ADD RDX, RCX -> RDX = base + index
+        emit(state, 72); emit(state, 1); emit(state, 202)
+        
+        // XOR RAX, RAX
+        emit(state, 72); emit(state, 49); emit(state, 192)
+        
+        // MOV AL, [RDX]
+        emit(state, 138); emit(state, 2)
+        
+        return 1
+    }
+
+    // --- setbyte(base, index, val) ---
+    if str_eq(name, "setbyte") == 1 {
+        advance(state); advance(state)
+        
+        parse_expr(state) // base
+        emit(state, 80)   // PUSH RAX
+        advance(state) // ,
+        
+        parse_expr(state) // index
+        emit(state, 80)   // PUSH RAX
+        advance(state) // ,
+        
+        parse_expr(state) // val
+        emit(state, 80)   // PUSH RAX
+        advance(state) // )
+        
+        // POP RAX (val)
+        emit(state, 88)
+        // POP RCX (index)
+        emit(state, 89)
+        // POP RDX (base)
+        emit(state, 90)
+        
+        // ADD RDX, RCX -> RDX = base + index
+        emit(state, 72); emit(state, 1); emit(state, 202)
+        
+        // MOV [RDX], AL
+        emit(state, 136); emit(state, 2)
+        
+        return 1
+    }
+
+    // --- write(handle, buf, len) ---
+    if str_eq(name, "write") == 1 {
+        advance(state); advance(state)
+        parse_expr(state); emit(state, 80); advance(state) // handle
+        parse_expr(state); emit(state, 80); advance(state) // buf
+        parse_expr(state); emit(state, 80); advance(state) // len
+        
+        // POP R8 (len)
+        emit(state, 65); emit(state, 88)
+        // POP RDX (buf)
+        emit(state, 90)
+        // POP RCX (handle)
+        emit(state, 89)
+        
+        // XOR R9, R9 (lpNumberOfBytesWritten)
+        emit(state, 77); emit(state, 49); emit(state, 201)
+        // MOV QWORD [RSP+32], 0 (lpOverlapped)
+        emit(state, 72); emit(state, 199); emit(state, 68); emit(state, 36); emit(state, 32); emit_dword(state, 0)
+        
+        emit_stack_setup(state)
+        emit_iat_call(state, 3) // WriteFile
+        emit_stack_cleanup(state)
+        return 1
+    }
+
     // --- getstd(n) -> GetStdHandle ---
     if str_eq(name, "getstd") == 1 {
         io_println("  CODEGEN: getstd() -> GetStdHandle")

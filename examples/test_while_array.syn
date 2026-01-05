@@ -1,0 +1,24 @@
+fn test_while(arr) {
+    let v1 = 0
+    let v2 = 0
+    let v3 = 0
+    let v4 = 0
+    let v5 = 0
+    let v6 = 0
+    let v7 = 0
+    let v8 = 0
+    let v9 = 0
+    let v10 = 0
+    
+    while arr[0] < arr[1] {
+        exit(42)
+    }
+    exit(99)
+}
+
+fn main() {
+    let arr = alloc(16)
+    setbyte(arr, 0, 10)
+    setbyte(arr, 1, 20)
+    test_while(arr)
+}

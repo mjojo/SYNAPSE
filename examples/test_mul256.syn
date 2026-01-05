@@ -1,0 +1,6 @@
+fn main() {
+    let a = 1
+    let b = a * 256
+    // b should be 256, exit code = b % 256 = 0
+    exit(b % 256)
+}

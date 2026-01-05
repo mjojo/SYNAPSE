@@ -1,0 +1,5 @@
+fn main() {
+    let tc = 7
+    let digit = 48 + tc % 10
+    exit(digit)
+}

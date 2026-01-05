@@ -1,0 +1,7 @@
+fn main() {
+    let ptr = alloc(8)
+    
+    // Exit with lower byte of pointer
+    let low = ptr % 256
+    exit(low)
+}

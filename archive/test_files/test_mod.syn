@@ -1,0 +1,5 @@
+fn main() {
+    let x = 1234567
+    let low = x % 256
+    exit(low)
+}

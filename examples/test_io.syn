@@ -1,0 +1,5 @@
+fn main() {
+    io_println("Start")
+    io_println("End")
+    exit(0)
+}

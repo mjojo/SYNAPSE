@@ -1,9 +1,10 @@
 import sys
 
-data = open('out.exe', 'rb').read()
+data = open(sys.argv[1] if len(sys.argv) > 1 else 'out.exe', 'rb').read()
 
-# .idata at file offset 0x400 (RVA 0x2000)
-idata_off = 0x400
+# .idata at file offset 0x10200 (RVA 0x41000)
+idata_off = 0x10200
+idata_rva = 0x41000
 
 # Import Directory Table (first 20 bytes)
 print('Import Directory Entry:')
@@ -19,11 +20,15 @@ print(f'  Forwarder: {fwd}')
 print(f'  DLL Name RVA: 0x{name_rva:X}')
 print(f'  IAT RVA: 0x{iat_rva:X}')
 
+def rva_to_file(rva):
+    return idata_off + (rva - idata_rva)
+
 # Check DLL name
-name_file_off = 0x400 + (name_rva - 0x2000)
+name_file_off = rva_to_file(name_rva)
 print(f'DLL Name at file offset 0x{name_file_off:X}:')
 name = b''
 for i in range(20):
+    if name_file_off+i >= len(data): break
     b = data[name_file_off+i]
     if b == 0: break
     name += bytes([b])
@@ -31,15 +36,19 @@ print(f'  Name: {name.decode()}')
 
 # Check IAT entries
 print('IAT entries:')
-iat_file_off = 0x400 + (iat_rva - 0x2000)
+iat_file_off = rva_to_file(iat_rva)
 for i in range(12):
     off = iat_file_off + i*8
+    if off+8 > len(data): break
     val = int.from_bytes(data[off:off+8], 'little')
     if val == 0:
         print(f'  [{i}]: NULL (end)')
         break
     # This should point to Hint/Name
-    hint_off = 0x400 + (val - 0x2000)
+    hint_off = rva_to_file(val)
+    if hint_off < 0 or hint_off+32 > len(data):
+        print(f'  [{i}]: RVA 0x{val:X} (out of bounds)')
+        continue
     hint = int.from_bytes(data[hint_off:hint_off+2], 'little')
     fname = b''
     for j in range(30):

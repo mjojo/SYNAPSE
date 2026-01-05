@@ -1,0 +1,27 @@
+fn main() {
+    let ptr = 1234567
+    
+    let buf = alloc(16)
+    setbyte(buf, 0, ptr % 256)
+    setbyte(buf, 1, ptr / 256 % 256)
+    setbyte(buf, 2, ptr / 65536 % 256)
+    setbyte(buf, 3, ptr / 16777216 % 256)
+    
+    let b0 = getbyte(buf, 0)
+    let b1 = getbyte(buf, 1)
+    let b2 = getbyte(buf, 2)
+    let b3 = getbyte(buf, 3)
+    
+    // 1234567 = 135 + 214*256 + 18*65536 + 0*16777216
+    // Check bytes
+    if b0 == 135 {
+        if b1 == 214 {
+            if b2 == 18 {
+                if b3 == 0 {
+                    exit(42)
+                }
+            }
+        }
+    }
+    exit(1)
+}

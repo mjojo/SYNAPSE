@@ -1,0 +1,15 @@
+fn main() {
+    // Try to read PE header at 0x400000 (ImageBase)
+    // But we don't know ImageBase at runtime easily?
+    // We know 0x11000 is Import RVA.
+    // Let's try to read 0x11000.
+    // But 0x11000 is RVA.
+    // ImageBase is 0x400000.
+    // So 0x411000.
+    
+    let val = get_byte(4263936) // 0x411000
+    io_print("Byte at 0x411000: ")
+    print_num(val)
+    io_println("")
+    return 0
+}

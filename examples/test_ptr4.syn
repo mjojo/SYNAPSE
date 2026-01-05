@@ -1,0 +1,22 @@
+fn main() {
+    let ptr = 1234567
+    
+    // Store in buf
+    let buf = alloc(16)
+    setbyte(buf, 0, ptr % 256)
+    setbyte(buf, 1, ptr / 256 % 256)
+    setbyte(buf, 2, ptr / 65536 % 256)
+    setbyte(buf, 3, ptr / 16777216 % 256)
+    
+    // Read back and reconstruct
+    let ptr2 = getbyte(buf, 0)
+    ptr2 = ptr2 + getbyte(buf, 1) * 256
+    ptr2 = ptr2 + getbyte(buf, 2) * 65536
+    ptr2 = ptr2 + getbyte(buf, 3) * 16777216
+    
+    // Check
+    if ptr == ptr2 {
+        exit(42)
+    }
+    exit(1)
+}

@@ -1,0 +1,9 @@
+fn main() {
+    let arr = alloc(8)
+    arr[0] = 42
+    let val = arr[0]
+    if val == 42 {
+        exit(0)
+    }
+    exit(1)
+}

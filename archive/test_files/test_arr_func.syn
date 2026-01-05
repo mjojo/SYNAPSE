@@ -1,0 +1,10 @@
+fn test() {
+    let arr = alloc(64)
+    arr[0] = 42
+    return arr[0]
+}
+
+fn main() {
+    let val = test()
+    exit(val)
+}

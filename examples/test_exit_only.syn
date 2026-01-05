@@ -1,0 +1,5 @@
+fn main() {
+    puts("Before exit")
+    exit(42)
+    return 0
+}

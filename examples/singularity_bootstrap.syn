@@ -389,28 +389,103 @@ fn save_exe(state, fname) {
 }
 
 fn main() {
-    io_println("=== SINGULARITY BOOTSTRAP ===")
+    io_println("=== SINGULARITY BOOTSTRAP v2 ===")
+    io_println("Usage: synapse.exe input.syn [-o output.exe]")
+    io_println("")
     
-    // Read source file (just to prove we can)
-    io_println("Reading in.syn...")
-    let fname = alloc(8)
-    setbyte(fname, 0, 105)
-    setbyte(fname, 1, 110)
-    setbyte(fname, 2, 46)
-    setbyte(fname, 3, 115)
-    setbyte(fname, 4, 121)
-    setbyte(fname, 5, 110)
-    setbyte(fname, 6, 0)
+    // Parse command line (inline for reliability)
+    let cmd = get_cmd_line()
+    let input_file = alloc(256)
+    let output_file = alloc(256)
     
-    let fd = open(fname, 0)
+    // Set default output
+    setbyte(output_file, 0, 111)  // o
+    setbyte(output_file, 1, 117)  // u
+    setbyte(output_file, 2, 116)  // t
+    setbyte(output_file, 3, 46)   // .
+    setbyte(output_file, 4, 101)  // e
+    setbyte(output_file, 5, 120)  // x
+    setbyte(output_file, 6, 101)  // e
+    setbyte(output_file, 7, 0)
+    
+    let pos = 0
+    
+    // Skip program name (find first space, chars > 32)
+    while getbyte(cmd, pos) > 32 {
+        pos = pos + 1
+    }
+    
+    // Skip spaces after program name
+    while getbyte(cmd, pos) == 32 {
+        pos = pos + 1
+    }
+    
+    // Check if no args
+    if getbyte(cmd, pos) == 0 {
+        io_println("Error: No input file specified!")
+        io_println("Usage: synapse.exe input.syn [-o output.exe]")
+        return 1
+    }
+    
+    // Copy input filename
+    let i = 0
+    while getbyte(cmd, pos) > 32 {
+        setbyte(input_file, i, getbyte(cmd, pos))
+        i = i + 1
+        pos = pos + 1
+    }
+    setbyte(input_file, i, 0)
+    
+    // Skip spaces after input filename
+    while getbyte(cmd, pos) == 32 {
+        pos = pos + 1
+    }
+    
+    // Check for -o flag: '-' = 45, 'o' = 111
+    if getbyte(cmd, pos) == 45 {
+        if getbyte(cmd, pos + 1) == 111 {
+            pos = pos + 2
+            // Skip spaces after -o
+            while getbyte(cmd, pos) == 32 {
+                pos = pos + 1
+            }
+            // Copy output filename
+            i = 0
+            while getbyte(cmd, pos) > 32 {
+                setbyte(output_file, i, getbyte(cmd, pos))
+                i = i + 1
+                pos = pos + 1
+            }
+            setbyte(output_file, i, 0)
+        }
+    }
+    
+    // Print parsed files
+    io_print("Input:  ")
+    io_println(input_file)
+    io_print("Output: ")
+    io_println(output_file)
+    io_println("")
+    
+    // Read source file
+    io_print("Reading ")
+    io_println(input_file)
+    
+    let fd = open(input_file, 0)
+    if fd == 0 {
+        io_println("Error: Cannot open input file!")
+        return 1
+    }
     let source = alloc(8192)
     let bytes_read = read(fd, source, 8192)
     close(fd)
     
     io_println("Source loaded!")
     
-    // Build fixed "I am alive!" EXE
-    io_println("Building out.exe...")
+    // Build EXE
+    io_print("Building ")
+    io_print(output_file)
+    io_println("...")
     
     let state = alloc(64)
     init_state(state)
@@ -528,22 +603,13 @@ fn main() {
     state[6] = 1024
     emit_import_table(state)
     
-    // Save
-    let outname = alloc(8)
-    setbyte(outname, 0, 111)
-    setbyte(outname, 1, 117)
-    setbyte(outname, 2, 116)
-    setbyte(outname, 3, 46)
-    setbyte(outname, 4, 101)
-    setbyte(outname, 5, 120)
-    setbyte(outname, 6, 101)
-    setbyte(outname, 7, 0)
+    // Save to output file (from CLI or default "out.exe")
+    save_exe(state, output_file)
     
-    save_exe(state, outname)
-    
-    io_println("Created out.exe!")
+    io_print("Created ")
+    io_println(output_file)
     io_println("")
-    io_println("Run: out.exe arg1 arg2")
+    io_println("Run: <output> arg1 arg2")
     io_println("Should print the command line!")
     
     return 0

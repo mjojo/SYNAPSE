@@ -1,0 +1,7 @@
+// test_getstd.syn - Simple test of getstd intrinsic
+
+fn main() {
+    let h = getstd(-11)
+    exit(0)
+    return 0
+}

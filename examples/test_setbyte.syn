@@ -1,0 +1,13 @@
+fn main() {
+    let buf = alloc(8)
+    let tc = 7
+    let digit = 48 + tc
+    setbyte(buf, 0, digit)
+    setbyte(buf, 1, 0)
+    
+    // Print the buffer
+    let handle = getstd(0 - 11)
+    write(handle, buf, 1)
+    
+    exit(0)
+}

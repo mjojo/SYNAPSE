@@ -1,0 +1,13 @@
+// Minimal test for setbyte bug
+fn main() {
+    let a = 0
+    let b = 0
+    let c = 0
+    
+    // Test setbyte on variable in slot 3
+    let buf = 4464640  // .bss address
+    
+    setbyte(buf, 0, 65)  // Write 'A'
+    
+    exit(0)
+}

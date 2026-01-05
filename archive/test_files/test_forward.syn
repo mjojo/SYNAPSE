@@ -1,0 +1,14 @@
+fn start() {
+    hello()
+    return 0
+}
+
+fn hello() {
+    io_println("Hello")
+    return 0
+}
+
+fn main() {
+    start()
+    return 0
+}

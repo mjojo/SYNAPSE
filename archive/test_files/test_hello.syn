@@ -1,0 +1,4 @@
+fn main() {
+    io_println("Hello World!")
+    exit(0)
+}

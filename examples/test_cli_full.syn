@@ -1,0 +1,134 @@
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_nl() {
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    io_print(nl)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    print_nl()
+    return 0
+}
+
+fn cli_skip_spaces(cmd, pos) {
+    while getbyte(cmd, pos) == 32 {
+        pos = pos + 1
+    }
+    return pos
+}
+
+fn cli_find_arg_end(cmd, pos) {
+    let c = getbyte(cmd, pos)
+    while c > 0 {
+        if c == 32 {
+            return pos
+        }
+        pos = pos + 1
+        c = getbyte(cmd, pos)
+    }
+    return pos
+}
+
+fn cli_copy_arg(cmd, start, end, dest) {
+    let i = 0
+    while start < end {
+        setbyte(dest, i, getbyte(cmd, start))
+        i = i + 1
+        start = start + 1
+    }
+    setbyte(dest, i, 0)
+    return i
+}
+
+fn cli_is_dash_o(cmd, pos) {
+    if getbyte(cmd, pos) == 45 {
+        if getbyte(cmd, pos + 1) == 111 {
+            let c = getbyte(cmd, pos + 2)
+            if c == 32 {
+                return 1
+            }
+            if c == 0 {
+                return 1
+            }
+        }
+    }
+    return 0
+}
+
+fn cli_parse(cmd, input_file, output_file) {
+    let pos = 0
+    
+    pos = cli_skip_spaces(cmd, pos)
+    let arg_end = cli_find_arg_end(cmd, pos)
+    pos = arg_end
+    pos = cli_skip_spaces(cmd, pos)
+    
+    if getbyte(cmd, pos) == 0 {
+        return 0
+    }
+    
+    let have_input = 0
+    
+    while getbyte(cmd, pos) > 0 {
+        pos = cli_skip_spaces(cmd, pos)
+        if getbyte(cmd, pos) == 0 {
+            return have_input
+        }
+        
+        if cli_is_dash_o(cmd, pos) == 1 {
+            pos = pos + 2
+            pos = cli_skip_spaces(cmd, pos)
+            arg_end = cli_find_arg_end(cmd, pos)
+            if arg_end > pos {
+                cli_copy_arg(cmd, pos, arg_end, output_file)
+            }
+            pos = arg_end
+        } else {
+            arg_end = cli_find_arg_end(cmd, pos)
+            if arg_end > pos {
+                cli_copy_arg(cmd, pos, arg_end, input_file)
+                have_input = 1
+            }
+            pos = arg_end
+        }
+    }
+    
+    return have_input
+}
+
+fn main() {
+    let cmd = get_cmd_line()
+    let input_file = alloc(256)
+    let output_file = alloc(256)
+    
+    let ok = cli_parse(cmd, input_file, output_file)
+    if ok == 0 {
+        io_println("No input file!")
+        return 1
+    }
+    
+    io_print("Input: ")
+    io_println(input_file)
+    io_print("Output: ")
+    io_println(output_file)
+    
+    return 0
+}

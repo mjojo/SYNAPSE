@@ -1,0 +1,79 @@
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_nl() {
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    io_print(nl)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    print_nl()
+    return 0
+}
+
+fn main() {
+    let cmd = get_cmd_line()
+    let input_file = alloc(256)
+    let output_file = alloc(256)
+    
+    // Default output
+    setbyte(output_file, 0, 111)  // o
+    setbyte(output_file, 1, 117)  // u
+    setbyte(output_file, 2, 116)  // t
+    setbyte(output_file, 3, 46)   // .
+    setbyte(output_file, 4, 101)  // e
+    setbyte(output_file, 5, 120)  // x
+    setbyte(output_file, 6, 101)  // e
+    setbyte(output_file, 7, 0)
+    
+    let pos = 0
+    
+    // Skip program name
+    while getbyte(cmd, pos) > 32 {
+        pos = pos + 1
+    }
+    
+    // Skip spaces
+    while getbyte(cmd, pos) == 32 {
+        pos = pos + 1
+    }
+    
+    // Check if no args
+    if getbyte(cmd, pos) == 0 {
+        io_println("No input file!")
+        return 1
+    }
+    
+    // Copy input file
+    let i = 0
+    while getbyte(cmd, pos) > 32 {
+        setbyte(input_file, i, getbyte(cmd, pos))
+        i = i + 1
+        pos = pos + 1
+    }
+    setbyte(input_file, i, 0)
+    
+    io_print("Input: ")
+    io_println(input_file)
+    io_print("Output: ")
+    io_println(output_file)
+    
+    return 0
+}

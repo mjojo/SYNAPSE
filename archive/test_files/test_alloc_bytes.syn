@@ -1,0 +1,13 @@
+fn main() {
+    io_print("Testing alloc_bytes... ")
+    let ptr = alloc_bytes(100)
+    if ptr == 0 {
+        io_println("FAILED (0)")
+    }
+    if ptr != 0 {
+        io_println("SUCCESS")
+        print_num(ptr)
+        io_println("")
+    }
+    return 0
+}

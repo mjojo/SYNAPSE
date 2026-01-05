@@ -1,0 +1,22 @@
+fn main() {
+    let buf = alloc(16)
+    let ptr = alloc(8)
+    
+    // Store pointer in buf
+    setbyte(buf, 0, ptr % 256)
+    setbyte(buf, 1, ptr / 256 % 256)
+    setbyte(buf, 2, ptr / 65536 % 256)
+    setbyte(buf, 3, ptr / 16777216 % 256)
+    
+    // Read back
+    let ptr2 = getbyte(buf, 0)
+    ptr2 = ptr2 + getbyte(buf, 1) * 256
+    ptr2 = ptr2 + getbyte(buf, 2) * 65536
+    ptr2 = ptr2 + getbyte(buf, 3) * 16777216
+    
+    // If they match, exit 42, else exit 1
+    if ptr == ptr2 {
+        exit(42)
+    }
+    exit(1)
+}

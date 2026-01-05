@@ -1,0 +1,5 @@
+fn main() {
+    puts("Test")
+    exit(0)
+    return 0
+}

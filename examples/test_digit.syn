@@ -1,0 +1,9 @@
+fn test_print_digit() {
+    let tc = 7
+    let digit = 48 + tc
+    exit(digit)
+}
+
+fn main() {
+    test_print_digit()
+}

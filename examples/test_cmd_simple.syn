@@ -1,0 +1,4 @@
+fn main() {
+    let cmd = get_cmd_line()
+    exit(42)
+}

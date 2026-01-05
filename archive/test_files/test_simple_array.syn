@@ -1,0 +1,5 @@
+fn main() {
+    let arr = alloc(64)
+    arr[5] = 99
+    exit(arr[5])
+}

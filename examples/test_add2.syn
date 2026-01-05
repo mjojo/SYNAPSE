@@ -1,0 +1,6 @@
+fn main() {
+    let a = 48
+    let b = 9
+    let c = a + b
+    exit(c)
+}

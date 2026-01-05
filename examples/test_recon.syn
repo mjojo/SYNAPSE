@@ -1,0 +1,18 @@
+fn main() {
+    // Simulate reconstruction from bytes
+    let b0 = 135
+    let b1 = 214
+    let b2 = 18
+    let b3 = 0
+    
+    let ptr2 = b0
+    ptr2 = ptr2 + b1 * 256
+    ptr2 = ptr2 + b2 * 65536
+    ptr2 = ptr2 + b3 * 16777216
+    
+    // Should be 1234567
+    if ptr2 == 1234567 {
+        exit(42)
+    }
+    exit(1)
+}

@@ -1,0 +1,13 @@
+fn main() {
+    let arr = alloc(10)
+    
+    // Set arr[0] = 42
+    let val = 42
+    setbyte(arr, 0, val)
+    
+    // Read arr[0]
+    let result = getbyte(arr, 0)
+    
+    // Exit with result (should be 42)
+    exit(result)
+}

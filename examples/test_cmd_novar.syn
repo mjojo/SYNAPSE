@@ -1,0 +1,4 @@
+fn main() {
+    get_cmd_line()
+    exit(42)
+}

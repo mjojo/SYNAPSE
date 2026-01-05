@@ -1,0 +1,10 @@
+fn test_while(a, b) {
+    while a < b {
+        exit(42)
+    }
+    exit(99)
+}
+
+fn main() {
+    test_while(10, 20)
+}

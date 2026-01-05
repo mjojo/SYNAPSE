@@ -1,0 +1,13 @@
+fn main() {
+    let state = alloc(8)
+    io_print("state = ")
+    print_num(state)
+    io_println("")
+    
+    state[0] = 42
+    io_print("state[0] after write = ")
+    print_num(state[0])
+    io_println("")
+    
+    exit(state[0])
+}

@@ -1,0 +1,14 @@
+fn main() {
+    // invoke(func_ptr, arg1, ...)
+    // We need a func ptr.
+    // Let's try to invoke ExitProcess (IAT index 0).
+    // IAT base 0x11028.
+    // ExitProcess at 0x11028.
+    // We need to read the address from 0x11028.
+    // But we can't read 64-bit easily without get_qword.
+    // Let's assume we can read it.
+    
+    // For test, just invoke 0 (crash).
+    invoke(0)
+    return 0
+}

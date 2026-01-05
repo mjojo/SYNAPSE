@@ -1,0 +1,6 @@
+fn main() {
+    let x = 1234567
+    let div = x / 256
+    let low = div % 256
+    exit(low)
+}

@@ -1,0 +1,7 @@
+fn main() {
+    let ptr = alloc(64)
+    if ptr == 0 {
+        exit(1)
+    }
+    exit(0)
+}

@@ -1,0 +1,14 @@
+fn test() {
+    let a = 1
+    let b = 2
+    let c = 3
+    let d = 4
+    if d == 4 {
+        exit(42)
+    }
+    exit(99)
+}
+
+fn main() {
+    test()
+}

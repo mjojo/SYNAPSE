@@ -1,0 +1,84 @@
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_nl() {
+    let nl = alloc(2)
+    setbyte(nl, 0, 10)
+    setbyte(nl, 1, 0)
+    io_print(nl)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    print_nl()
+    return 0
+}
+
+fn main() {
+    let cmd = get_cmd_line()
+    
+    io_print("cmd: ")
+    io_println(cmd)
+    
+    // Skip spaces at start
+    let pos = 0
+    while getbyte(cmd, pos) == 32 {
+        pos = pos + 1
+    }
+    
+    // Find end of first arg
+    while getbyte(cmd, pos) > 0 {
+        if getbyte(cmd, pos) == 32 {
+            // Found space
+            pos = pos + 1
+            // Skip more spaces
+            while getbyte(cmd, pos) == 32 {
+                pos = pos + 1
+            }
+            // Now at second arg
+            io_print("Second arg starts at char: ")
+            let c = getbyte(cmd, pos)
+            let buf = alloc(2)
+            setbyte(buf, 0, c)
+            setbyte(buf, 1, 0)
+            io_println(buf)
+            
+            // Copy second arg
+            let arg = alloc(256)
+            let i = 0
+            while getbyte(cmd, pos) > 0 {
+                if getbyte(cmd, pos) == 32 {
+                    setbyte(arg, i, 0)
+                    io_print("Second arg: ")
+                    io_println(arg)
+                    return 0
+                }
+                setbyte(arg, i, getbyte(cmd, pos))
+                i = i + 1
+                pos = pos + 1
+            }
+            setbyte(arg, i, 0)
+            io_print("Second arg: ")
+            io_println(arg)
+            return 0
+        }
+        pos = pos + 1
+    }
+    
+    io_println("No second arg found!")
+    return 1
+}

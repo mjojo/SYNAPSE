@@ -1,0 +1,4 @@
+fn main() {
+    io_println("Hello from Self-Hosted Synapse!")
+    return 0
+}

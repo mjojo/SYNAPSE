@@ -1,0 +1,8 @@
+fn test() {
+    io_println("Hello from test!")
+}
+
+fn main() {
+    test()
+    exit(0)
+}

@@ -498,7 +498,10 @@ fn my_alloc(size) {
 // [12-19] = variable table (name pointers)
 // [20-27] = variable offsets (stack offsets)
 // [28] = var_count
-// [29] = stack_depth (current RSP offset for locals)
+// [29] = const_names (array of name pointers) - PHASE 71
+// [30] = const_values (array of integer values) - PHASE 71
+// [31] = const_count (number of constants) - PHASE 71
+// [32] = stack_depth (current RSP offset for locals)
 
 fn init_compiler(state) {
     // io_println("DEBUG init_compiler: START")
@@ -544,7 +547,21 @@ fn init_compiler(state) {
         vi = vi + 1
     }
     state[28] = 0             // var_count
-    state[29] = 0             // stack_depth
+    
+    // --- PHASE 71: CONST KEYWORD SUPPORT ---
+    state[29] = my_alloc(2048)  // const_names (256 entries * 8 bytes)
+    state[30] = my_alloc(2048)  // const_values (256 entries * 8 bytes)
+    state[31] = 0               // const_count
+    state[32] = 0               // stack_depth (moved from 29)
+    
+    // DEBUG: Verify allocations succeeded
+    if state[29] == 0 {
+        io_println("ERROR: Failed to allocate const_names!")
+    }
+    if state[30] == 0 {
+        io_println("ERROR: Failed to allocate const_values!")
+    }
+    
     io_println("DEBUG init_compiler: END")
     return 0
 }
@@ -1253,6 +1270,7 @@ fn scan_ident(state, src, i) {
     if str_eq(ptr, "if") == 1 { is_kw = 1 }
     if str_eq(ptr, "while") == 1 { is_kw = 1 }
     if str_eq(ptr, "return") == 1 { is_kw = 1 }
+    if str_eq(ptr, "const") == 1 { is_kw = 1 }  // PHASE 71
     
     if is_kw == 1 {
         add_token(state, 5, ptr)
@@ -1458,12 +1476,40 @@ fn lookup_var(state, name) {
     return 0 - 1
 }
 
+// PHASE 71: Find constant by name, return index or -1
+fn find_const_index(state, name) {
+    let const_count = state[31]
+    
+    // CRITICAL: Early return if no constants (avoid reading uninitialized pointers)
+    if const_count == 0 {
+        return 0 - 1
+    }
+    
+    let const_names = state[29]
+    
+    // Safety check: ensure const_names is valid pointer
+    if const_names == 0 {
+        return 0 - 1
+    }
+    
+    let i = 0
+    while i < const_count {
+        let existing = get_arr(const_names, i)
+        if str_eq(name, existing) == 1 {
+            return i
+        }
+        i = i + 1
+    }
+    
+    return 0 - 1  // Not found
+}
+
 // Add variable, return stack offset
 fn add_var(state, name) {
     let count = state[28]
-    let off29 = state[29]
-    let offset = off29 + 8
-    state[29] = offset
+    let stack_depth = state[32]
+    let offset = stack_depth + 8
+    state[32] = offset
     
     let idx_name = 12 + count
     let idx_off = 20 + count
@@ -1516,6 +1562,23 @@ fn parse_ident(state) {
         parse_call(state, name)
         return 0
     }
+    
+    // PHASE 71: Check if it's a constant FIRST
+    let const_idx = find_const_index(state, name)
+    if const_idx >= 0 {
+        // Found constant! Get value and generate code
+        io_print("[SUBST ")
+        io_print(name)
+        io_print("=")
+        let const_values = state[30]
+        let value = get_arr(const_values, const_idx)
+        print_num(value)
+        io_print("] ")
+        
+        // Generate: MOV RAX, immediate
+        emit_mov_rax_imm64(state, value)
+        return 0
+}
     
     // Variable reference - load from stack
     let offset = lookup_var(state, name)
@@ -2152,7 +2215,7 @@ fn parse_function(state) {
     
     // Reset variables for this function
     state[28] = 0
-    state[29] = 0
+    state[32] = 0  // stack_depth
     
     // Function prologue:
     // SUB RSP, 56 (shadow space + locals + alignment)
@@ -2172,13 +2235,112 @@ fn parse_function(state) {
 }
 
 // Parse entire program
+// ============================================================================
+// PHASE 71: CONST KEYWORD PARSING
+// ============================================================================
+
+fn parse_const_decl(state) {
+    // Syntax: const NAME = NUMBER
+    io_print("[CONST] count=")
+    print_num(state[31])
+    io_print(" ")
+    advance(state)  // Skip 'const' keyword
+    
+    // 1. Expect identifier
+    if current_token_type(state) != 1 {  // TOKEN_IDENT
+        io_print("Error: Expected identifier after const, got type ")
+        print_num(current_token_type(state))
+        io_println("")
+        return 0
+    }
+    
+    let token_text = current_token_text(state)
+    let name_len = str_len(token_text)
+    let name = my_alloc(name_len + 1)
+    copy_str(name, token_text)
+    
+    io_print("Name: ")
+    io_print(name)
+    io_print(" ")
+    advance(state)
+    
+    // 2. Expect '=' (token type 2 = operator)
+    if current_token_type(state) != 2 {  // TOKEN_OPERATOR
+        io_print("Error: Expected operator after const name, got type ")
+        print_num(current_token_type(state))
+        io_print(", text: ")
+        io_println(current_token_text(state))
+        return 0
+    }
+    
+    let op_text = current_token_text(state)
+    let is_assign = 0
+    if getbyte(op_text, 0) == 61 {  // ASCII '='
+        is_assign = 1
+    }
+    if is_assign == 0 {
+        io_println("Error: Expected = after const name")
+        return 0
+    }
+    advance(state)
+    
+    // 3. Expect number
+    if current_token_type(state) != 3 {  // TOKEN_NUMBER
+        io_println("Error: Expected number after =")
+        return 0
+    }
+    
+    let value = str_to_int(current_token_text(state))
+    advance(state)
+    
+    // 4. Store in const table
+    let const_names = state[29]
+    let const_values = state[30]
+    let const_count = state[31]
+    
+    // Check limit (256 constants max)
+    if const_count >= 256 {
+        io_println("Error: Too many constants (max 256)")
+        return 0
+    }
+    
+    // Store name and value
+    set_arr(const_names, const_count, name)
+    set_arr(const_values, const_count, value)
+    
+    // Increment count
+    state[31] = const_count + 1
+    
+    // Debug: verify storage
+    io_print("Value: ")
+    print_num(value)
+    io_print(" Stored at index ")
+    print_num(const_count)
+    io_print(" New count: ")
+    print_num(state[31])
+    io_println("")
+    
+    return 0
+}
+
 fn parse_program(state) {
     while state[2] < state[1] {
         let text = current_token_text(state)
+        let handled = 0
+        
+        // PHASE 71: Handle const declarations
+        if str_eq(text, "const") == 1 {
+            parse_const_decl(state)
+            handled = 1
+        }
+        
         if str_eq(text, "fn") == 1 {
             parse_function(state)
+            handled = 1
         }
-        if str_eq(text, "fn") == 0 {
+        
+        // Skip unknown tokens
+        if handled == 0 {
             advance(state)
         }
     }
@@ -2303,7 +2465,8 @@ fn run_compiler() {
     io_println("")
     
     // ========== COMPILER INIT ==========
-    let state = my_alloc(256)
+    // PHASE 71: Increased from 256 to 512 for const tables (indices 0-63)
+    let state = my_alloc(512)
     init_compiler(state)
     
     // ========== READ SOURCE FILE ==========

@@ -1,0 +1,5 @@
+const ANSWER = 42
+
+fn main() {
+    return ANSWER
+}

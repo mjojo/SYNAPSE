@@ -1,0 +1,13 @@
+const EXIT_CODE = 42
+const VAL_A = 10
+const VAL_B = 32
+
+fn main() {
+    let res = VAL_A + VAL_B
+    
+    if res == EXIT_CODE {
+        return EXIT_CODE
+    }
+    
+    return 0
+}

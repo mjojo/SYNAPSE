@@ -1,0 +1,7 @@
+const MAX = 100
+const MIN = 0
+const ANSWER = 42
+
+fn main() {
+    return 0
+}

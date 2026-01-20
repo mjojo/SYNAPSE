@@ -1,0 +1,12 @@
+// Phase 71 Test: Const Keyword
+// Tests that const declarations work and values are substituted
+
+const MAGIC = 42
+const BIG_NUM = 1000
+
+fn main() {
+    let x = MAGIC
+    let y = BIG_NUM
+    let z = x + y
+    exit(z)
+}

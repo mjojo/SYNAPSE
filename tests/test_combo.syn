@@ -1,0 +1,6 @@
+fn main() {
+    let c = 61
+    let combo = c * 256
+    combo = combo + 61
+    return combo
+}

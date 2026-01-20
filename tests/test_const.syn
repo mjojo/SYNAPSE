@@ -1,0 +1,4 @@
+const MAX_VAL = 100
+fn main() {
+    return MAX_VAL
+}

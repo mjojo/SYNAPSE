@@ -1,0 +1,229 @@
+fn main() {
+    let exe_base = 4464896
+    
+    // PE Header
+    setbyte(exe_base, 0, 77)
+    setbyte(exe_base, 1, 90)
+    setbyte(exe_base, 60, 64)
+    
+    let pe = exe_base + 64
+    setbyte(pe, 0, 80)
+    setbyte(pe, 1, 69)
+    setbyte(pe, 4, 100)
+    setbyte(pe, 5, 134)
+    setbyte(pe, 6, 1)
+    setbyte(pe, 20, 240)
+    setbyte(pe, 22, 34)
+    
+    let opt = pe + 24
+    setbyte(opt, 0, 11)
+    setbyte(opt, 1, 2)
+    setbyte(opt, 5, 2)
+    setbyte(opt, 17, 16)
+    setbyte(opt, 21, 16)
+    setbyte(opt, 27, 64)
+    setbyte(opt, 28, 1)
+    setbyte(opt, 33, 16)
+    setbyte(opt, 37, 2)
+    setbyte(opt, 40, 6)
+    setbyte(opt, 48, 6)
+    setbyte(opt, 57, 32)
+    setbyte(opt, 61, 2)
+    setbyte(opt, 68, 3)
+    setbyte(opt, 108, 16)
+    
+    let sect = exe_base + 328
+    setbyte(sect, 0, 46)
+    setbyte(sect, 1, 116)
+    setbyte(sect, 2, 101)
+    setbyte(sect, 3, 120)
+    setbyte(sect, 4, 116)
+    setbyte(sect, 9, 16)
+    setbyte(sect, 13, 16)
+    setbyte(sect, 17, 2)
+    setbyte(sect, 21, 2)
+    setbyte(sect, 36, 32)
+    setbyte(sect, 39, 96)
+    
+    // Code for sum of digits of 12345
+    // Stack: [RSP] = val, [RSP+8] = res
+    let code = exe_base + 512
+    let p = 0
+    
+    // val = 12345 = 0x3039
+    let val_lo = 57  // 0x39
+    let val_hi = 48  // 0x30
+    
+    // SUB RSP, 16 (48 83 EC 10)
+    setbyte(code, p, 72)
+    p = p + 1
+    setbyte(code, p, 131)
+    p = p + 1
+    setbyte(code, p, 236)
+    p = p + 1
+    setbyte(code, p, 16)
+    p = p + 1
+    
+    // MOV DWORD [RSP], 12345 (C7 04 24 39 30 00 00)
+    setbyte(code, p, 199)
+    p = p + 1
+    setbyte(code, p, 4)
+    p = p + 1
+    setbyte(code, p, 36)
+    p = p + 1
+    setbyte(code, p, val_lo)
+    p = p + 1
+    setbyte(code, p, val_hi)
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    
+    // MOV DWORD [RSP+8], 0 (C7 44 24 08 00 00 00 00)
+    setbyte(code, p, 199)
+    p = p + 1
+    setbyte(code, p, 68)
+    p = p + 1
+    setbyte(code, p, 36)
+    p = p + 1
+    setbyte(code, p, 8)
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    
+    // LOOP_START at offset 19
+    let loop_start = p
+    
+    // CMP DWORD [RSP], 0 (83 3C 24 00)
+    setbyte(code, p, 131)
+    p = p + 1
+    setbyte(code, p, 60)
+    p = p + 1
+    setbyte(code, p, 36)
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    
+    // JLE exit (0F 8E xx xx xx xx) - near jump for larger offset
+    let jle_pos = p
+    setbyte(code, p, 15)
+    p = p + 1
+    setbyte(code, p, 142)
+    p = p + 1
+    setbyte(code, p, 0)  // Placeholder 4 bytes
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    
+    // === LOOP BODY ===
+    // MOV EAX, [RSP] (8B 04 24)
+    setbyte(code, p, 139)
+    p = p + 1
+    setbyte(code, p, 4)
+    p = p + 1
+    setbyte(code, p, 36)
+    p = p + 1
+    
+    // XOR EDX, EDX (31 D2)
+    setbyte(code, p, 49)
+    p = p + 1
+    setbyte(code, p, 210)
+    p = p + 1
+    
+    // MOV ECX, 10 (B9 0A 00 00 00)
+    setbyte(code, p, 185)
+    p = p + 1
+    setbyte(code, p, 10)
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    setbyte(code, p, 0)
+    p = p + 1
+    
+    // DIV ECX (F7 F1) - EAX = val/10, EDX = val%10
+    setbyte(code, p, 247)
+    p = p + 1
+    setbyte(code, p, 241)
+    p = p + 1
+    
+    // MOV [RSP], EAX (89 04 24) - val = val / 10
+    setbyte(code, p, 137)
+    p = p + 1
+    setbyte(code, p, 4)
+    p = p + 1
+    setbyte(code, p, 36)
+    p = p + 1
+    
+    // ADD [RSP+8], EDX (01 54 24 08) - res = res + dig
+    setbyte(code, p, 1)
+    p = p + 1
+    setbyte(code, p, 84)
+    p = p + 1
+    setbyte(code, p, 36)
+    p = p + 1
+    setbyte(code, p, 8)
+    p = p + 1
+    
+    // JMP loop_start (E9 xx xx xx xx) - near jump
+    let jmp_offset = loop_start - p - 5
+    // For backward: offset is negative, need two's complement for 32-bit
+    // jmp_offset is negative, so we calculate properly
+    let back = 256 * 256 * 256 * 256 + jmp_offset  // Two's complement
+    let b0 = jmp_offset + 256
+    if jmp_offset >= 0 { b0 = jmp_offset }
+    // Actually for near JMP: E9 + 4-byte signed offset
+    // Simpler: use short jump EB if within range
+    // loop_start = 19, current p ~= 50, so offset = 19 - 52 = -33
+    let short_off = loop_start - p - 2
+    let back_byte = 256 + short_off
+    setbyte(code, p, 235)  // EB short jump
+    p = p + 1
+    setbyte(code, p, back_byte)
+    p = p + 1
+    
+    // EXIT: patch JLE
+    let jle_offset = p - jle_pos - 6
+    setbyte(code, jle_pos + 2, jle_offset)
+    
+    // MOV EAX, [RSP+8] (8B 44 24 08) - return res
+    setbyte(code, p, 139)
+    p = p + 1
+    setbyte(code, p, 68)
+    p = p + 1
+    setbyte(code, p, 36)
+    p = p + 1
+    setbyte(code, p, 8)
+    p = p + 1
+    
+    // ADD RSP, 16 (48 83 C4 10)
+    setbyte(code, p, 72)
+    p = p + 1
+    setbyte(code, p, 131)
+    p = p + 1
+    setbyte(code, p, 196)
+    p = p + 1
+    setbyte(code, p, 16)
+    p = p + 1
+    
+    // RET (C3)
+    setbyte(code, p, 195)
+    
+    let h = open("gen2.exe", 1)
+    write(h, exe_base, 1024)
+    close(h)
+    
+    return 15
+}

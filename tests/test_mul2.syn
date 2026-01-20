@@ -1,0 +1,5 @@
+fn main() {
+    let c = 2
+    let combo = c * 3
+    return combo
+}

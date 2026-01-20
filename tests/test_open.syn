@@ -1,0 +1,9 @@
+fn main() {
+    let f = open("examples/synapse_full.syn", 0)
+    if f == -1 {
+        io_println("Failed to open")
+        return 1
+    }
+    io_println("Opened successfully")
+    return 0
+}

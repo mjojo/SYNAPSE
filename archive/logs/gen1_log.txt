@@ -1,0 +1,1 @@
+R12Z3TU4XYABQCE5Source: examples\synapse_full.syn\nTarget: out.exe\n\nDEBUG init_compiler: END\nLoading... L=16384 Tt1239273\nPp[PARSE_PROGRAM] pos=0 count=3927\n

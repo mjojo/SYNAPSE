@@ -1,0 +1,4 @@
+fn main() {
+    io_print("Hello!")
+    return 0
+}

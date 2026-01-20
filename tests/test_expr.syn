@@ -1,0 +1,11 @@
+fn my_alloc(n) {
+    return 4399120
+}
+
+fn main() {
+    let n = 42
+    let digit = n - n / 10 * 10
+    let result = digit + 48
+    exit(result)
+    return 0
+}

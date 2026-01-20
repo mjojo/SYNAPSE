@@ -1,0 +1,6 @@
+fn main() {
+    let ptr = alloc(16)
+    setbyte(ptr, 0, 65)
+    let c = getbyte(ptr, 0)
+    return c
+}

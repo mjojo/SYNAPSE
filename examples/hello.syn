@@ -1,5 +1,5 @@
-// hello.syn - The classic first program
+// Simple test for Gen 1
 fn main() {
-    print(123)
-    return 0
+    io_print("Hello from Gen 2!")
+    return 42
 }

@@ -1,0 +1,78 @@
+fn my_alloc(size) {
+    return alloc(size)
+}
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_nl() {
+    io_print("\n")
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    print_nl()
+    return 0
+}
+
+fn print_num(n) {
+    if n == 0 {
+        io_print("0")
+        return 0
+    }
+    if n < 0 {
+        io_print("-")
+        n = 0 - n
+    }
+    let buf = my_alloc(20)
+    let i = 0
+    while n > 0 {
+        let digit = n - n / 10 * 10
+        setbyte(buf, i, 48 + digit)
+        i = i + 1
+        n = n / 10
+    }
+    let j = 0
+    while j < i {
+        let rev_i = i - j - 1
+        let c = getbyte(buf, rev_i)
+        let ch = my_alloc(2)
+        setbyte(ch, 0, c)
+        setbyte(ch, 1, 0)
+        io_print(ch)
+        j = j + 1
+    }
+    return 0
+}
+
+fn main() {
+    io_println("Testing I/O...")
+    let f = open("CHANGELOG.md", 0)
+    if f == -1 {
+        io_println("Open Failed")
+        return 1
+    }
+    io_println("Open Success!")
+    
+    let buf = my_alloc(100)
+    let len = read(f, buf, 100)
+    io_print("Read bytes: ")
+    print_num(len)
+    io_println("")
+    
+    close(f)
+    return 0
+}

@@ -1,0 +1,20 @@
+fn main() {
+    let var_addr = 4784128
+    
+    // Use separate vars for each division step
+    let div1 = var_addr / 256
+    let mul1 = div1 * 256
+    let a0 = var_addr - mul1
+    
+    let div2 = div1 / 256
+    let mul2 = div2 * 256
+    let a1 = div1 - mul2
+    
+    let div3 = div2 / 256
+    let mul3 = div3 * 256
+    let a2 = div2 - mul3
+    
+    let a3 = div3
+    
+    return a2
+}

@@ -1,9 +1,8 @@
 ; =============================================================================
-; SYNAPSE CLI Compiler v3.6 - OUROBOROS (Self-Hosting)
-; (c) 2025-2026 mjojo (Vitaly.G) & GLK-Dev
+; SYNAPSE CLI Compiler v2.3 - FULL IMPLEMENTATION
+; (c) 2025 mjojo (Vitaly.G) & GLK-Dev
 ;
 ; Complete pipeline: File → Lexer → Parser → AST → JIT → Execute
-; TRUE SELF-HOSTING: Compiles itself through multiple generations!
 ; Usage: synapse.exe [filename.syn]
 ; =============================================================================
 
@@ -233,7 +232,6 @@ section '.data' data readable writeable
     str_print_hex  db 'print_hex',0
     str_invoke     db 'invoke',0   ; Call code at address
     str_alloc_exec db 'alloc_exec',0  ; Allocate executable memory
-    str_get_last_error db 'get_last_error',0 ; GetLastError()
     
     ; Phase 54: I/O Intrinsics
     str_getstd     db 'getstd',0   ; GetStdHandle(-11=stdout, -10=stdin)
@@ -334,12 +332,12 @@ section '.data' data readable writeable
         ; --- PE HEADER (Start at 0x80) ---
         db 'PE',0,0                 ; Signature
         dw 0x8664                   ; Machine (AMD64)
-        dw 3                        ; NumberOfSections (Code + Import + BSS)
+        dw 2                        ; NumberOfSections (Code + Import)
         dd 0                        ; TimeDateStamp
         dd 0                        ; PointerToSymbolTable
         dd 0                        ; NumberOfSymbols
         dw 0x00F0                   ; SizeOfOptionalHeader
-        dw 0x0022                   ; Characteristics (EXECUTABLE_IMAGE | LARGE_ADDRESS_AWARE)
+        dw 0x022F                   ; Characteristics (Exec, LargeAddr, NoReloc, NoLineNums)
 
         ; --- OPTIONAL HEADER (PE32+) ---
         dw 0x020B                   ; Magic
@@ -356,7 +354,7 @@ section '.data' data readable writeable
         dw 0,0                      ; Image Version
         dw 5,0                      ; Subsystem Version (5.0 = Windows 2000+)
         dd 0                        ; Win32VersionValue
-        dd 0x00142000               ; SizeOfImage (1MB BSS + .idata + .text + headers)
+        dd 0x00006000               ; SizeOfImage (Headers + 16KB Code + Import = 6 pages)
         dd 0x00000200               ; SizeOfHeaders
         dd 0                        ; CheckSum
         dw 3                        ; Subsystem (3=Console, 2=GUI)
@@ -367,50 +365,27 @@ section '.data' data readable writeable
         dd 16                       ; NumberOfRvaAndSizes
         
         ; --- DATA DIRECTORIES (16 entries) ---
-        dd 0,0                      ; 0. Export (Empty)
-        dd 0x41000                  ; 1. IMPORT TABLE RVA
-        dd 0x200                    ;    IMPORT TABLE Size (512 bytes)
-        dd 0,0                      ; 2. Resource (Empty)
-        dd 0,0                      ; 3. Exception (Empty)
-        dd 0,0                      ; 4. Certificate (Empty)
-        dd 0,0                      ; 5. Base Relocation (Empty)
-        dd 0,0                      ; 6. Debug (Empty)
-        dd 0,0                      ; 7. Architecture (Empty)
-        dd 0,0                      ; 8. Global Ptr (Empty)
-        dd 0,0                      ; 9. TLS (Empty)
-        dd 0,0                      ; 10. Load Config (Empty)
-        dd 0,0                      ; 11. Bound Import (Empty)
-        dd 0x41096, 0x60            ; 12. IAT (RVA 0x41096, Size = 96 bytes for 12 entries)
-        dd 0,0                      ; 13. Delay Import (Empty)
-        dd 0,0                      ; 14. CLR Runtime (Empty)
-        dd 0,0                      ; 15. Reserved (Empty)
+        dd 0,0                      ; 1. Export (Empty)
+        dd 0x5000, 0x100            ; 2. IMPORT TABLE (RVA 0x5000, Size = 256 bytes, after 16KB .text)
+        times 14 dd 0,0             ; 3-16. Rest Empty
         
         ; --- SECTION HEADER ---
         db '.text',0,0,0            ; Name
-        dd 0x00040000               ; VirtualSize (256KB for larger programs - Phase 57)
+        dd 0x00004000               ; VirtualSize (16KB for larger programs)
         dd 0x00001000               ; VirtualAddress
-        dd 0x00010000               ; SizeOfRawData (65536 bytes on disk - room for big programs!)
+        dd 0x00004000               ; SizeOfRawData (16384 bytes on disk - room for big programs!)
         dd 0x00000200               ; PointerToRawData (Offset 512 in file)
         dd 0,0,0                    ; Relocs/Lines
-        dd 0xE0000020               ; Characteristics (Code + Exec + Read + Write)
+        dd 0x60000020               ; Characteristics (Code + Exec + Read)
         
         ; --- SECTION HEADER 2: Import Data ---
         db '.idata',0,0              ; Name
-        dd 0x200                     ; VirtualSize (512 bytes - need 404+ for full import table)
-        dd 0x00041000                ; VirtualAddress (RVA 0x41000, after 256KB .text)
+        dd 0x100                     ; VirtualSize (256 bytes - Phase 54 import data)
+        dd 0x00005000                ; VirtualAddress (RVA 0x5000, after 16KB .text)
         dd 0x00000200                ; SizeOfRawData (512 bytes on disk)
-        dd 0x00010200                ; PointerToRawData (Offset 0x10200 in file, after 64KB .text)
+        dd 0x00004200                ; PointerToRawData (Offset 0x4200 in file, after 16KB .text)
         dd 0,0,0                     ; Relocs/Lines
         dd 0xC0000040                ; Characteristics (Read + Write + Initialized Data)
-        
-        ; --- SECTION HEADER 3: BSS (Uninitialized Data) ---
-        db '.bss',0,0,0,0            ; Name
-        dd 0x00100000                ; VirtualSize (1MB for heap)
-        dd 0x00042000                ; VirtualAddress (RVA 0x42000, after .idata)
-        dd 0x00000000                ; SizeOfRawData (0 for BSS)
-        dd 0x00000000                ; PointerToRawData (0 for BSS)
-        dd 0,0,0                     ; Relocs/Lines
-        dd 0xC0000080                ; Characteristics (Read + Write + Uninitialized)
         
     pe_header_size = $ - pe_header_stub
     
@@ -418,7 +393,7 @@ section '.data' data readable writeable
     hOutFile     dq 0
     temp_buffer  rb 16              ; Temporary buffer for patching
     out_bytes_written dq 0
-    pad_buffer   rb 1048576             ; Increased to 1MB for static heap
+    pad_buffer   rb 16384             ; Increased for 16KB .text padding
     
     compile_mode_msg db '[COMPILE] Generating synapse_new.exe...',13,10,0
     compile_done_msg db '[SUCCESS] synapse_new.exe created!',13,10,0
@@ -429,14 +404,14 @@ section '.data' data readable writeable
     ; ENTRY POINT STUB (Call main() then ExitProcess)
     ; Total size: 21 bytes
     ; Offsets calculated relative to NEXT instruction (x86-64 convention)
-    ; IAT starts at RVA 0x11028 (after 64KB .text section)
+    ; IAT starts at RVA 0x5028 (after 16KB .text section)
     ; ============================================================================
     entry_stub:
-        db 0x48, 0x83, 0xEC, 0x30          ; [0-3] sub rsp, 48 (FIXED: was 40, need 16-byte alignment)
+        db 0x48, 0x83, 0xEC, 0x28          ; [0-3] sub rsp, 40
         db 0xE8, 0x0C, 0x00, 0x00, 0x00    ; [4-8] call +12 (next instr at 9, target at 21)
         db 0x48, 0x89, 0xC1                ; [9-11] mov rcx, rax
         db 0x48, 0x8B, 0x05                ; [12-14] mov rax, [rip + offset]
-        dd (0x41096 - 0x1000 - 19)         ; [15-18] Offset: next at RVA 0x1013, IAT[0] at 0x41096
+        dd (0x5028 - 0x1000 - 19)          ; [15-18] Offset: next at RVA 0x1013, IAT[0] at 0x5028
         db 0xFF, 0xD0                      ; [19-20] call rax
         
     entry_stub_size = $ - entry_stub
@@ -449,12 +424,11 @@ section '.data' data readable writeable
     ;            CreateFileA, CloseHandle, GetStdHandle
     ; ============================================================================
     
-    IMPORT_RVA_BASE = 0x41000
+    IMPORT_RVA_BASE = 0x5000
     
     import_data_start:
         ; --- Import Directory Table (20 bytes) ---
-        ; New layout: ILT at offset 40, DLL name at 136, IAT at 150, hint/names at 246
-        dd import_lookup_table - import_data_start + IMPORT_RVA_BASE  ; OriginalFirstThunk (ILT)
+        dd 0                    ; OriginalFirstThunk (ILT) = 0 (use IAT for lookup)
         dd 0                    ; TimeDateStamp
         dd 0                    ; ForwarderChain
         dd sz_kernel32 - import_data_start + IMPORT_RVA_BASE          ; Name (RVA)
@@ -463,31 +437,16 @@ section '.data' data readable writeable
         ; Null Entry (End of Directory)
         times 5 dd 0
 
-        ; --- Import Lookup Table (ILT) at offset 40 ---
+        ; --- Import Address Table (IAT) ---
         ; Index mapping:
-        ; [0] ExitProcess, [1] VirtualAlloc, [2] VirtualFree, [3] WriteFile
-        ; [4] ReadFile, [5] CreateFileA, [6] CloseHandle, [7] GetStdHandle
-        ; [8] GetCommandLineA, [9] WriteConsoleA, [10] ReadConsoleA
-    import_lookup_table:
-        dq hint_exit - import_data_start + IMPORT_RVA_BASE      ; [0]
-        dq hint_alloc - import_data_start + IMPORT_RVA_BASE     ; [1]
-        dq hint_free - import_data_start + IMPORT_RVA_BASE      ; [2]
-        dq hint_write - import_data_start + IMPORT_RVA_BASE     ; [3]
-        dq hint_read - import_data_start + IMPORT_RVA_BASE      ; [4]
-        dq hint_create - import_data_start + IMPORT_RVA_BASE    ; [5]
-        dq hint_close - import_data_start + IMPORT_RVA_BASE     ; [6]
-        dq hint_getstd - import_data_start + IMPORT_RVA_BASE    ; [7]
-        dq hint_cmdline - import_data_start + IMPORT_RVA_BASE   ; [8]
-        dq hint_writeconsole - import_data_start + IMPORT_RVA_BASE ; [9]
-        dq hint_readconsole - import_data_start + IMPORT_RVA_BASE  ; [10]
-        dq 0                    ; End of ILT
-
-        ; --- DLL Name at offset 136 ---
-    sz_kernel32 db 'KERNEL32.DLL',0
-        db 0                    ; Padding to 14 bytes
-
-        ; --- Import Address Table (IAT) at offset 150 ---
-        ; Separate from ILT - Windows will overwrite with actual addresses
+        ; [0] ExitProcess    - Terminate process
+        ; [1] VirtualAlloc   - Allocate memory
+        ; [2] VirtualFree    - Free memory
+        ; [3] WriteFile      - Write to file/console
+        ; [4] ReadFile       - Read from file
+        ; [5] CreateFileA    - Open/create file
+        ; [6] CloseHandle    - Close file handle
+        ; [7] GetStdHandle   - Get stdin/stdout/stderr handle
     import_address_table:
         dq hint_exit - import_data_start + IMPORT_RVA_BASE      ; [0]
         dq hint_alloc - import_data_start + IMPORT_RVA_BASE     ; [1]
@@ -497,45 +456,44 @@ section '.data' data readable writeable
         dq hint_create - import_data_start + IMPORT_RVA_BASE    ; [5]
         dq hint_close - import_data_start + IMPORT_RVA_BASE     ; [6]
         dq hint_getstd - import_data_start + IMPORT_RVA_BASE    ; [7]
-        dq hint_cmdline - import_data_start + IMPORT_RVA_BASE   ; [8]
-        dq hint_writeconsole - import_data_start + IMPORT_RVA_BASE ; [9]
-        dq hint_readconsole - import_data_start + IMPORT_RVA_BASE  ; [10]
         dq 0                    ; End of IAT
 
-        ; --- Hint/Name entries at offset 246 ---
+        ; --- Names & Hints ---
+    sz_kernel32 db 'KERNEL32.DLL',0
+
+        align 2
     hint_exit:
         dw 0
         db 'ExitProcess',0
+        align 2
     hint_alloc:
         dw 0
         db 'VirtualAlloc',0
+        align 2
     hint_free:
         dw 0
         db 'VirtualFree',0
+        align 2
     hint_write:
         dw 0
         db 'WriteFile',0
+        align 2
     hint_read:
         dw 0
         db 'ReadFile',0
+        align 2
     hint_create:
         dw 0
         db 'CreateFileA',0
+        align 2
     hint_close:
         dw 0
         db 'CloseHandle',0
+        align 2
     hint_getstd:
         dw 0
         db 'GetStdHandle',0
-    hint_cmdline:
-        dw 0
-        db 'GetCommandLineA',0
-    hint_writeconsole:
-        dw 0
-        db 'WriteConsoleA',0
-    hint_readconsole:
-        dw 0
-        db 'ReadConsoleA',0
+        align 2
 
     import_data_size = $ - import_data_start
 
@@ -625,7 +583,6 @@ section '.bss' data readable writeable
     
     tok_buffer      rb 256
     func_call_name  rb 64       ; Buffer for function call name
-    fwd_call_name   rb 64       ; Buffer for forward ref function name (saved before arg parsing)
     var_name_buf    rb 64       ; Buffer for variable name in let
     
     ; Symbol table (simple: name_ptr, offset pairs) - LOCAL to each function
@@ -665,11 +622,6 @@ section '.bss' data readable writeable
     ; String literal table
     string_table    rb 65536
     string_ptr      dq ?
-    
-    ; Forward reference table for unresolved function calls
-    ; Format: name (24 bytes) + patch_location (8 bytes) = 32 bytes per entry
-    fwdref_table    rb 16384    ; 512 entries * 32 bytes
-    fwdref_count    dd ?
     
     ; Modifiable entry stub buffer for EXE output
     entry_stub_copy rb 32       ; Copy of entry_stub for patching
@@ -784,9 +736,6 @@ start:
     call compile_program
     test eax, eax
     jz .err_parse
-    
-    ; Resolve forward references
-    call fwdref_resolve
     
     ; DEBUG: Show function count
     lea rcx, [dbg_func_count]
@@ -952,62 +901,30 @@ start:
     test eax, eax
     jz .compile_error
     
-; 6. PADDING AND STRINGS
-    ; Current pos = entry_stub_size + code_size
+; 6. PADDING CODE SECTION TO 16384 BYTES (0x4000)
+    ; Секция кода на диске теперь 16KB чтобы вместить большие программы
+    ; Total = entry_stub_size + code_size
     mov rax, entry_stub_size
     add rax, [out_bytes_written]
-    
-    ; Target string offset = 57600 (0xE100)
-    mov rbx, 57600
-    sub rbx, rax    ; Padding needed
-    
-    cmp rbx, 0
-    jle .skip_pad1
-    
-    ; Write padding 1
-    mov rcx, [hOutFile]
-    lea rdx, [pad_buffer]
-    mov r8, rbx
-    lea r9, [bytes_written]
-    mov qword [rsp+32], 0
-    call [WriteFile]
-    
-.skip_pad1:
-    ; Write Strings
-    mov rcx, [hOutFile]
-    lea rdx, [string_table]
-    mov r8, [string_ptr]
-    sub r8, rdx             ; Length of strings
-    lea r9, [bytes_written]
-    mov qword [rsp+32], 0
-    call [WriteFile]
-    
-    ; Calculate current pos after strings
-    ; pos = 57600 + string_len
-    mov rax, 57600
-    add rax, [string_ptr]
-    lea rdx, [string_table]
-    sub rax, rdx
-    
-    ; Pad to 65536
-    mov rbx, 65536
+    mov rbx, 0x4000             ; 16384 bytes
     sub rbx, rax
-    
     cmp rbx, 0
-    jle .write_import
+    jle .write_import               ; Skip padding if >= 16384
     
-    ; Write padding 2
     mov rcx, [hOutFile]
     lea rdx, [pad_buffer]
     mov r8, rbx
     lea r9, [bytes_written]
     mov qword [rsp+32], 0
     call [WriteFile]
+    
+    test eax, eax
+    jz .compile_error
 
 .write_import:
     ; 7. WRITE IMPORT SECTION
-    ; File is now at offset 0x10200 (header 512 + .text 65536 = 66048 = 0x10200)
-    ; This corresponds to RVA 0x11000
+    ; File is now at offset 0x2200 (header 512 + .text 8192 = 8704 = 0x2200)
+    ; This corresponds to RVA 0x3000
     mov rcx, [hOutFile]
     lea rdx, [import_data_start]
     mov r8, import_data_size
@@ -1197,12 +1114,12 @@ compile_program:
     mov byte [rdi+2], 0xE5
     add rdi, 3
     
-    ; SUB RSP, 8192 (8000 locals + shadow + alignment)
-    ; 8192 = 0x2000
+    ; SUB RSP, 288 (256 locals + 32 shadow for calls)
+    ; 288 = 0x120
     mov byte [rdi], 0x48
     mov byte [rdi+1], 0x81
     mov byte [rdi+2], 0xEC
-    mov dword [rdi+3], 8192     ; 8192 bytes
+    mov dword [rdi+3], 288      ; 288 bytes
     add rdi, 7
     
     ; === HOME REGISTERS (Fastcall/Win64) ===
@@ -1810,60 +1727,6 @@ parse_block:
     
 .not_getbyte_stmt:
     pop rsi
-    
-    ; --- Inline Check for 'get_cmd_line' (Phase 56: CLI) ---
-    push rsi
-    lea rsi, [func_call_name]
-    cmp byte [rsi], 'g'
-    jne .not_get_cmd_line_stmt
-    cmp byte [rsi+1], 'e'
-    jne .not_get_cmd_line_stmt
-    cmp byte [rsi+2], 't'
-    jne .not_get_cmd_line_stmt
-    cmp byte [rsi+3], '_'
-    jne .not_get_cmd_line_stmt
-    cmp byte [rsi+4], 'c'
-    jne .not_get_cmd_line_stmt
-    cmp byte [rsi+5], 'm'
-    jne .not_get_cmd_line_stmt
-    cmp byte [rsi+6], 'd'
-    jne .not_get_cmd_line_stmt
-    cmp byte [rsi+7], '_'
-    jne .not_get_cmd_line_stmt
-    cmp byte [rsi+8], 'l'
-    jne .not_get_cmd_line_stmt
-    cmp byte [rsi+9], 'i'
-    jne .not_get_cmd_line_stmt
-    cmp byte [rsi+10], 'n'
-    jne .not_get_cmd_line_stmt
-    cmp byte [rsi+11], 'e'
-    jne .not_get_cmd_line_stmt
-    cmp byte [rsi+12], 0
-    jne .not_get_cmd_line_stmt
-    pop rsi
-    jmp .stmt_handle_get_cmd_line_intrinsic
-    
-.not_get_cmd_line_stmt:
-    pop rsi
-    
-    ; --- Inline Check for 'exit' (Phase 57: exit intrinsic) ---
-    push rsi
-    lea rsi, [func_call_name]
-    cmp byte [rsi], 'e'
-    jne .not_exit_stmt
-    cmp byte [rsi+1], 'x'
-    jne .not_exit_stmt
-    cmp byte [rsi+2], 'i'
-    jne .not_exit_stmt
-    cmp byte [rsi+3], 't'
-    jne .not_exit_stmt
-    cmp byte [rsi+4], 0
-    jne .not_exit_stmt
-    pop rsi
-    jmp .stmt_handle_exit_intrinsic
-    
-.not_exit_stmt:
-    pop rsi
     ; --- End Inline Checks ---
     
     ; Find function first (save address)
@@ -1872,7 +1735,7 @@ parse_block:
     mov r12, rax                ; R12 = function address
     
     test r12, r12
-    jz .fwd_ref_call            ; Function not found - handle as forward reference
+    jz .skip_call               ; Function not found
     
     ; === Parse ALL arguments (like in compile_term) ===
     xor r14d, r14d              ; R14 = argument counter
@@ -2139,32 +2002,6 @@ parse_block:
     call generate_getbyte
     
     jmp .stmt_loop
-
-.stmt_handle_get_cmd_line_intrinsic:
-    ; get_cmd_line() - no arguments, returns pointer to command line string
-    ; Phase 56: CLI Support
-    
-    ; Skip ')'
-    call next_token
-    
-    ; Generate IAT-based GetCommandLineA call
-    call generate_get_cmd_line_iat
-    
-    jmp .stmt_loop
-
-.stmt_handle_exit_intrinsic:
-    ; exit(code) - Phase 57: Exit process with code
-    ; Parse single argument (exit code)
-    call compile_expr
-    
-    ; Skip ')'
-    call next_token
-    
-    ; Generate IAT-based ExitProcess call
-    ; Argument is in RAX, need to move to RCX and call
-    call generate_exit_iat
-    
-    jmp .stmt_loop
     
 .skip_call:
     ; Skip to ')'
@@ -2173,118 +2010,6 @@ parse_block:
     cmp qword [cur_tok_value], OP_RPAREN
     jne .stmt_loop
     call next_token
-    jmp .stmt_loop
-
-; === Forward Reference Call Handler ===
-; Parse args, emit placeholder CALL, record for later patching
-.fwd_ref_call:
-    ; R12 = 0 (function not found)
-    
-    ; CRITICAL: Save function name BEFORE parsing args (args will overwrite func_call_name)
-    push rsi
-    push rdi
-    push rcx
-    lea rsi, [func_call_name]
-    lea rdi, [fwd_call_name]
-    mov rcx, 64
-.fwd_copy_name:
-    lodsb
-    stosb
-    test al, al
-    jz .fwd_copy_done
-    dec rcx
-    jnz .fwd_copy_name
-.fwd_copy_done:
-    pop rcx
-    pop rdi
-    pop rsi
-    
-    ; Parse args same as normal call
-    xor r14d, r14d              ; R14 = argument counter
-    
-.fwd_parse_arg_loop:
-    push r14                    ; Save arg counter
-    call compile_expr
-    pop r14                     ; Restore arg counter
-    
-    ; Generate: PUSH RAX (push argument onto stack)
-    mov rdi, [jit_cursor]
-    mov byte [rdi], 0x50        ; PUSH RAX
-    inc qword [jit_cursor]
-    
-    inc r14d                    ; Count argument
-    
-    ; Check for ',' (more arguments) or ')' (end)
-    cmp dword [cur_tok_type], TOK_OP
-    jne .fwd_args_done
-    cmp qword [cur_tok_value], OP_COMMA
-    jne .fwd_check_rparen
-    call next_token             ; Skip ','
-    jmp .fwd_parse_arg_loop
-    
-.fwd_check_rparen:
-    cmp qword [cur_tok_value], OP_RPAREN
-    je .fwd_args_done
-    jmp .fwd_parse_arg_loop
-    
-.fwd_args_done:
-    ; Skip ')' if present
-    cmp dword [cur_tok_type], TOK_OP
-    jne .fwd_skip_paren
-    cmp qword [cur_tok_value], OP_RPAREN
-    jne .fwd_skip_paren
-    call next_token
-.fwd_skip_paren:
-    
-    ; Generate POP sequence and shadow space (same as generate_call_common)
-    ; But emit placeholder CALL that will be patched later
-    mov rdi, [jit_cursor]
-    mov ecx, r14d               ; arg count
-    
-    ; Pop args into registers (same logic as generate_call_common)
-    cmp ecx, 4
-    jl .fwd_check_3
-    mov word [rdi], 0x5941      ; POP R9
-    add rdi, 2
-.fwd_check_3:
-    cmp ecx, 3
-    jl .fwd_check_2
-    mov word [rdi], 0x5841      ; POP R8
-    add rdi, 2
-.fwd_check_2:
-    cmp ecx, 2
-    jl .fwd_check_1
-    mov byte [rdi], 0x5A        ; POP RDX
-    inc rdi
-.fwd_check_1:
-    cmp ecx, 1
-    jl .fwd_done_pops
-    mov byte [rdi], 0x59        ; POP RCX
-    inc rdi
-.fwd_done_pops:
-    
-    ; SUB RSP, 32 (shadow space)
-    mov dword [rdi], 0x20EC8348
-    add rdi, 4
-    
-    ; Emit placeholder CALL E8 00 00 00 00
-    mov byte [rdi], 0xE8
-    inc rdi
-    mov r15, rdi                ; R15 = patch location (address of rel32)
-    mov dword [rdi], 0          ; placeholder rel32
-    add rdi, 4
-    
-    ; ADD RSP, 32 (cleanup shadow space)
-    mov dword [rdi], 0x20C48348
-    add rdi, 4
-    
-    mov [jit_cursor], rdi
-    
-    ; Record forward reference: name in fwd_call_name (saved earlier), patch loc in R15
-    lea rcx, [fwd_call_name]
-    mov rdx, r15
-    call fwdref_add
-    
     jmp .stmt_loop
 
 .parse_let:
@@ -2436,10 +2161,6 @@ compile_while:
     je .while_do_eq
     cmp rax, OP_NE
     je .while_do_ne
-    cmp rax, OP_LE
-    je .while_do_le
-    cmp rax, OP_GE
-    je .while_do_ge
     jmp .while_gen_test     ; Unknown operator, just use left term
     
 .while_do_lt:
@@ -2531,50 +2252,6 @@ compile_while:
     ; SETNE AL
     mov rdi, [jit_cursor]
     mov dword [rdi], 0xC0950F
-    add qword [jit_cursor], 3
-    mov rdi, [jit_cursor]
-    mov dword [rdi], 0xC0B60F48
-    add qword [jit_cursor], 4
-    jmp .while_gen_test
-
-.while_do_le:
-    mov rdi, [jit_cursor]
-    mov byte [rdi], 0x50
-    add qword [jit_cursor], 1
-    call next_token
-    call next_token
-    call compile_term
-    mov rdi, [jit_cursor]
-    mov byte [rdi], 0x59
-    add qword [jit_cursor], 1
-    mov rdi, [jit_cursor]
-    mov dword [rdi], 0xC13948
-    add qword [jit_cursor], 3
-    ; SETLE AL (0F 9E C0)
-    mov rdi, [jit_cursor]
-    mov dword [rdi], 0xC09E0F
-    add qword [jit_cursor], 3
-    mov rdi, [jit_cursor]
-    mov dword [rdi], 0xC0B60F48
-    add qword [jit_cursor], 4
-    jmp .while_gen_test
-
-.while_do_ge:
-    mov rdi, [jit_cursor]
-    mov byte [rdi], 0x50
-    add qword [jit_cursor], 1
-    call next_token
-    call next_token
-    call compile_term
-    mov rdi, [jit_cursor]
-    mov byte [rdi], 0x59
-    add qword [jit_cursor], 1
-    mov rdi, [jit_cursor]
-    mov dword [rdi], 0xC13948
-    add qword [jit_cursor], 3
-    ; SETGE AL (0F 9D C0)
-    mov rdi, [jit_cursor]
-    mov dword [rdi], 0xC09D0F
     add qword [jit_cursor], 3
     mov rdi, [jit_cursor]
     mov dword [rdi], 0xC0B60F48
@@ -2963,20 +2640,6 @@ compile_while:
     jmp .while_handle_getbyte_intrinsic
     
 .not_getbyte_while:
-    ; === [SAFE INLINE CHECK] Is it 'exit'? ===
-    cmp byte [rsi], 'e'
-    jne .not_exit_while
-    cmp byte [rsi+1], 'x'
-    jne .not_exit_while
-    cmp byte [rsi+2], 'i'
-    jne .not_exit_while
-    cmp byte [rsi+3], 't'
-    jne .not_exit_while
-    cmp byte [rsi+4], 0
-    jne .not_exit_while
-    pop rsi
-    jmp .while_handle_exit_intrinsic
-.not_exit_while:
     pop rsi
     ; --- End Inline Check ---
     
@@ -2986,7 +2649,7 @@ compile_while:
     mov r14, rax                ; R14 = function address
     
     test r14, r14
-    jz .while_fwd_ref_call
+    jz .while_skip_call
     
     ; === Parse ALL arguments (multi-arg support) ===
     xor r15d, r15d              ; R15 = argument counter
@@ -3050,108 +2713,6 @@ compile_while:
     cmp qword [cur_tok_value], OP_RPAREN
     jne .body_loop
     call next_token
-    jmp .body_loop
-
-; === While Forward Reference Call Handler ===
-.while_fwd_ref_call:
-    ; CRITICAL: Save function name BEFORE parsing args
-    push rsi
-    push rdi
-    push rcx
-    lea rsi, [func_call_name]
-    lea rdi, [fwd_call_name]
-    mov rcx, 64
-.while_fwd_copy_name:
-    lodsb
-    stosb
-    test al, al
-    jz .while_fwd_copy_done
-    dec rcx
-    jnz .while_fwd_copy_name
-.while_fwd_copy_done:
-    pop rcx
-    pop rdi
-    pop rsi
-    
-    xor r15d, r15d              ; R15 = argument counter
-
-.while_fwd_parse_arg_loop:
-    push r12
-    push r13
-    push r15
-    call compile_expr
-    pop r15
-    pop r13
-    pop r12
-    
-    mov rdi, [jit_cursor]
-    mov byte [rdi], 0x50        ; PUSH RAX
-    inc qword [jit_cursor]
-    
-    inc r15d
-    
-    cmp dword [cur_tok_type], TOK_OP
-    jne .while_fwd_args_done
-    cmp qword [cur_tok_value], OP_COMMA
-    jne .while_fwd_check_rparen
-    call next_token
-    jmp .while_fwd_parse_arg_loop
-    
-.while_fwd_check_rparen:
-    cmp qword [cur_tok_value], OP_RPAREN
-    je .while_fwd_args_done
-    jmp .while_fwd_parse_arg_loop
-
-.while_fwd_args_done:
-    cmp dword [cur_tok_type], TOK_OP
-    jne .while_fwd_skip_paren
-    cmp qword [cur_tok_value], OP_RPAREN
-    jne .while_fwd_skip_paren
-    call next_token
-.while_fwd_skip_paren:
-    
-    mov rdi, [jit_cursor]
-    mov ecx, r15d
-    
-    cmp ecx, 4
-    jl .while_fwd_check_3
-    mov word [rdi], 0x5941
-    add rdi, 2
-.while_fwd_check_3:
-    cmp ecx, 3
-    jl .while_fwd_check_2
-    mov word [rdi], 0x5841
-    add rdi, 2
-.while_fwd_check_2:
-    cmp ecx, 2
-    jl .while_fwd_check_1
-    mov byte [rdi], 0x5A
-    inc rdi
-.while_fwd_check_1:
-    cmp ecx, 1
-    jl .while_fwd_done_pops
-    mov byte [rdi], 0x59
-    inc rdi
-.while_fwd_done_pops:
-    
-    mov dword [rdi], 0x20EC8348
-    add rdi, 4
-    
-    mov byte [rdi], 0xE8
-    inc rdi
-    push rdi                    ; Save patch location
-    mov dword [rdi], 0
-    add rdi, 4
-    
-    mov dword [rdi], 0x20C48348
-    add rdi, 4
-    
-    mov [jit_cursor], rdi
-    
-    pop rdx                     ; Patch location
-    lea rcx, [fwd_call_name]
-    call fwdref_add
-    
     jmp .body_loop
 
 .while_handle_alloc_intrinsic:
@@ -3261,31 +2822,6 @@ compile_while:
     push r12
     push r13
     call generate_getbyte
-    pop r13
-    pop r12
-    
-    jmp .body_loop
-
-.while_handle_exit_intrinsic:
-    ; exit(code) inside while loop - Phase 57
-    push r12
-    push r13
-    call compile_expr           ; Parse exit code argument
-    pop r13
-    pop r12
-    
-    ; Skip ')' if present
-    cmp dword [cur_tok_type], TOK_OP
-    jne .while_exit_skip_done
-    cmp qword [cur_tok_value], OP_RPAREN
-    jne .while_exit_skip_done
-    call next_token
-.while_exit_skip_done:
-    
-    ; Generate IAT-based ExitProcess call
-    push r12
-    push r13
-    call generate_exit_iat
     pop r13
     pop r12
     
@@ -3880,30 +3416,11 @@ compile_if:
     pop rsi
     ; --- End Inline Check ---
     
-    ; === [SAFE INLINE CHECK] Is it 'exit'? ===
-    push rsi
-    lea rsi, [func_call_name]
-    cmp byte [rsi], 'e'
-    jne .not_exit_if
-    cmp byte [rsi+1], 'x'
-    jne .not_exit_if
-    cmp byte [rsi+2], 'i'
-    jne .not_exit_if
-    cmp byte [rsi+3], 't'
-    jne .not_exit_if
-    cmp byte [rsi+4], 0
-    jne .not_exit_if
-    pop rsi
-    jmp .if_handle_exit_intrinsic
-.not_exit_if:
-    pop rsi
-    ; --- End Inline Check ---
-    
     lea rcx, [func_call_name]
     call func_find
     mov r14, rax
     test r14, r14
-    jz .if_fwd_ref_call
+    jz .if_skip_call
     
     ; === Parse ALL arguments (multi-arg support) ===
     xor r15d, r15d              ; R15 = argument counter
@@ -3963,106 +3480,6 @@ compile_if:
     call next_token ; skip )
     jmp .if_body
 
-; === If Forward Reference Call Handler ===
-.if_fwd_ref_call:
-    ; CRITICAL: Save function name BEFORE parsing args
-    push rsi
-    push rdi
-    push rcx
-    lea rsi, [func_call_name]
-    lea rdi, [fwd_call_name]
-    mov rcx, 64
-.if_fwd_copy_name:
-    lodsb
-    stosb
-    test al, al
-    jz .if_fwd_copy_done
-    dec rcx
-    jnz .if_fwd_copy_name
-.if_fwd_copy_done:
-    pop rcx
-    pop rdi
-    pop rsi
-    
-    xor r15d, r15d
-
-.if_fwd_parse_arg_loop:
-    push r12
-    push r15
-    call compile_expr
-    pop r15
-    pop r12
-    
-    mov rdi, [jit_cursor]
-    mov byte [rdi], 0x50
-    inc qword [jit_cursor]
-    
-    inc r15d
-    
-    cmp dword [cur_tok_type], TOK_OP
-    jne .if_fwd_args_done
-    cmp qword [cur_tok_value], OP_COMMA
-    jne .if_fwd_check_rparen
-    call next_token
-    jmp .if_fwd_parse_arg_loop
-    
-.if_fwd_check_rparen:
-    cmp qword [cur_tok_value], OP_RPAREN
-    je .if_fwd_args_done
-    jmp .if_fwd_parse_arg_loop
-
-.if_fwd_args_done:
-    cmp dword [cur_tok_type], TOK_OP
-    jne .if_fwd_skip_paren
-    cmp qword [cur_tok_value], OP_RPAREN
-    jne .if_fwd_skip_paren
-    call next_token
-.if_fwd_skip_paren:
-    
-    mov rdi, [jit_cursor]
-    mov ecx, r15d
-    
-    cmp ecx, 4
-    jl .if_fwd_check_3
-    mov word [rdi], 0x5941
-    add rdi, 2
-.if_fwd_check_3:
-    cmp ecx, 3
-    jl .if_fwd_check_2
-    mov word [rdi], 0x5841
-    add rdi, 2
-.if_fwd_check_2:
-    cmp ecx, 2
-    jl .if_fwd_check_1
-    mov byte [rdi], 0x5A
-    inc rdi
-.if_fwd_check_1:
-    cmp ecx, 1
-    jl .if_fwd_done_pops
-    mov byte [rdi], 0x59
-    inc rdi
-.if_fwd_done_pops:
-    
-    mov dword [rdi], 0x20EC8348
-    add rdi, 4
-    
-    mov byte [rdi], 0xE8
-    inc rdi
-    push rdi
-    mov dword [rdi], 0
-    add rdi, 4
-    
-    mov dword [rdi], 0x20C48348
-    add rdi, 4
-    
-    mov [jit_cursor], rdi
-    
-    pop rdx
-    lea rcx, [fwd_call_name]
-    call fwdref_add
-    
-    jmp .if_body
-
 .if_handle_alloc_intrinsic:
     ; Parse single argument for alloc(size)
     push r12
@@ -4080,27 +3497,6 @@ compile_if:
     ; Generate IAT-based VirtualAlloc call
     push r12
     call generate_alloc_iat
-    pop r12
-    
-    jmp .if_body
-
-.if_handle_exit_intrinsic:
-    ; exit(code) - Phase 57: Exit process with code inside if block
-    push r12
-    call compile_expr           ; Parse exit code argument
-    pop r12
-    
-    ; Skip ')' if present
-    cmp dword [cur_tok_type], TOK_OP
-    jne .if_exit_skip_done
-    cmp qword [cur_tok_value], OP_RPAREN
-    jne .if_exit_skip_done
-    call next_token
-.if_exit_skip_done:
-    
-    ; Generate IAT-based ExitProcess call
-    push r12
-    call generate_exit_iat
     pop r12
     
     jmp .if_body
@@ -4383,7 +3779,7 @@ compile_if:
     call func_find
     mov r14, rax
     test r14, r14
-    jz .else_fwd_ref_call
+    jz .else_skip_call
     
     ; === Parse ALL arguments (multi-arg support) ===
     xor r15d, r15d              ; R15 = argument counter
@@ -4434,108 +3830,6 @@ compile_if:
     jmp .else_body
 .else_skip_call:
     call next_token
-    jmp .else_body
-
-; === Else Forward Reference Call Handler ===
-.else_fwd_ref_call:
-    ; CRITICAL: Save function name BEFORE parsing args
-    push rsi
-    push rdi
-    push rcx
-    lea rsi, [func_call_name]
-    lea rdi, [fwd_call_name]
-    mov rcx, 64
-.else_fwd_copy_name:
-    lodsb
-    stosb
-    test al, al
-    jz .else_fwd_copy_done
-    dec rcx
-    jnz .else_fwd_copy_name
-.else_fwd_copy_done:
-    pop rcx
-    pop rdi
-    pop rsi
-    
-    xor r15d, r15d
-
-.else_fwd_parse_arg_loop:
-    push r12
-    push r13
-    push r15
-    call compile_expr
-    pop r15
-    pop r13
-    pop r12
-    
-    mov rdi, [jit_cursor]
-    mov byte [rdi], 0x50
-    inc qword [jit_cursor]
-    
-    inc r15d
-    
-    cmp dword [cur_tok_type], TOK_OP
-    jne .else_fwd_args_done
-    cmp qword [cur_tok_value], OP_COMMA
-    jne .else_fwd_check_rparen
-    call next_token
-    jmp .else_fwd_parse_arg_loop
-    
-.else_fwd_check_rparen:
-    cmp qword [cur_tok_value], OP_RPAREN
-    je .else_fwd_args_done
-    jmp .else_fwd_parse_arg_loop
-
-.else_fwd_args_done:
-    cmp dword [cur_tok_type], TOK_OP
-    jne .else_fwd_skip_paren
-    cmp qword [cur_tok_value], OP_RPAREN
-    jne .else_fwd_skip_paren
-    call next_token
-.else_fwd_skip_paren:
-    
-    mov rdi, [jit_cursor]
-    mov ecx, r15d
-    
-    cmp ecx, 4
-    jl .else_fwd_check_3
-    mov word [rdi], 0x5941
-    add rdi, 2
-.else_fwd_check_3:
-    cmp ecx, 3
-    jl .else_fwd_check_2
-    mov word [rdi], 0x5841
-    add rdi, 2
-.else_fwd_check_2:
-    cmp ecx, 2
-    jl .else_fwd_check_1
-    mov byte [rdi], 0x5A
-    inc rdi
-.else_fwd_check_1:
-    cmp ecx, 1
-    jl .else_fwd_done_pops
-    mov byte [rdi], 0x59
-    inc rdi
-.else_fwd_done_pops:
-    
-    mov dword [rdi], 0x20EC8348
-    add rdi, 4
-    
-    mov byte [rdi], 0xE8
-    inc rdi
-    push rdi
-    mov dword [rdi], 0
-    add rdi, 4
-    
-    mov dword [rdi], 0x20C48348
-    add rdi, 4
-    
-    mov [jit_cursor], rdi
-    
-    pop rdx
-    lea rcx, [fwd_call_name]
-    call fwdref_add
-    
     jmp .else_body
 
 .else_handle_alloc_intrinsic:
@@ -5350,60 +4644,6 @@ compile_term:
     
 .not_getbyte_intrinsic:
     pop rsi
-    
-    ; --- Inline Check for 'get_cmd_line' (Phase 56: CLI) ---
-    push rsi
-    lea rsi, [func_call_name]
-    cmp byte [rsi], 'g'
-    jne .not_get_cmd_line_intrinsic
-    cmp byte [rsi+1], 'e'
-    jne .not_get_cmd_line_intrinsic
-    cmp byte [rsi+2], 't'
-    jne .not_get_cmd_line_intrinsic
-    cmp byte [rsi+3], '_'
-    jne .not_get_cmd_line_intrinsic
-    cmp byte [rsi+4], 'c'
-    jne .not_get_cmd_line_intrinsic
-    cmp byte [rsi+5], 'm'
-    jne .not_get_cmd_line_intrinsic
-    cmp byte [rsi+6], 'd'
-    jne .not_get_cmd_line_intrinsic
-    cmp byte [rsi+7], '_'
-    jne .not_get_cmd_line_intrinsic
-    cmp byte [rsi+8], 'l'
-    jne .not_get_cmd_line_intrinsic
-    cmp byte [rsi+9], 'i'
-    jne .not_get_cmd_line_intrinsic
-    cmp byte [rsi+10], 'n'
-    jne .not_get_cmd_line_intrinsic
-    cmp byte [rsi+11], 'e'
-    jne .not_get_cmd_line_intrinsic
-    cmp byte [rsi+12], 0
-    jne .not_get_cmd_line_intrinsic
-    pop rsi
-    jmp .handle_get_cmd_line_intrinsic
-    
-.not_get_cmd_line_intrinsic:
-    pop rsi
-    
-    ; --- Inline Check for 'exit' (Phase 57: exit intrinsic) ---
-    push rsi
-    lea rsi, [func_call_name]
-    cmp byte [rsi], 'e'
-    jne .not_exit_intrinsic
-    cmp byte [rsi+1], 'x'
-    jne .not_exit_intrinsic
-    cmp byte [rsi+2], 'i'
-    jne .not_exit_intrinsic
-    cmp byte [rsi+3], 't'
-    jne .not_exit_intrinsic
-    cmp byte [rsi+4], 0
-    jne .not_exit_intrinsic
-    pop rsi
-    jmp .handle_exit_intrinsic
-    
-.not_exit_intrinsic:
-    pop rsi
     ; --- End Inline Checks ---
     
     ; Find the function
@@ -5583,132 +4823,12 @@ compile_term:
     ; cur_tok is now ')' - no need to skip it, caller will handle
     call generate_getbyte
     ret
-
-.handle_get_cmd_line_intrinsic:
-    ; get_cmd_line() - no arguments, returns pointer to command line
-    ; Phase 56: CLI Support
-    call next_token         ; Skip '(' -> cur_tok = ')'
-    ; cur_tok is now ')' - no need to skip it, caller will handle
-    
-    ; Generate IAT-based GetCommandLineA call
-    call generate_get_cmd_line_iat
-    ret
-
-.handle_exit_intrinsic:
-    ; exit(code) - Phase 57: Exit process with code
-    ; Parse single argument (exit code)
-    call next_token         ; Skip '(' -> cur_tok = code
-    call compile_expr
-    
-    ; Skip ')' if needed
-    cmp dword [cur_tok_type], TOK_OP
-    jne .exit_skip_done
-    cmp qword [cur_tok_value], OP_RPAREN
-    jne .exit_skip_done
-    call next_token
-.exit_skip_done:
-    
-    ; Generate IAT-based ExitProcess call
-    ; Argument is in RAX, need to move to RCX and call
-    call generate_exit_iat
-    ret
     
 .func_not_found:
-    ; Forward reference in expression context
-    
-    ; CRITICAL: Save function name BEFORE parsing args
-    push rsi
-    push rdi
-    push rcx
-    lea rsi, [func_call_name]
-    lea rdi, [fwd_call_name]
-    mov rcx, 64
-.expr_fwd_copy_name:
-    lodsb
-    stosb
-    test al, al
-    jz .expr_fwd_copy_done
-    dec rcx
-    jnz .expr_fwd_copy_name
-.expr_fwd_copy_done:
-    pop rcx
-    pop rdi
-    pop rsi
-    
-    xor r14d, r14d              ; R14 = argument counter
-    
-.expr_fwd_parse_arg_loop:
-    push r14
-    call compile_expr
-    pop r14
-    
     mov rdi, [jit_cursor]
-    mov byte [rdi], 0x50
-    inc qword [jit_cursor]
-    
-    inc r14d
-    
-    cmp dword [cur_tok_type], TOK_OP
-    jne .expr_fwd_args_done
-    cmp qword [cur_tok_value], OP_COMMA
-    jne .expr_fwd_check_rparen
-    call next_token
-    jmp .expr_fwd_parse_arg_loop
-    
-.expr_fwd_check_rparen:
-    cmp qword [cur_tok_value], OP_RPAREN
-    je .expr_fwd_args_done
-    jmp .expr_fwd_parse_arg_loop
-
-.expr_fwd_args_done:
-    cmp dword [cur_tok_type], TOK_OP
-    jne .expr_fwd_skip_paren
-    cmp qword [cur_tok_value], OP_RPAREN
-    jne .expr_fwd_skip_paren
-    call next_token
-.expr_fwd_skip_paren:
-    
-    mov rdi, [jit_cursor]
-    mov ecx, r14d
-    
-    cmp ecx, 4
-    jl .expr_fwd_check_3
-    mov word [rdi], 0x5941
-    add rdi, 2
-.expr_fwd_check_3:
-    cmp ecx, 3
-    jl .expr_fwd_check_2
-    mov word [rdi], 0x5841
-    add rdi, 2
-.expr_fwd_check_2:
-    cmp ecx, 2
-    jl .expr_fwd_check_1
-    mov byte [rdi], 0x5A
-    inc rdi
-.expr_fwd_check_1:
-    cmp ecx, 1
-    jl .expr_fwd_done_pops
-    mov byte [rdi], 0x59
-    inc rdi
-.expr_fwd_done_pops:
-    
-    mov dword [rdi], 0x20EC8348
-    add rdi, 4
-    
-    mov byte [rdi], 0xE8
-    inc rdi
-    push rdi
-    mov dword [rdi], 0
-    add rdi, 4
-    
-    mov dword [rdi], 0x20C48348
-    add rdi, 4
-    
-    mov [jit_cursor], rdi
-    
-    pop rdx
-    lea rcx, [fwd_call_name]
-    call fwdref_add
+    mov word [rdi], 0xB848
+    mov qword [rdi+2], 0
+    add qword [jit_cursor], 10
     ret
 
 .not_func_call:
@@ -6382,7 +5502,6 @@ global_sym_find:
 ; =============================================================================
 func_table_init:
     mov dword [func_count], 0
-    mov dword [fwdref_count], 0
     mov qword [main_addr], 0
     ret
 
@@ -6520,11 +5639,6 @@ init_intrinsics:
     ; Register 'alloc_exec' intrinsic (Allocate executable memory)
     lea rcx, [str_alloc_exec]
     lea rdx, [intrinsic_alloc_exec]
-    call func_add
-
-    ; Register 'get_last_error' intrinsic
-    lea rcx, [str_get_last_error]
-    lea rdx, [intrinsic_get_last_error]
     call func_add
     
     pop rbx
@@ -7248,11 +6362,11 @@ emit_iat_call:
     add rdi, 2
     
     ; Calculate displacement
-    ; Target RVA = 0x41096 + (Index * 8)  ; IAT starts at 0x41096 (offset 150 in .idata)
+    ; Target RVA = 0x5028 + (Index * 8)   ; IAT starts at 0x5028 (after 16KB .text, 40-byte Import Directory offset)
     ; Current RVA = 0x1000 + entry_stub_size + (jit_cursor - jit_buffer)
     ; Disp = Target - (Current + 4)       ; +4 because disp is relative to END of instruction
     
-    mov rbx, 0x41096        ; IAT base RVA (first entry at 0x41096, offset 150 in .idata)
+    mov rbx, 0x5028         ; IAT base RVA (first entry at 0x5028, after 16KB .text)
     mov rax, r12
     shl rax, 3              ; Index * 8
     add rbx, rax            ; Target RVA
@@ -7392,86 +6506,6 @@ generate_getstd_iat:
     add rdi, 4
     
     ; Update cursor
-    mov [jit_cursor], rdi
-    
-    pop r12
-    pop rbx
-    ret
-
-; =============================================================================
-; generate_get_cmd_line_iat - Generate GetCommandLineA call through IAT
-; Usage: get_cmd_line() - no arguments
-; IAT Index: 8 (GetCommandLineA)
-; Output: Pointer to command line string in RAX
-; Phase 56: CLI Support
-; =============================================================================
-generate_get_cmd_line_iat:
-    push rbx
-    push r12
-    
-    mov rdi, [jit_cursor]
-    
-    ; No arguments needed for GetCommandLineA
-    
-    ; Allocate shadow space: SUB RSP, 40 (0x28)
-    mov dword [rdi], 0x28EC8348
-    add rdi, 4
-    
-    ; Update cursor before IAT call
-    mov [jit_cursor], rdi
-    
-    ; Call GetCommandLineA through IAT (index 8)
-    mov rcx, 8
-    call emit_iat_call
-    
-    ; Restore stack: ADD RSP, 40
-    mov rdi, [jit_cursor]
-    mov dword [rdi], 0x28C48348
-    add rdi, 4
-    
-    ; Update cursor
-    mov [jit_cursor], rdi
-    
-    pop r12
-    pop rbx
-    ret
-
-; =============================================================================
-; generate_exit_iat - Generate ExitProcess call through IAT
-; Usage: exit(code) - Phase 57: Exit intrinsic
-; IAT Index: 0 (ExitProcess)
-; Input: Exit code in RAX (from compile_expr)
-; =============================================================================
-generate_exit_iat:
-    push rbx
-    push r12
-    
-    mov rdi, [jit_cursor]
-    
-    ; Move exit code from RAX to RCX
-    ; MOV RCX, RAX (48 89 C1)
-    mov byte [rdi], 0x48        ; REX.W
-    mov byte [rdi+1], 0x89      ; MOV
-    mov byte [rdi+2], 0xC1      ; ModRM: RAX -> RCX
-    add rdi, 3
-    
-    ; Allocate shadow space: SUB RSP, 40 (0x28)
-    mov dword [rdi], 0x28EC8348
-    add rdi, 4
-    
-    ; Update cursor before IAT call
-    mov [jit_cursor], rdi
-    
-    ; Call ExitProcess through IAT (index 0)
-    mov rcx, 0
-    call emit_iat_call
-    
-    ; Note: ExitProcess never returns, so no cleanup needed
-    ; But add it anyway for consistency
-    mov rdi, [jit_cursor]
-    mov dword [rdi], 0x28C48348
-    add rdi, 4
-    
     mov [jit_cursor], rdi
     
     pop r12
@@ -7628,7 +6662,6 @@ generate_getbyte:
 ; Usage: read(handle, buffer, length)
 ; IAT Index: 4 (ReadFile)
 ; Stack on entry: [length] [buffer] [handle] (top to bottom)
-; Returns: number of bytes read in RAX
 ; =============================================================================
 generate_read_iat:
     push rbx
@@ -7637,7 +6670,7 @@ generate_read_iat:
     mov rdi, [jit_cursor]
     
     ; Stack has 3 args: handle (deep), buffer, length (top)
-    ; ReadFile: RCX=handle, RDX=buffer, R8=nBytes, R9=lpBytesRead, [RSP+32]=lpOverlapped (NULL)
+    ; ReadFile: RCX=handle, RDX=buffer, R8=nBytes, R9=lpBytesRead (NULL), [RSP+32]=lpOverlapped (NULL)
     
     ; POP R8 (length - top of stack)
     mov word [rdi], 0x5841      ; POP R8 (41 58)
@@ -7651,9 +6684,13 @@ generate_read_iat:
     mov byte [rdi], 0x59        ; POP RCX
     inc rdi
     
-    ; Allocate 56 bytes: 32 shadow + 8 for 5th arg + 8 for lpBytesRead + 8 alignment
-    ; SUB RSP, 56 (0x38)
-    mov dword [rdi], 0x38EC8348
+    ; XOR R9D, R9D (lpNumberOfBytesRead = NULL)
+    mov dword [rdi], 0xC9314D   ; 4D 31 C9 = XOR R9, R9 (actually 45 31 C9)
+    add rdi, 3
+    
+    ; Allocate 48 bytes for shadow space + 5th arg + alignment
+    ; SUB RSP, 48 (0x30)
+    mov dword [rdi], 0x30EC8348
     add rdi, 4
     
     ; Set 5th arg (lpOverlapped) = NULL at [RSP+32]
@@ -7671,34 +6708,6 @@ generate_read_iat:
     mov dword [rdi], 0x00000000 ; imm32 = 0
     add rdi, 4
     
-    ; Initialize lpBytesRead at [RSP+40] = 0
-    ; MOV QWORD [RSP+0x28], 0
-    mov byte [rdi], 0x48        ; REX.W
-    inc rdi
-    mov byte [rdi], 0xC7        ; MOV r/m64, imm32
-    inc rdi
-    mov byte [rdi], 0x44        ; ModRM: [RSP+disp8]
-    inc rdi
-    mov byte [rdi], 0x24        ; SIB: RSP
-    inc rdi
-    mov byte [rdi], 0x28        ; disp8 = 40
-    inc rdi
-    mov dword [rdi], 0x00000000 ; imm32 = 0
-    add rdi, 4
-    
-    ; LEA R9, [RSP+40] - lpBytesRead pointer
-    ; 4C 8D 4C 24 28
-    mov byte [rdi], 0x4C        ; REX.WR
-    inc rdi
-    mov byte [rdi], 0x8D        ; LEA
-    inc rdi
-    mov byte [rdi], 0x4C        ; ModRM: R9, [RSP+disp8]
-    inc rdi
-    mov byte [rdi], 0x24        ; SIB: RSP
-    inc rdi
-    mov byte [rdi], 0x28        ; disp8 = 40
-    inc rdi
-    
     ; Update cursor before IAT call
     mov [jit_cursor], rdi
     
@@ -7706,22 +6715,9 @@ generate_read_iat:
     mov rcx, 4
     call emit_iat_call
     
-    ; After call, read lpBytesRead from [RSP+40] into RAX
-    ; MOV RAX, [RSP+0x28]
+    ; Restore stack: ADD RSP, 48
     mov rdi, [jit_cursor]
-    mov byte [rdi], 0x48        ; REX.W
-    inc rdi
-    mov byte [rdi], 0x8B        ; MOV r64, r/m64
-    inc rdi
-    mov byte [rdi], 0x44        ; ModRM: RAX, [RSP+disp8]
-    inc rdi
-    mov byte [rdi], 0x24        ; SIB: RSP
-    inc rdi
-    mov byte [rdi], 0x28        ; disp8 = 40
-    inc rdi
-    
-    ; Restore stack: ADD RSP, 56
-    mov dword [rdi], 0x38C48348
+    mov dword [rdi], 0x30C48348
     add rdi, 4
     
     ; Update cursor
@@ -8185,103 +7181,6 @@ func_find:
     pop rbx
     ret
 
-; =============================================================================
-; fwdref_add - Record a forward reference for later patching
-; RCX = function name, RDX = patch location (address of rel32 in CALL instruction)
-; =============================================================================
-fwdref_add:
-    push rsi
-    push rdi
-    push rbx
-    
-    mov rsi, rcx                ; name
-    mov rbx, rdx                ; patch location
-    
-    ; Get next slot in fwdref_table
-    mov eax, [fwdref_count]
-    shl eax, 5                  ; * 32
-    lea rdi, [fwdref_table]
-    add rdi, rax
-    
-    ; Copy name (up to 24 chars)
-    push rdi
-    mov rcx, 24
-.fwa_copy:
-    lodsb
-    stosb
-    test al, al
-    jz .fwa_name_done
-    dec rcx
-    jnz .fwa_copy
-    xor al, al
-    stosb
-.fwa_name_done:
-    pop rdi
-    
-    ; Store patch location at offset 24
-    mov [rdi + 24], rbx
-    
-    ; Increment count
-    inc dword [fwdref_count]
-    
-    pop rbx
-    pop rdi
-    pop rsi
-    ret
-
-; =============================================================================
-; fwdref_resolve - Resolve all forward references after compilation
-; Patches all recorded CALL rel32 instructions with correct offsets
-; =============================================================================
-fwdref_resolve:
-    push rbx
-    push rsi
-    push rdi
-    push r12
-    push r13
-    
-    xor ebx, ebx                ; Index
-    mov r13d, [fwdref_count]
-    test r13d, r13d
-    jz .fwr_done
-    
-.fwr_loop:
-    ; Get entry
-    mov eax, ebx
-    shl eax, 5                  ; * 32
-    lea rdi, [fwdref_table]
-    add rdi, rax
-    
-    ; RDI now points to entry: name (24 bytes) + patch_loc (8 bytes)
-    mov r12, [rdi + 24]         ; R12 = patch location
-    
-    ; Look up function
-    mov rcx, rdi                ; name
-    call func_find
-    
-    test rax, rax
-    jz .fwr_skip                ; Still not found, skip
-    
-    ; RAX = function address
-    ; R12 = patch location (address of rel32)
-    ; Calculate: rel32 = target - (patch_loc + 4)
-    lea rcx, [r12 + 4]          ; address after CALL instruction
-    sub rax, rcx                ; relative offset
-    mov [r12], eax              ; patch the rel32
-    
-.fwr_skip:
-    inc ebx
-    cmp ebx, r13d
-    jl .fwr_loop
-    
-.fwr_done:
-    pop r13
-    pop r12
-    pop rdi
-    pop rsi
-    pop rbx
-    ret
-
 ; String for main function
 str_main db 'main',0
 
@@ -8441,7 +7340,7 @@ ast_init:
 mem_init:
     sub rsp, 40
     xor ecx, ecx
-    mov edx, 64*1024*1024          ; 64 MB heap (was 16 MB)
+    mov edx, 16*1024*1024          ; 16 MB heap (was 1 MB)
     mov r8d, MEM_COMMIT or MEM_RESERVE
     mov r9d, PAGE_READWRITE
     call [VirtualAlloc]
@@ -8458,7 +7357,7 @@ mem_init:
 jit_init:
     sub rsp, 40
     xor ecx, ecx
-    mov edx, 4*1024*1024           ; 4 MB JIT buffer (was 256KB)
+    mov edx, 256*1024              ; 256KB JIT buffer (was 64KB)
     mov r8d, MEM_COMMIT or MEM_RESERVE
     mov r9d, PAGE_EXECUTE_RW
     call [VirtualAlloc]
@@ -8931,16 +7830,6 @@ intrinsic_alloc_exec:
     pop rdi
     pop rsi
     pop rbx
-    ret
-
-; -----------------------------------------------------------------------------
-; intrinsic_get_last_error - Returns GetLastError()
-; Usage: let err = get_last_error()
-; -----------------------------------------------------------------------------
-intrinsic_get_last_error:
-    sub rsp, 40
-    call [GetLastError]
-    add rsp, 40
     ret
     
 print_number:

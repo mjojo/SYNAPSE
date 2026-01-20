@@ -1,0 +1,90 @@
+fn main() {
+    io_println("TEST: Alloc and Read")
+    
+    // 1. Open File
+    let filename = "examples/synapse_full.syn"
+    io_print("Opening: ")
+    io_println(filename)
+    
+    let h = open(filename, 0)
+    if h == -1 {
+        io_println("FATAL: Open failed")
+        return 1
+    }
+    io_println("File opened.")
+    
+    // 2. Alloc
+    let size = 100
+    io_println("Allocating...")
+    let ptr = alloc(size)
+    
+    if ptr == 0 {
+        io_println("FATAL: Alloc failed")
+        return 1
+    }
+    io_println("Alloc success.")
+    
+    // 3. Read
+    io_println("Reading...")
+    let bytes = read(h, ptr, size)
+    
+    io_print("Bytes read: ")
+    print_num(bytes)
+    io_println("")
+    
+    if bytes == 0 {
+        io_println("FATAL: Read 0 bytes")
+    } else {
+        io_println("Read Content:")
+        // Print first few bytes
+        let i = 0
+        while i < bytes {
+            let b = getbyte(ptr, i)
+            // Cheap char print: alloc string of length 1
+            let s = alloc(2)
+            setbyte(s, 0, b)
+            setbyte(s, 1, 0)
+            io_print(s)
+            i = i + 1
+        }
+        io_println("")
+    }
+    
+    close(h)
+    return 0
+}
+
+fn print_num(n) {
+    if n == 0 {
+        io_print("0")
+        return 0
+    }
+    // Simple recursive print
+    if n >= 10 {
+        print_num(n / 10)
+    }
+    let digit = n % 10
+    let s = alloc(2)
+    setbyte(s, 0, 48 + digit)
+    setbyte(s, 1, 0)
+    io_print(s)
+    return 0
+}
+
+fn io_print(s) {
+    let len = 0
+    let c = getbyte(s, 0)
+    while c != 0 {
+        len = len + 1
+        c = getbyte(s, len)
+    }
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    io_print("\n")
+    return 0
+}

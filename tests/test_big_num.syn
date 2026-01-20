@@ -1,0 +1,7 @@
+fn main() {
+    let x = 15677
+    if x == 15677 {
+        return 1
+    }
+    return 0
+}

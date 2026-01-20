@@ -1,0 +1,6 @@
+=================================
+  SYNAPSE v1.0 - THE SINGULARITY
+=================================
+
+Loading in.syn... OK
+Tokenizing... ^C

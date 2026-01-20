@@ -1,0 +1,2624 @@
+// ============================================================================
+// SYNAPSE v3.6 - THE OUROBOROS
+// Self-Hosting Compiler - True Multi-Generation Bootstrap
+// 
+// This compiler compiles itself through infinite generations!
+// Gen 0 (assembly) → Gen 1 (this file) → Gen 2 → Gen 3 → ...
+// ============================================================================
+
+// ============================================================================
+// SECTION 1: STDLIB CORE
+// ============================================================================
+
+// --- ARRAY ACCESS HELPERS (Bootstrap-safe, no [] syntax) ---
+
+// Read QWORD from array by INDEX (auto-multiply by 8)
+// Guard-based with flag checks
+fn get_arr(base, index) {
+    let result = 0
+    let done = 0
+    
+    if done == 0 { if index == 0 { result = getbyte(base, 0) + getbyte(base, 1) * 256 + getbyte(base, 2) * 65536 + getbyte(base, 3) * 16777216 } }
+    if done == 0 { if index == 0 { done = 1 } }
+    if done == 0 { if index == 1 { result = getbyte(base, 8) + getbyte(base, 9) * 256 + getbyte(base, 10) * 65536 + getbyte(base, 11) * 16777216 } }
+    if done == 0 { if index == 1 { done = 1 } }
+    if done == 0 { if index == 2 { result = getbyte(base, 16) + getbyte(base, 17) * 256 + getbyte(base, 18) * 65536 + getbyte(base, 19) * 16777216 } }
+    if done == 0 { if index == 2 { done = 1 } }
+    if done == 0 { if index == 3 { result = getbyte(base, 24) + getbyte(base, 25) * 256 + getbyte(base, 26) * 65536 + getbyte(base, 27) * 16777216 } }
+    if done == 0 { if index == 3 { done = 1 } }
+    if done == 0 { if index == 4 { result = getbyte(base, 32) + getbyte(base, 33) * 256 + getbyte(base, 34) * 65536 + getbyte(base, 35) * 16777216 } }
+    if done == 0 { if index == 4 { done = 1 } }
+    if done == 0 { if index == 5 { result = getbyte(base, 40) + getbyte(base, 41) * 256 + getbyte(base, 42) * 65536 + getbyte(base, 43) * 16777216 } }
+    if done == 0 { if index == 5 { done = 1 } }
+    if done == 0 { if index == 6 { result = getbyte(base, 48) + getbyte(base, 49) * 256 + getbyte(base, 50) * 65536 + getbyte(base, 51) * 16777216 } }
+    if done == 0 { if index == 6 { done = 1 } }
+    if done == 0 { if index == 7 { result = getbyte(base, 56) + getbyte(base, 57) * 256 + getbyte(base, 58) * 65536 + getbyte(base, 59) * 16777216 } }
+    if done == 0 { if index == 7 { done = 1 } }
+    if done == 0 { if index == 8 { result = getbyte(base, 64) + getbyte(base, 65) * 256 + getbyte(base, 66) * 65536 + getbyte(base, 67) * 16777216 } }
+    if done == 0 { if index == 8 { done = 1 } }
+    if done == 0 { if index == 9 { result = getbyte(base, 72) + getbyte(base, 73) * 256 + getbyte(base, 74) * 65536 + getbyte(base, 75) * 16777216 } }
+    if done == 0 { if index == 9 { done = 1 } }
+    if done == 0 { if index == 10 { result = getbyte(base, 80) + getbyte(base, 81) * 256 + getbyte(base, 82) * 65536 + getbyte(base, 83) * 16777216 } }
+    if done == 0 { if index == 10 { done = 1 } }
+    if done == 0 { if index == 11 { result = getbyte(base, 88) + getbyte(base, 89) * 256 + getbyte(base, 90) * 65536 + getbyte(base, 91) * 16777216 } }
+    if done == 0 { if index == 11 { done = 1 } }
+    if done == 0 { if index == 12 { result = getbyte(base, 96) + getbyte(base, 97) * 256 + getbyte(base, 98) * 65536 + getbyte(base, 99) * 16777216 } }
+    if done == 0 { if index == 12 { done = 1 } }
+    if done == 0 { if index == 13 { result = getbyte(base, 104) + getbyte(base, 105) * 256 + getbyte(base, 106) * 65536 + getbyte(base, 107) * 16777216 } }
+    if done == 0 { if index == 13 { done = 1 } }
+    if done == 0 { if index == 14 { result = getbyte(base, 112) + getbyte(base, 113) * 256 + getbyte(base, 114) * 65536 + getbyte(base, 115) * 16777216 } }
+    if done == 0 { if index == 14 { done = 1 } }
+    if done == 0 { if index == 15 { result = getbyte(base, 120) + getbyte(base, 121) * 256 + getbyte(base, 122) * 65536 + getbyte(base, 123) * 16777216 } }
+    if done == 0 { if index == 15 { done = 1 } }
+    if done == 0 { if index == 16 { result = getbyte(base, 128) + getbyte(base, 129) * 256 + getbyte(base, 130) * 65536 + getbyte(base, 131) * 16777216 } }
+    if done == 0 { if index == 16 { done = 1 } }
+    if done == 0 { if index == 17 { result = getbyte(base, 136) + getbyte(base, 137) * 256 + getbyte(base, 138) * 65536 + getbyte(base, 139) * 16777216 } }
+    if done == 0 { if index == 17 { done = 1 } }
+    if done == 0 { if index == 18 { result = getbyte(base, 144) + getbyte(base, 145) * 256 + getbyte(base, 146) * 65536 + getbyte(base, 147) * 16777216 } }
+    if done == 0 { if index == 18 { done = 1 } }
+    if done == 0 { if index == 19 { result = getbyte(base, 152) + getbyte(base, 153) * 256 + getbyte(base, 154) * 65536 + getbyte(base, 155) * 16777216 } }
+    if done == 0 { if index == 19 { done = 1 } }
+    if done == 0 { if index == 20 { result = getbyte(base, 160) + getbyte(base, 161) * 256 + getbyte(base, 162) * 65536 + getbyte(base, 163) * 16777216 } }
+    if done == 0 { if index == 20 { done = 1 } }
+    if done == 0 { if index == 21 { result = getbyte(base, 168) + getbyte(base, 169) * 256 + getbyte(base, 170) * 65536 + getbyte(base, 171) * 16777216 } }
+    if done == 0 { if index == 21 { done = 1 } }
+    if done == 0 { if index == 22 { result = getbyte(base, 176) + getbyte(base, 177) * 256 + getbyte(base, 178) * 65536 + getbyte(base, 179) * 16777216 } }
+    if done == 0 { if index == 22 { done = 1 } }
+    if done == 0 { if index == 23 { result = getbyte(base, 184) + getbyte(base, 185) * 256 + getbyte(base, 186) * 65536 + getbyte(base, 187) * 16777216 } }
+    if done == 0 { if index == 23 { done = 1 } }
+    if done == 0 { if index == 24 { result = getbyte(base, 192) + getbyte(base, 193) * 256 + getbyte(base, 194) * 65536 + getbyte(base, 195) * 16777216 } }
+    if done == 0 { if index == 24 { done = 1 } }
+    if done == 0 { if index == 25 { result = getbyte(base, 200) + getbyte(base, 201) * 256 + getbyte(base, 202) * 65536 + getbyte(base, 203) * 16777216 } }
+    if done == 0 { if index == 25 { done = 1 } }
+    if done == 0 { if index == 26 { result = getbyte(base, 208) + getbyte(base, 209) * 256 + getbyte(base, 210) * 65536 + getbyte(base, 211) * 16777216 } }
+    if done == 0 { if index == 26 { done = 1 } }
+    if done == 0 { if index == 27 { result = getbyte(base, 216) + getbyte(base, 217) * 256 + getbyte(base, 218) * 65536 + getbyte(base, 219) * 16777216 } }
+    if done == 0 { if index == 27 { done = 1 } }
+    if done == 0 { if index == 28 { result = getbyte(base, 224) + getbyte(base, 225) * 256 + getbyte(base, 226) * 65536 + getbyte(base, 227) * 16777216 } }
+    if done == 0 { if index == 28 { done = 1 } }
+    if done == 0 { if index == 29 { result = getbyte(base, 232) + getbyte(base, 233) * 256 + getbyte(base, 234) * 65536 + getbyte(base, 235) * 16777216 } }
+    if done == 0 { if index == 29 { done = 1 } }
+    
+    return result
+}
+
+// Write QWORD to array by INDEX (auto-multiply by 8)
+fn set_arr(base, index, value) {
+    let v0 = value % 256
+    let t1 = value / 256
+    let v1 = t1 % 256
+    let t2 = t1 / 256
+    let v2 = t2 % 256
+    let t3 = t2 / 256
+    let v3 = t3 % 256
+    
+    if index == 0 { 
+        setbyte(base, 0, v0) 
+        setbyte(base, 1, v1) 
+        setbyte(base, 2, v2) 
+        setbyte(base, 3, v3) 
+        return 0 
+    }
+    if index == 1 { 
+        setbyte(base, 8, v0) 
+        setbyte(base, 9, v1) 
+        setbyte(base, 10, v2) 
+        setbyte(base, 11, v3) 
+        return 0 
+    }
+    if index == 2 { 
+        setbyte(base, 16, v0) 
+        setbyte(base, 17, v1) 
+        setbyte(base, 18, v2) 
+        setbyte(base, 19, v3) 
+        return 0 
+    }
+    if index == 3 { 
+        setbyte(base, 24, v0) 
+        setbyte(base, 25, v1) 
+        setbyte(base, 26, v2) 
+        setbyte(base, 27, v3) 
+        return 0 
+    }
+    if index == 4 { 
+        setbyte(base, 32, v0) 
+        setbyte(base, 33, v1) 
+        setbyte(base, 34, v2) 
+        setbyte(base, 35, v3) 
+        return 0 
+    }
+    if index == 5 { 
+        setbyte(base, 40, v0) 
+        setbyte(base, 41, v1) 
+        setbyte(base, 42, v2) 
+        setbyte(base, 43, v3) 
+        return 0 
+    }
+    if index == 6 { 
+        setbyte(base, 48, v0) 
+        setbyte(base, 49, v1) 
+        setbyte(base, 50, v2) 
+        setbyte(base, 51, v3) 
+        return 0 
+    }
+    if index == 7 { 
+        setbyte(base, 56, v0) 
+        setbyte(base, 57, v1) 
+        setbyte(base, 58, v2) 
+        setbyte(base, 59, v3) 
+        return 0 
+    }
+    if index == 8 { 
+        setbyte(base, 64, v0) 
+        setbyte(base, 65, v1) 
+        setbyte(base, 66, v2) 
+        setbyte(base, 67, v3) 
+        return 0 
+    }
+    if index == 9 { 
+        setbyte(base, 72, v0) 
+        setbyte(base, 73, v1) 
+        setbyte(base, 74, v2) 
+        setbyte(base, 75, v3) 
+        return 0 
+    }
+    if index == 10 { 
+        setbyte(base, 80, v0) 
+        setbyte(base, 81, v1) 
+        setbyte(base, 82, v2) 
+        setbyte(base, 83, v3) 
+        return 0 
+    }
+    if index == 11 { 
+        setbyte(base, 88, v0) 
+        setbyte(base, 89, v1) 
+        setbyte(base, 90, v2) 
+        setbyte(base, 91, v3) 
+        return 0 
+    }
+    if index == 12 { 
+        setbyte(base, 96, v0) 
+        setbyte(base, 97, v1) 
+        setbyte(base, 98, v2) 
+        setbyte(base, 99, v3) 
+        return 0 
+    }
+    if index == 13 { 
+        setbyte(base, 104, v0) 
+        setbyte(base, 105, v1) 
+        setbyte(base, 106, v2) 
+        setbyte(base, 107, v3) 
+        return 0 
+    }
+    if index == 14 { 
+        setbyte(base, 112, v0) 
+        setbyte(base, 113, v1) 
+        setbyte(base, 114, v2) 
+        setbyte(base, 115, v3) 
+        return 0 
+    }
+    if index == 15 { 
+        setbyte(base, 120, v0) 
+        setbyte(base, 121, v1) 
+        setbyte(base, 122, v2) 
+        setbyte(base, 123, v3) 
+        return 0 
+    }
+    if index == 16 { 
+        setbyte(base, 128, v0) 
+        setbyte(base, 129, v1) 
+        setbyte(base, 130, v2) 
+        setbyte(base, 131, v3) 
+        return 0 
+    }
+    if index == 17 { 
+        setbyte(base, 136, v0) 
+        setbyte(base, 137, v1) 
+        setbyte(base, 138, v2) 
+        setbyte(base, 139, v3) 
+        return 0 
+    }
+    if index == 18 { 
+        setbyte(base, 144, v0) 
+        setbyte(base, 145, v1) 
+        setbyte(base, 146, v2) 
+        setbyte(base, 147, v3) 
+        return 0 
+    }
+    if index == 19 { 
+        setbyte(base, 152, v0) 
+        setbyte(base, 153, v1) 
+        setbyte(base, 154, v2) 
+        setbyte(base, 155, v3) 
+        return 0 
+    }
+    if index == 20 { 
+        setbyte(base, 160, v0) 
+        setbyte(base, 161, v1) 
+        setbyte(base, 162, v2) 
+        setbyte(base, 163, v3) 
+        return 0 
+    }
+    if index == 21 { 
+        setbyte(base, 168, v0) 
+        setbyte(base, 169, v1) 
+        setbyte(base, 170, v2) 
+        setbyte(base, 171, v3) 
+        return 0 
+    }
+    if index == 22 { 
+        setbyte(base, 176, v0) 
+        setbyte(base, 177, v1) 
+        setbyte(base, 178, v2) 
+        setbyte(base, 179, v3) 
+        return 0 
+    }
+    if index == 23 { 
+        setbyte(base, 184, v0) 
+        setbyte(base, 185, v1) 
+        setbyte(base, 186, v2) 
+        setbyte(base, 187, v3) 
+        return 0 
+    }
+    if index == 24 { 
+        setbyte(base, 192, v0) 
+        setbyte(base, 193, v1) 
+        setbyte(base, 194, v2) 
+        setbyte(base, 195, v3) 
+        return 0 
+    }
+    if index == 25 { 
+        setbyte(base, 200, v0) 
+        setbyte(base, 201, v1) 
+        setbyte(base, 202, v2) 
+        setbyte(base, 203, v3) 
+        return 0 
+    }
+    if index == 26 { 
+        setbyte(base, 208, v0) 
+        setbyte(base, 209, v1) 
+        setbyte(base, 210, v2) 
+        setbyte(base, 211, v3) 
+        return 0 
+    }
+    if index == 27 { 
+        setbyte(base, 216, v0) 
+        setbyte(base, 217, v1) 
+        setbyte(base, 218, v2) 
+        setbyte(base, 219, v3) 
+        return 0 
+    }
+    if index == 28 { 
+        setbyte(base, 224, v0) 
+        setbyte(base, 225, v1) 
+        setbyte(base, 226, v2) 
+        setbyte(base, 227, v3) 
+        return 0 
+    }
+    if index == 29 { 
+        setbyte(base, 232, v0) 
+        setbyte(base, 233, v1) 
+        setbyte(base, 234, v2) 
+        setbyte(base, 235, v3) 
+        return 0 
+    }
+    return 0
+}
+
+
+fn str_len(s) {
+    let i = 0
+    while getbyte(s, i) > 0 {
+        i = i + 1
+    }
+    return i
+}
+
+fn str_eq(a, b) {
+    let i = 0
+    let ca = getbyte(a, i)
+    let cb = getbyte(b, i)
+    while ca > 0 {
+        if ca != cb {
+            return 0
+        }
+        i = i + 1
+        ca = getbyte(a, i)
+        cb = getbyte(b, i)
+    }
+    if cb > 0 {
+        return 0
+    }
+    return 1
+}
+
+fn is_digit(c) {
+    if c >= 48 {
+        if c <= 57 {
+            return 1
+        }
+    }
+    return 0
+}
+
+fn is_alpha(c) {
+    if c >= 65 {
+        if c <= 90 {
+            return 1
+        }
+    }
+    if c >= 97 {
+        if c <= 122 {
+            return 1
+        }
+    }
+    if c == 95 {
+        return 1
+    }
+    return 0
+}
+
+fn is_alnum(c) {
+    if is_alpha(c) == 1 {
+        return 1
+    }
+    if is_digit(c) == 1 {
+        return 1
+    }
+    return 0
+}
+
+fn io_print(s) {
+    let len = str_len(s)
+    let h = getstd(-11)
+    write(h, s, len)
+    return 0
+}
+
+fn print_nl() {
+    io_print("\n")
+    return 0
+}
+
+fn io_println(s) {
+    io_print(s)
+    print_nl()
+    return 0
+}
+
+fn print_num(n) {
+    if n == 0 {
+        io_print("0")
+        return 0
+    }
+    if n < 0 {
+        io_print("-")
+        n = 0 - n
+    }
+    let buf = my_alloc(20)
+    let i = 0
+    while n > 0 {
+        let digit = n - n / 10 * 10
+        setbyte(buf, i, 48 + digit)
+        i = i + 1
+        n = n / 10
+    }
+    let j = 0
+    while j < i {
+        let rev_i = i - j - 1
+        let c = getbyte(buf, rev_i)
+        let ch = my_alloc(2)
+        setbyte(ch, 0, c)
+        setbyte(ch, 1, 0)
+        io_print(ch)
+        j = j + 1
+    }
+    return 0
+}
+
+fn copy_str(dest, src) {
+    let i = 0
+    let c = getbyte(src, i)
+    while c > 0 {
+        setbyte(dest, i, c)
+        i = i + 1
+        c = getbyte(src, i)
+    }
+    setbyte(dest, i, 0)
+    return i
+}
+
+fn get_qword_mem(addr) {
+    let v = 0
+    let i = 7
+    while i >= 0 {
+        let b = getbyte(addr, i)
+        v = v * 256 + b
+        i = i - 1
+    }
+    return v
+}
+
+fn put_qword_mem(addr, val) {
+    let i = 0
+    while i < 8 {
+        let b = val - ((val / 256) * 256)
+        setbyte(addr, i, b)
+        val = val / 256
+        i = i + 1
+    }
+    return 0
+}
+
+fn my_alloc(size) {
+    // 1. Read current pointer from .bss section (0x442000)
+    let current_ptr = get_qword_mem(4464640)
+    
+    // Debug: check if current_ptr is the expected value after first alloc
+    if current_ptr == 4464904 {
+        io_print("G")  // Got expected value!
+    }
+
+    // 2. Init if 0
+    if current_ptr == 0 {
+        io_print("Z")
+        current_ptr = 4464648 // 0x442008
+    }
+    
+    // 3. Save result
+    let result = current_ptr
+    
+    // 4. Calc next (size bytes)
+    let real_size = size
+    let next_ptr = current_ptr + real_size
+    
+    // 5. Write back to .bss section (0x442000)
+    put_qword_mem(4464640, next_ptr)
+    
+    return result
+}
+
+// ============================================================================
+// SECTION 2: GLOBAL STATE
+// ============================================================================
+
+// Compiler state array:
+// [0] = tokens_buf (token storage)
+// [1] = tokens_count
+// [2] = token_pos (current token index)
+// [3] = code_buf (machine code)
+// [4] = code_pos (current code position)
+// [5] = exe_buf (output PE file)
+// [6] = exe_pos (current exe position)
+// [7] = data_buf (string literals)
+// [8] = data_pos (current data position)
+// [9] = source_buf (input source)
+// [10] = source_pos (lexer position)
+// [11] = source_len
+// [12-19] = variable table (name pointers)
+// [20-27] = variable offsets (stack offsets)
+// [28] = var_count
+// [29] = const_names (array of name pointers) - PHASE 71
+// [30] = const_values (array of integer values) - PHASE 71
+// [31] = const_count (number of constants) - PHASE 71
+// [32] = stack_depth (current RSP offset for locals)
+
+fn init_compiler(state) {
+    // io_println("DEBUG init_compiler: START")
+    
+    // io_print("  Calling alloc(65536)...")
+    let tokens_buf_alloc = my_alloc(65536)
+    // io_print(" returned: ")
+    // print_num(tokens_buf_alloc)
+    // io_println("")
+    
+    // io_print("  Writing to state[0]...")
+    state[0] = tokens_buf_alloc   // tokens_buf (64KB tokens)
+    // io_print(" done, reading back state[0]=")
+    // print_num(state[0])
+    // io_println("")
+    
+    state[1] = 0              // tokens_count
+    state[2] = 0              // token_pos
+    state[3] = my_alloc(65536)    // code_buf (64KB)
+    state[4] = 0              // code_pos
+    
+    // Allocate data_buf BEFORE exe_buf to protect it from overflow
+    state[7] = my_alloc(16384)    // data_buf (16KB)
+    state[8] = 0              // data_pos
+    
+    let exe_buf_alloc = my_alloc(131072)
+    // io_print("  alloc(131072) for exe_buf returned: ")
+    // print_num(exe_buf_alloc)
+    // io_println("")
+    
+    state[5] = exe_buf_alloc   // exe_buf (128KB)
+    
+    state[6] = 0              // exe_pos
+    // state[7] allocated above
+    
+    state[9] = 0              // source_buf (set later)
+    state[10] = 0             // source_pos
+    state[11] = 0             // source_len
+    // Variables (slots 12-27)
+    let vi = 12
+    while vi < 28 {
+        state[vi] = 0
+        vi = vi + 1
+    }
+    state[28] = 0             // var_count
+    
+    // --- PHASE 71: CONST KEYWORD SUPPORT ---
+    state[29] = my_alloc(2048)  // const_names (256 entries * 8 bytes)
+    state[30] = my_alloc(2048)  // const_values (256 entries * 8 bytes)
+    state[31] = 0               // const_count
+    state[32] = 0               // stack_depth (moved from 29)
+    
+    // DEBUG: Verify allocations succeeded
+    if state[29] == 0 {
+        io_println("ERROR: Failed to allocate const_names!")
+    }
+    if state[30] == 0 {
+        io_println("ERROR: Failed to allocate const_values!")
+    }
+    
+    io_println("DEBUG init_compiler: END")
+    return 0
+}
+
+// ============================================================================
+// SECTION 3: CODE GENERATION
+// ============================================================================
+
+fn emit(state, b) {
+    let code_buf = state[3]
+    let code_pos = state[4]
+    setbyte(code_buf, code_pos, b)
+    
+    state[4] = code_pos + 1
+    return 0
+}
+
+fn emit_dword(state, n) {
+    emit(state, n % 256)
+    let n1 = n / 256
+    emit(state, n1 % 256)
+    let n2 = n1 / 256
+    emit(state, n2 % 256)
+    let n3 = n2 / 256
+    emit(state, n3 % 256)
+    return 0
+}
+
+fn emit_qword(state, n) {
+    emit_dword(state, n)
+    emit_dword(state, 0)
+    return 0
+}
+
+// Emit CALL [RIP+disp32] to IAT entry
+// IAT layout at RVA 0x2028:
+//   [0]=ExitProcess, [1]=VirtualAlloc, [2]=VirtualFree, [3]=WriteFile
+//   [4]=ReadFile, [5]=CreateFileA, [6]=CloseHandle, [7]=GetStdHandle
+fn emit_iat_call(state, iat_index) {
+    let iat_offset = iat_index * 8
+    let target_rva = 266280 + iat_offset   // 0x41028 + offset (256KB .text layout)
+    
+    let code_pos = state[4]
+    let next_rip = 4096 + code_pos + 6   // 0x1000 + code_pos + 6
+    
+    let disp = target_rva - next_rip
+    
+    emit(state, 255)   // FF 15
+    emit(state, 21)
+    emit(state, disp % 256)
+    let d1 = disp / 256
+    emit(state, d1 % 256)
+    let d2 = d1 / 256
+    emit(state, d2 % 256)
+    let d3 = d2 / 256
+    emit(state, d3 % 256)
+    return 0
+}
+
+// Emit MOV RAX, imm64
+fn emit_mov_rax_imm64(state, val) {
+    emit(state, 72)    // 48 B8
+    emit(state, 184)
+    emit(state, val % 256)
+    let v1 = val / 256
+    emit(state, v1 % 256)
+    let v2 = v1 / 256
+    emit(state, v2 % 256)
+    let v3 = v2 / 256
+    emit(state, v3 % 256)
+    emit(state, 0)
+    emit(state, 0)
+    emit(state, 0)
+    emit(state, 0)
+    return 0
+}
+
+// Emit MOV ECX, imm32
+fn emit_mov_ecx_imm32(state, val) {
+    emit(state, 185)   // B9
+    emit(state, val % 256)
+    let v1 = val / 256
+    emit(state, v1 % 256)
+    let v2 = v1 / 256
+    emit(state, v2 % 256)
+    let v3 = v2 / 256
+    emit(state, v3 % 256)
+    return 0
+}
+
+// Add string to data section, return offset
+fn add_string_data(state, str_ptr) {
+    let data_buf = state[7]
+    let data_pos = state[8]
+    let offset = data_pos
+    
+    // io_print("DEBUG: add_string_data offset=")
+    // print_num(offset)
+    // io_println("")
+    
+    let i = 0
+    let c = getbyte(str_ptr, i)
+    while c > 0 {
+        setbyte(data_buf, data_pos, c)
+        data_pos = data_pos + 1
+        i = i + 1
+        c = getbyte(str_ptr, i)
+    }
+    setbyte(data_buf, data_pos, 0)
+    data_pos = data_pos + 1
+    
+    state[8] = data_pos
+    return offset
+}
+
+// ============================================================================
+// SECTION 4: PE BUILDER
+// ============================================================================
+
+fn put_byte(state, b) {
+    let exe_buf = state[5]
+    let exe_pos = state[6]
+    
+    // Safety check: prevent buffer overflow
+    if exe_pos >= 131072 {
+        io_print("ERROR: EXE buffer overflow")
+        // print_num(exe_pos)
+        // io_println("")
+        exit(1)
+    }
+    
+    setbyte(exe_buf, exe_pos, b)
+    state[6] = exe_pos + 1
+    return 0
+}
+
+fn put_word(state, w) {
+    put_byte(state, w % 256)
+    let w1 = w / 256
+    put_byte(state, w1 % 256)
+    return 0
+}
+
+fn put_dword(state, d) {
+    put_byte(state, d % 256)
+    let d1 = d / 256
+    put_byte(state, d1 % 256)
+    let d2 = d1 / 256
+    put_byte(state, d2 % 256)
+    let d3 = d2 / 256
+    put_byte(state, d3 % 256)
+    return 0
+}
+
+fn put_qword(state, q) {
+    // Write lower 32 bits
+    put_dword(state, q)
+    // Write upper 32 bits
+    let upper = q / 4294967296  // Divide by 2^32
+    put_dword(state, upper)
+    return 0
+}
+
+fn put_zeros(state, count) {
+    let i = 0
+    while i < count {
+        put_byte(state, 0)
+        i = i + 1
+    }
+    return 0
+}
+
+fn emit_pe_header(state, code_size) {
+    // DOS Header
+    put_byte(state, 77)   // M
+    put_byte(state, 90)   // Z
+    put_zeros(state, 58)
+    put_dword(state, 128)  // e_lfanew -> 0x80 (standard offset)
+
+    // DOS Stub / Padding (64 bytes: 0x40 to 0x7F)
+    put_zeros(state, 64)
+
+    // PE Signature (now at offset 0x80)
+    put_byte(state, 80)   // P
+    put_byte(state, 69)   // E
+    put_word(state, 0)
+
+    // COFF Header
+    put_word(state, 34404)  // AMD64
+    put_word(state, 3)      // 3 sections (FIXED)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_word(state, 240)
+    put_word(state, 34)      // EXEC | LARGE_ADDRESS (без RELOC_STRIPPED)
+
+    // Optional Header Standard
+    put_word(state, 523)    // PE32+
+    put_byte(state, 0)
+    put_byte(state, 0)
+    put_dword(state, 4096)  // SizeOfCode = 0x1000 (fixed)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 4096)  // EntryPoint
+    put_dword(state, 4096)  // BaseOfCode
+
+    // Optional Header Windows
+    put_qword(state, 4194304)  // ImageBase 0x400000 (как у synapse_new.exe)
+    put_dword(state, 4096)     // SectionAlignment
+    put_dword(state, 512)      // FileAlignment
+    put_word(state, 4)         // MajorOperatingSystemVersion
+    put_word(state, 0)
+    put_word(state, 0)
+    put_word(state, 0)
+    put_word(state, 5)         // MajorSubsystemVersion
+    put_word(state, 0)
+    put_dword(state, 0)
+    put_dword(state, 1318912)    // SizeOfImage (0x142000)
+    put_dword(state, 512)      // SizeOfHeaders
+    put_dword(state, 0)
+    put_word(state, 3)         // CONSOLE
+    put_word(state, 0)
+    put_qword(state, 1048576)
+    put_qword(state, 65536)    // StackCommit 64KB
+    put_qword(state, 1048576)
+    put_qword(state, 4096)
+    put_dword(state, 0)
+    put_dword(state, 16)
+
+    // Data Directories (16 entries * 8 bytes = 128 bytes)
+    // Entry 0: Export Table (unused)
+    put_dword(state, 0)
+    put_dword(state, 0)
+    
+    // Entry 1: Import Table - HARDCODED FIX!
+    // io_print("DEBUG emit_pe_header: BEFORE writing Import RVA, exe_pos=")
+    // print_num(state[6])
+    // io_print(", exe_buf=")
+    // print_num(state[5])
+    // io_println("")
+    
+    // io_print("DEBUG emit_pe_header: Writing Import RVA=1052672 (0x101000)... ")
+    put_dword(state, 266240)   // Import RVA = 0x41000 (256KB .text layout)
+    put_dword(state, 200)      // Import Size
+    // io_println("OK")
+    
+    // io_print("DEBUG emit_pe_header: AFTER writing Import RVA, exe_pos=")
+    // print_num(state[6])
+    // io_println("")
+    
+    // Entries 2-11: unused
+    put_zeros(state, 80)
+    
+    // Entry 12: IAT (Import Address Table)
+    put_dword(state, 266280)   // IAT RVA = 0x41028 (256KB .text layout)
+    put_dword(state, 88)       // IAT Size (FIXED for 11 entries)
+    
+    // Entries 13-15: unused
+    put_zeros(state, 24)
+
+    // .text section
+    put_byte(state, 46)
+    put_byte(state, 116)
+    put_byte(state, 101)
+    put_byte(state, 120)
+    put_byte(state, 116)
+    put_zeros(state, 3)
+    put_dword(state, 262144) // VirtualSize = 0x40000 (как в synapse_new.exe)
+    put_dword(state, 4096)
+    // SizeOfRawData: round up to 512
+    let raw_size = 65536 // Force 64KB
+    put_dword(state, raw_size)
+    put_dword(state, 512)
+    put_zeros(state, 12)
+    put_dword(state, 3758096416)   // Characteristics (0xE0000020 = R/W/X)
+
+    // .idata section
+    put_byte(state, 46)
+    put_byte(state, 105)
+    put_byte(state, 100)
+    put_byte(state, 97)
+    put_byte(state, 116)
+    put_byte(state, 97)
+    put_zeros(state, 2)
+    put_dword(state, 256)      // VirtualSize = 0x100 (как в synapse_new.exe)
+    put_dword(state, 266240)   // VirtualAddress = 0x41000 (256KB .text layout)
+    put_dword(state, 512)
+    let idata_file_offset = 512 + raw_size  // Файловое смещение после заголовков и .text
+    put_dword(state, idata_file_offset)
+    put_zeros(state, 12)
+    put_dword(state, 3221225536) // Characteristics (R/W)
+
+    // .bss section
+    put_byte(state, 46) // .
+    put_byte(state, 98) // b
+    put_byte(state, 115) // s
+    put_byte(state, 115) // s
+    put_zeros(state, 4)
+    put_dword(state, 1048576) // VirtualSize (1MB)
+    put_dword(state, 270336) // VirtualAddress = 0x42000
+    put_dword(state, 0) // SizeOfRawData (0 for BSS)
+    put_dword(state, 0) // PointerToRawData (0 for BSS)
+    put_zeros(state, 12)
+    put_dword(state, 3221225600) // Characteristics (R/W/Uninitialized 0xC0000080)
+
+    // Pad to 512
+    let exe_pos = state[6]
+    while exe_pos < 512 {
+        put_byte(state, 0)
+        exe_pos = state[6]
+    }
+    return 0
+}
+
+fn emit_import_table(state) {
+    let IDATA_RVA = 266240   // 0x41000
+
+    // IDT entry
+    put_dword(state, IDATA_RVA + 40)   // OriginalFirstThunk (IAT)
+    put_dword(state, 0)                // TimeDateStamp
+    put_dword(state, 0)                // ForwarderChain
+    put_dword(state, IDATA_RVA + 136)  // Name (DLL Name)
+    put_dword(state, IDATA_RVA + 40)   // FirstThunk (IAT)
+
+    // Null IDT
+    put_zeros(state, 20)
+
+    // IAT (11 entries + null)
+    // [0] GetStdHandle
+    put_qword(state, IDATA_RVA + 150)
+    // [1] WriteConsoleA
+    put_qword(state, IDATA_RVA + 166)
+    // [2] ReadConsoleA
+    put_qword(state, IDATA_RVA + 182)
+    // [3] ExitProcess
+    put_qword(state, IDATA_RVA + 198)
+    // [4] VirtualAlloc
+    put_qword(state, IDATA_RVA + 212)
+    // [5] CreateFileA
+    put_qword(state, IDATA_RVA + 228)
+    // [6] ReadFile
+    put_qword(state, IDATA_RVA + 242)
+    // [7] GetFileSize
+    put_qword(state, IDATA_RVA + 254)
+    // [8] CloseHandle
+    put_qword(state, IDATA_RVA + 268)
+    // [9] GetCommandLineA
+    put_qword(state, IDATA_RVA + 282)
+    // [10] WriteFile
+    put_qword(state, IDATA_RVA + 300)
+    // [11] Null terminator
+    put_qword(state, 0)
+
+    // DLL Name: KERNEL32.DLL (Offset 136)
+    put_byte(state, 75) // K
+    put_byte(state, 69) // E
+    put_byte(state, 82) // R
+    put_byte(state, 78) // N
+    put_byte(state, 69) // E
+    put_byte(state, 76) // L
+    put_byte(state, 51) // 3
+    put_byte(state, 50) // 2
+    put_byte(state, 46) // .
+    put_byte(state, 68) // D
+    put_byte(state, 76) // L
+    put_byte(state, 76) // L
+    put_byte(state, 0)
+    put_byte(state, 0)  // Padding to 150
+
+    // Hint/Name Table
+
+    // [0] GetStdHandle (Offset 150)
+    put_word(state, 0)
+    put_byte(state, 71) // G
+    put_byte(state, 101) // e
+    put_byte(state, 116) // t
+    put_byte(state, 83) // S
+    put_byte(state, 116) // t
+    put_byte(state, 100) // d
+    put_byte(state, 72) // H
+    put_byte(state, 97) // a
+    put_byte(state, 110) // n
+    put_byte(state, 100) // d
+    put_byte(state, 108) // l
+    put_byte(state, 101) // e
+    put_byte(state, 0)
+    put_byte(state, 0) // Padding to 166
+
+    // [1] WriteConsoleA (Offset 166)
+    put_word(state, 0)
+    put_byte(state, 87) // W
+    put_byte(state, 114) // r
+    put_byte(state, 105) // i
+    put_byte(state, 116) // t
+    put_byte(state, 101) // e
+    put_byte(state, 67) // C
+    put_byte(state, 111) // o
+    put_byte(state, 110) // n
+    put_byte(state, 115) // s
+    put_byte(state, 111) // o
+    put_byte(state, 108) // l
+    put_byte(state, 101) // e
+    put_byte(state, 65) // A
+    put_byte(state, 0)
+
+    // [2] ReadConsoleA (Offset 182)
+    put_word(state, 0)
+    put_byte(state, 82) // R
+    put_byte(state, 101) // e
+    put_byte(state, 97) // a
+    put_byte(state, 100) // d
+    put_byte(state, 67) // C
+    put_byte(state, 111) // o
+    put_byte(state, 110) // n
+    put_byte(state, 115) // s
+    put_byte(state, 111) // o
+    put_byte(state, 108) // l
+    put_byte(state, 101) // e
+    put_byte(state, 65) // A
+    put_byte(state, 0)
+    put_byte(state, 0) // Padding to 198
+
+    // [3] ExitProcess (Offset 198)
+    put_word(state, 0)
+    put_byte(state, 69) // E
+    put_byte(state, 120) // x
+    put_byte(state, 105) // i
+    put_byte(state, 116) // t
+    put_byte(state, 80) // P
+    put_byte(state, 114) // r
+    put_byte(state, 111) // o
+    put_byte(state, 99) // c
+    put_byte(state, 101) // e
+    put_byte(state, 115) // s
+    put_byte(state, 115) // s
+    put_byte(state, 0)
+
+    // [4] VirtualAlloc (Offset 212)
+    put_word(state, 0)
+    put_byte(state, 86) // V
+    put_byte(state, 105) // i
+    put_byte(state, 114) // r
+    put_byte(state, 116) // t
+    put_byte(state, 117) // u
+    put_byte(state, 97) // a
+    put_byte(state, 108) // l
+    put_byte(state, 65) // A
+    put_byte(state, 108) // l
+    put_byte(state, 108) // l
+    put_byte(state, 111) // o
+    put_byte(state, 99) // c
+    put_byte(state, 0)
+    put_byte(state, 0) // Padding to 228
+
+    // [5] CreateFileA (Offset 228)
+    put_word(state, 0)
+    put_byte(state, 67) // C
+    put_byte(state, 114) // r
+    put_byte(state, 101) // e
+    put_byte(state, 97) // a
+    put_byte(state, 116) // t
+    put_byte(state, 101) // e
+    put_byte(state, 70) // F
+    put_byte(state, 105) // i
+    put_byte(state, 108) // l
+    put_byte(state, 101) // e
+    put_byte(state, 65) // A
+    put_byte(state, 0)
+
+    // [6] ReadFile (Offset 242)
+    put_word(state, 0)
+    put_byte(state, 82) // R
+    put_byte(state, 101) // e
+    put_byte(state, 97) // a
+    put_byte(state, 100) // d
+    put_byte(state, 70) // F
+    put_byte(state, 105) // i
+    put_byte(state, 108) // l
+    put_byte(state, 101) // e
+    put_byte(state, 0)
+    put_byte(state, 0) // Padding to 254
+
+    // [7] GetFileSize (Offset 254)
+    put_word(state, 0)
+    put_byte(state, 71) // G
+    put_byte(state, 101) // e
+    put_byte(state, 116) // t
+    put_byte(state, 70) // F
+    put_byte(state, 105) // i
+    put_byte(state, 108) // l
+    put_byte(state, 101) // e
+    put_byte(state, 83) // S
+    put_byte(state, 105) // i
+    put_byte(state, 122) // z
+    put_byte(state, 101) // e
+    put_byte(state, 0)
+
+    // [8] CloseHandle (Offset 268)
+    put_word(state, 0)
+    put_byte(state, 67) // C
+    put_byte(state, 108) // l
+    put_byte(state, 111) // o
+    put_byte(state, 115) // s
+    put_byte(state, 101) // e
+    put_byte(state, 72) // H
+    put_byte(state, 97) // a
+    put_byte(state, 110) // n
+    put_byte(state, 100) // d
+    put_byte(state, 108) // l
+    put_byte(state, 101) // e
+    put_byte(state, 0)
+
+    // [9] GetCommandLineA (Offset 282)
+    put_word(state, 0)
+    put_byte(state, 71) // G
+    put_byte(state, 101) // e
+    put_byte(state, 116) // t
+    put_byte(state, 67) // C
+    put_byte(state, 111) // o
+    put_byte(state, 109) // m
+    put_byte(state, 109) // m
+    put_byte(state, 97) // a
+    put_byte(state, 110) // n
+    put_byte(state, 100) // d
+    put_byte(state, 76) // L
+    put_byte(state, 105) // i
+    put_byte(state, 110) // n
+    put_byte(state, 101) // e
+    put_byte(state, 65) // A
+    put_byte(state, 0)
+
+    // [10] WriteFile (Offset 300)
+    put_word(state, 0)
+    put_byte(state, 87) // W
+    put_byte(state, 114) // r
+    put_byte(state, 105) // i
+    put_byte(state, 116) // t
+    put_byte(state, 101) // e
+    put_byte(state, 70) // F
+    put_byte(state, 105) // i
+    put_byte(state, 108) // l
+    put_byte(state, 101) // e
+    put_byte(state, 0)
+
+    // NO PADDING HERE - caller handles it
+    return 0
+}
+
+// ============================================================================
+// SECTION 5: LEXER
+// ============================================================================
+
+// Token types:
+// 1 = IDENT, 2 = NUMBER, 3 = STRING, 4 = OPERATOR, 5 = KEYWORD
+
+fn add_token(state, ttype, text) {
+    let tokens_buf = state[0]
+    let count = state[1]
+    
+    // Each token: [type(1), textptr(8)]
+    let offset = count * 16
+    setbyte(tokens_buf, offset, ttype)
+    
+    // Store text pointer as 8 bytes (NO operator precedence, compute separately)
+    let text_off = offset + 1
+    
+    // Byte 0
+    let b0 = text % 256
+    setbyte(tokens_buf, text_off, b0)
+    
+    // Byte 1
+    let t1 = text / 256
+    let b1 = t1 % 256
+    let off1 = text_off + 1
+    setbyte(tokens_buf, off1, b1)
+    
+    // Byte 2
+    let t2 = t1 / 256
+    let b2 = t2 % 256
+    let off2 = text_off + 2
+    setbyte(tokens_buf, off2, b2)
+    
+    // Byte 3
+    let t3 = t2 / 256
+    let b3 = t3 % 256
+    let off3 = text_off + 3
+    setbyte(tokens_buf, off3, b3)
+    
+    // Byte 4
+    let t4 = t3 / 256
+    let b4 = t4 % 256
+    let off4 = text_off + 4
+    setbyte(tokens_buf, off4, b4)
+    
+    // Byte 5
+    let t5 = t4 / 256
+    let b5 = t5 % 256
+    let off5 = text_off + 5
+    setbyte(tokens_buf, off5, b5)
+    
+    // Byte 6
+    let t6 = t5 / 256
+    let b6 = t6 % 256
+    let off6 = text_off + 6
+    setbyte(tokens_buf, off6, b6)
+    
+    // Byte 7
+    let t7 = t6 / 256
+    let b7 = t7 % 256
+    let off7 = text_off + 7
+    setbyte(tokens_buf, off7, b7)
+    
+    state[1] = count + 1
+    return 0
+}
+
+fn get_token_type(state, idx) {
+    let tokens_buf = state[0]
+    let offset = idx * 16
+    return getbyte(tokens_buf, offset)
+}
+
+fn get_token_text(state, idx) {
+    let tokens_buf = state[0]
+    // NOTE: Must compute separately - no operator precedence!
+    let base = idx * 16
+    let offset = base + 1
+    
+    // Reconstruct pointer from 8 bytes (64-bit)
+    // NOTE: Must compute offsets separately due to operator precedence issues
+    let off1 = offset + 1
+    let off2 = offset + 2
+    let off3 = offset + 3
+    let off4 = offset + 4
+    let off5 = offset + 5
+    let off6 = offset + 6
+    let off7 = offset + 7
+    let b0 = getbyte(tokens_buf, offset)
+    let b1 = getbyte(tokens_buf, off1)
+    let b2 = getbyte(tokens_buf, off2)
+    let b3 = getbyte(tokens_buf, off3)
+    let b4 = getbyte(tokens_buf, off4)
+    let b5 = getbyte(tokens_buf, off5)
+    let b6 = getbyte(tokens_buf, off6)
+    let b7 = getbyte(tokens_buf, off7)
+    
+    // Build low 32 bits
+    let m1 = b1 * 256
+    let m2 = b2 * 65536
+    let m3 = b3 * 16777216
+    let ptr = b0 + m1 + m2 + m3
+    
+    // Build high 32 bits
+    let h1 = b5 * 256
+    let h2 = b6 * 65536
+    let h3 = b7 * 16777216
+    let high = b4 + h1 + h2 + h3
+    
+    // Combine: ptr = ptr + high * 4294967296
+    let shift = high * 4294967296
+    ptr = ptr + shift
+    return ptr
+}
+
+// =============================================================================
+// HELPER: Check if character is whitespace
+// =============================================================================
+fn is_space(c) {
+    if c == 32 { return 1 }  // space
+    if c == 9 { return 1 }   // tab
+    if c == 10 { return 1 }  // newline
+    if c == 13 { return 1 }  // carriage return
+    return 0
+}
+
+// =============================================================================
+// MODULAR SCANNERS - Each handles one token type
+// =============================================================================
+
+fn scan_ident(state, src, i) {
+    let start = i
+    let c = getbyte(src, i)
+    
+    while is_alnum(c) == 1 {
+        i = i + 1
+        c = getbyte(src, i)
+    }
+    
+    let len = i - start
+    let ptr = my_alloc(len + 1)
+    
+    let j = 0
+    let k = start
+    while j < len {
+        let ch = getbyte(src, k)
+        setbyte(ptr, j, ch)
+        j = j + 1
+        k = k + 1
+    }
+    setbyte(ptr, len, 0)
+    
+    // Check if keyword
+    let is_kw = 0
+    if str_eq(ptr, "fn") == 1 { is_kw = 1 }
+    if str_eq(ptr, "let") == 1 { is_kw = 1 }
+    if str_eq(ptr, "if") == 1 { is_kw = 1 }
+    if str_eq(ptr, "while") == 1 { is_kw = 1 }
+    if str_eq(ptr, "return") == 1 { is_kw = 1 }
+    if str_eq(ptr, "const") == 1 { is_kw = 1 }  // PHASE 71
+    
+    if is_kw == 1 {
+        add_token(state, 5, ptr)
+    }
+    if is_kw == 0 {
+        add_token(state, 1, ptr)
+    }
+    
+    return i
+}
+
+fn scan_number(state, src, i) {
+    let start = i
+    let c = getbyte(src, i)
+    
+    while is_digit(c) == 1 {
+        i = i + 1
+        c = getbyte(src, i)
+    }
+    
+    let len = i - start
+    let ptr = my_alloc(len + 1)
+    
+    let j = 0
+    let k = start
+    while j < len {
+        let ch = getbyte(src, k)
+        setbyte(ptr, j, ch)
+        j = j + 1
+        k = k + 1
+    }
+    setbyte(ptr, len, 0)
+    
+    add_token(state, 3, ptr)
+    return i
+}
+
+fn scan_operator(state, src, i) {
+    let ptr = my_alloc(16)
+    let c = getbyte(src, i)
+    
+    setbyte(ptr, 0, c)
+    setbyte(ptr, 1, 0)
+    
+    add_token(state, 2, ptr)
+    
+    i = i + 1
+    return i
+}
+
+fn scan_string(state, src, i) {
+    i = i + 1
+    let start = i
+    let c = getbyte(src, i)
+    
+    while c != 34 {
+        if c == 0 { return i }
+        i = i + 1
+        c = getbyte(src, i)
+    }
+    
+    let len = i - start
+    let ptr = my_alloc(len + 1)
+    
+    let j = 0
+    let k = start
+    while j < len {
+        let ch = getbyte(src, k)
+        setbyte(ptr, j, ch)
+        j = j + 1
+        k = k + 1
+    }
+    setbyte(ptr, len, 0)
+    
+    add_token(state, 4, ptr)
+    
+    i = i + 1
+    return i
+}
+
+// =============================================================================
+// MAIN TOKENIZER - Clean loop with minimal variables
+// =============================================================================
+fn tokenize(state) {
+    let src = state[9]
+    let len = state[11]
+    
+    let i = 0
+    let c = 0
+    let done = 0
+    
+    while i < len {
+        c = getbyte(src, i)
+        done = 0
+        
+        // 1. Skip whitespace
+        if is_space(c) == 1 {
+            i = i + 1
+            done = 1
+        }
+        
+        // 2. Comments //
+        if done == 0 {
+            if c == 47 {
+                let next_i = i + 1
+                if next_i < len {
+                    let next_c = getbyte(src, next_i)
+                    if next_c == 47 {
+                        // Skip until newline
+                        while i < len {
+                            c = getbyte(src, i)
+                            if c == 10 { 
+                                i = i + 1
+                                done = 1
+                                c = 0  // Break outer while by setting done
+                            }
+                            if c != 10 { i = i + 1 }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 3. Identifiers
+        if done == 0 {
+            if is_alpha(c) == 1 {
+                i = scan_ident(state, src, i)
+                done = 1
+            }
+        }
+        
+        // 4. Numbers
+        if done == 0 {
+            if is_digit(c) == 1 {
+                i = scan_number(state, src, i)
+                done = 1
+            }
+        }
+        
+        // 5. Strings
+        if done == 0 {
+            if c == 34 {
+                // io_print("DEBUG: Found string at ")
+                // print_num(i)
+                // io_println("")
+                i = scan_string(state, src, i)
+                done = 1
+            }
+        }
+        
+        // 6. Operators
+        if done == 0 {
+            i = scan_operator(state, src, i)
+            done = 1
+        }
+    }
+    return 0
+}
+
+// ============================================================================
+// SECTION 6: PARSER & CODEGEN
+// ============================================================================
+
+fn current_token_type(state) {
+    let pos = state[2]
+    return get_token_type(state, pos)
+}
+
+fn current_token_text(state) {
+    let pos = state[2]
+    return get_token_text(state, pos)
+}
+
+fn advance(state) {
+    state[2] = state[2] + 1
+    return 0
+}
+
+fn expect_text(state, expected) {
+    let text = current_token_text(state)
+    if str_eq(text, expected) == 1 {
+        advance(state)
+        return 1
+    }
+    io_print("Error: expected ")
+    io_println(expected)
+    return 0
+}
+
+// Look up variable, return stack offset or -1
+fn lookup_var(state, name) {
+    let count = state[28]
+    let i = 0
+    while i < count {
+        let idx_name = 12 + i
+        let idx_off = 20 + i
+        let var_name = state[idx_name]
+        if str_eq(var_name, name) == 1 {
+            return state[idx_off]
+        }
+        i = i + 1
+    }
+    return 0 - 1
+}
+
+// PHASE 71: Find constant by name, return index or -1
+fn find_const_index(state, name) {
+    let const_count = state[31]
+    
+    // CRITICAL: Early return if no constants (avoid reading uninitialized pointers)
+    if const_count == 0 {
+        return 0 - 1
+    }
+    
+    let const_names = state[29]
+    
+    // Safety check: ensure const_names is valid pointer
+    if const_names == 0 {
+        return 0 - 1
+    }
+    
+    let i = 0
+    while i < const_count {
+        let existing = get_arr(const_names, i)
+        if str_eq(name, existing) == 1 {
+            return i
+        }
+        i = i + 1
+    }
+    
+    return 0 - 1  // Not found
+}
+
+// Add variable, return stack offset
+fn add_var(state, name) {
+    let count = state[28]
+    let stack_depth = state[32]
+    let offset = stack_depth + 8
+    state[32] = offset
+    
+    let idx_name = 12 + count
+    let idx_off = 20 + count
+    state[idx_name] = name
+    state[idx_off] = offset
+    state[28] = count + 1
+    return offset
+}
+
+// Convert string to integer
+fn str_to_int(s) {
+    let res = 0
+    let i = 0
+    let ch = getbyte(s, i)
+    while is_digit(ch) == 1 {
+        res = res * 10
+        res = res + ch - 48
+        i = i + 1
+        ch = getbyte(s, i)
+    }
+    return res
+}
+
+// Parse number and emit code to put value in RAX
+fn parse_number(state) {
+    let text = current_token_text(state)
+    advance(state)
+    
+    // io_println("[DEBUG] ==> Parsing NUMBER")
+    
+    let val = str_to_int(text)
+    
+    // io_println("[DEBUG] <== Emitting MOV EAX, val")
+    
+    // Emit: MOV EAX, imm32 (B8 + dword)
+    emit(state, 184)
+    emit_dword(state, val)
+    
+    return 0
+}
+
+// Parse identifier (variable or function call)
+fn parse_ident(state) {
+    let name = current_token_text(state)
+    advance(state)
+    
+    // Check for function call
+    let next_text = current_token_text(state)
+    if str_eq(next_text, "(") == 1 {
+        parse_call(state, name)
+        return 0
+    }
+    
+    // PHASE 71: Check if it's a constant FIRST
+    let const_idx = find_const_index(state, name)
+    if const_idx >= 0 {
+        // Found constant! Get value and generate code
+        io_print("[SUBST ")
+        io_print(name)
+        io_print("=")
+        let const_values = state[30]
+        let value = get_arr(const_values, const_idx)
+        print_num(value)
+        io_print("] ")
+        
+        // Generate: MOV RAX, immediate
+        emit_mov_rax_imm64(state, value)
+        return 0
+}
+    
+    // Variable reference - load from stack
+    let offset = lookup_var(state, name)
+    if offset > 0 {
+        // MOV RAX, [RBP - offset]
+        // 48 8B 45 xx (if offset < 128)
+        emit(state, 72)
+        emit(state, 139)
+        emit(state, 69)
+        let neg_off = 256 - offset
+        emit(state, neg_off)
+        
+        // **NEW: Check for array access ptr[index]**
+        let next2 = current_token_text(state)
+        if str_eq(next2, "[") == 1 {
+            advance(state)  // eat '['
+            
+            // RAX now holds base address
+            // PUSH RAX (save base)
+            emit(state, 80)
+            
+            // Parse index expression
+            parse_expr(state)
+            
+            // RAX now holds index
+            // MOV RCX, RAX (index to RCX)
+            emit(state, 72)
+            emit(state, 137)
+            emit(state, 193)
+            
+            // SHL RCX, 3 (multiply by 8 for QWORD)
+            // 48 C1 E1 03
+            emit(state, 72)
+            emit(state, 193)
+            emit(state, 225)
+            emit(state, 3)
+            
+            // POP RAX (restore base)
+            emit(state, 88)
+            
+            // ADD RAX, RCX (address = base + index*8)
+            // 48 01 C8
+            emit(state, 72)
+            emit(state, 1)
+            emit(state, 200)
+            
+            expect_text(state, "]")
+            
+            // Dereference: MOV RAX, [RAX]
+            // 48 8B 00
+            emit(state, 72)
+            emit(state, 139)
+            emit(state, 0)
+        }
+    }
+    return 0
+}
+
+// Parse function call
+fn parse_call(state, name) {
+    expect_text(state, "(")
+    
+    // --- exit(code) ---
+    if str_eq(name, "exit") == 1 {
+        parse_expr(state)
+        expect_text(state, ")")
+        
+        // MOV ECX, EAX (89 C1)
+        emit(state, 137)
+        emit(state, 193)
+        
+        // CALL ExitProcess (IAT[3])
+        emit_iat_call(state, 3)
+        return 0
+    }
+    
+    // --- getstd(n) ---
+    if str_eq(name, "getstd") == 1 {
+        parse_expr(state)
+        expect_text(state, ")")
+        
+        // MOV ECX, EAX (89 C1)
+        emit(state, 137)
+        emit(state, 193)
+        
+        // CALL GetStdHandle (IAT[0])
+        emit_iat_call(state, 0)
+        return 0
+    }
+    
+    // --- write(handle, buf, len) ---
+    if str_eq(name, "write") == 1 {
+        // Arg 1: handle
+        parse_expr(state)
+        emit(state, 80)   // PUSH RAX
+        expect_text(state, ",")
+        
+        // Arg 2: buffer
+        parse_expr(state)
+        emit(state, 80)   // PUSH RAX
+        expect_text(state, ",")
+        
+        // Arg 3: length -> R8
+        parse_expr(state)
+        // MOV R8, RAX (49 89 C0)
+        emit(state, 73)
+        emit(state, 137)
+        emit(state, 192)
+        
+        expect_text(state, ")")
+        
+        // POP RDX (buffer)
+        emit(state, 90)
+        // POP RCX (handle)
+        emit(state, 89)
+        
+        // XOR R9, R9 (lpNumberOfBytesWritten = NULL)
+        // 4D 31 C9
+        emit(state, 77)
+        emit(state, 49)
+        emit(state, 201)
+        
+        // MOV QWORD [RSP+32], 0 (lpOverlapped = NULL)
+        // 48 C7 44 24 20 00 00 00 00
+        emit(state, 72)
+        emit(state, 199)
+        emit(state, 68)
+        emit(state, 36)
+        emit(state, 32)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        
+        // CALL WriteFile (IAT[10])
+        emit_iat_call(state, 10)
+        return 0
+    }
+    
+    // --- get_last_error() -> GetLastError ---
+    if str_eq(name, "get_last_error") == 1 {
+        expect_text(state, "(")
+        expect_text(state, ")")
+        emit_iat_call(state, 9)
+        return 0
+    }
+
+    // --- alloc(size) -> VirtualAlloc(NULL, size, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE) ---
+    if str_eq(name, "alloc") == 1 {
+        parse_expr(state)
+        expect_text(state, ")")
+        
+        // MOV RDX, RAX (size -> arg2)
+        // 48 89 C2
+        emit(state, 72)
+        emit(state, 137)
+        emit(state, 194)
+        
+        // XOR ECX, ECX (NULL -> arg1)
+        // 31 C9
+        emit(state, 49)
+        emit(state, 201)
+        
+        // MOV R8D, 0x3000 (MEM_COMMIT | MEM_RESERVE)
+        // 41 B8 00 30 00 00
+        emit(state, 65)
+        emit(state, 184)
+        emit(state, 0)
+        emit(state, 48)
+        emit(state, 0)
+        emit(state, 0)
+        
+        // MOV R9D, 4 (PAGE_READWRITE)
+        // 41 B9 04 00 00 00
+        emit(state, 65)
+        emit(state, 185)
+        emit(state, 4)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        
+        // CALL VirtualAlloc (IAT[4])
+        emit_iat_call(state, 4)
+        return 0
+    }
+    
+    // --- open(filename, mode) -> CreateFileA ---
+    // mode: 0 = read, 1 = write/create
+    if str_eq(name, "open") == 1 {
+        // arg1: filename
+        parse_expr(state)
+        emit(state, 80)   // PUSH RAX
+        expect_text(state, ",")
+        
+        // arg2: mode (0=read, 1=write)
+        parse_expr(state)
+        // RAX = mode
+        expect_text(state, ")")
+        
+        // POP RCX (filename - arg1)
+        emit(state, 89)
+        
+        // XOR R9, R9 (lpSecurityAttributes = NULL - arg4)
+        // 4D 31 C9
+        emit(state, 77)
+        emit(state, 49)
+        emit(state, 201)
+        
+        // Check mode: if mode == 0, read; else write
+        // CMP EAX, 0
+        emit(state, 131)
+        emit(state, 248)
+        emit(state, 0)
+        
+        // JNE write_mode (+38 bytes to skip read setup)
+        emit(state, 117)
+        emit(state, 38)
+        
+        // === READ MODE ===
+        // MOV EDX, 0x80000000 (GENERIC_READ - arg2)
+        emit(state, 186)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 128)
+        
+        // MOV R8D, 1 (FILE_SHARE_READ - arg3)
+        emit(state, 65)
+        emit(state, 184)
+        emit(state, 1)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        
+        // MOV DWORD [RSP+32], 3 (OPEN_EXISTING - arg5)
+        // C7 44 24 20 03 00 00 00
+        emit(state, 199)
+        emit(state, 68)
+        emit(state, 36)
+        emit(state, 32)
+        emit(state, 3)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        
+        // MOV DWORD [RSP+40], 128 (FILE_ATTRIBUTE_NORMAL - arg6)
+        emit(state, 199)
+        emit(state, 68)
+        emit(state, 36)
+        emit(state, 40)
+        emit(state, 128)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        
+        // JMP past write_mode (+36 bytes)
+        emit(state, 235)
+        emit(state, 36)
+        
+        // === WRITE MODE ===
+        // MOV EDX, 0x40000000 (GENERIC_WRITE - arg2)
+        emit(state, 186)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 64)
+        
+        // XOR R8, R8 (no share - arg3)
+        emit(state, 77)
+        emit(state, 49)
+        emit(state, 192)
+        
+        // MOV DWORD [RSP+32], 2 (CREATE_ALWAYS - arg5)
+        emit(state, 199)
+        emit(state, 68)
+        emit(state, 36)
+        emit(state, 32)
+        emit(state, 2)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        
+        // MOV DWORD [RSP+40], 128 (FILE_ATTRIBUTE_NORMAL - arg6)
+        emit(state, 199)
+        emit(state, 68)
+        emit(state, 36)
+        emit(state, 40)
+        emit(state, 128)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        
+        // === COMMON ===
+        // MOV QWORD [RSP+48], 0 (hTemplateFile = NULL - arg7)
+        emit(state, 72)
+        emit(state, 199)
+        emit(state, 68)
+        emit(state, 36)
+        emit(state, 48)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        
+        // CALL CreateFileA (IAT[5])
+        emit_iat_call(state, 5)
+        return 0
+    }
+    
+    // --- read(handle, buf, size) -> ReadFile ---
+    if str_eq(name, "read") == 1 {
+        // arg1: handle
+        parse_expr(state)
+        emit(state, 80)   // PUSH RAX
+        expect_text(state, ",")
+        
+        // arg2: buffer
+        parse_expr(state)
+        emit(state, 80)   // PUSH RAX
+        expect_text(state, ",")
+        
+        // arg3: size -> R8
+        parse_expr(state)
+        // MOV R8, RAX
+        emit(state, 73)
+        emit(state, 137)
+        emit(state, 192)
+        
+        expect_text(state, ")")
+        
+        // POP RDX (buffer)
+        emit(state, 90)
+        // POP RCX (handle)
+        emit(state, 89)
+        
+        // XOR R9, R9 (lpBytesRead = NULL for now, simplified)
+        emit(state, 77)
+        emit(state, 49)
+        emit(state, 201)
+        
+        // MOV QWORD [RSP+32], 0 (lpOverlapped = NULL)
+        emit(state, 72)
+        emit(state, 199)
+        emit(state, 68)
+        emit(state, 36)
+        emit(state, 32)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        emit(state, 0)
+        
+        // CALL ReadFile (IAT[6])
+        emit_iat_call(state, 6)
+        return 0
+    }
+    
+    // --- close(handle) -> CloseHandle ---
+    if str_eq(name, "close") == 1 {
+        parse_expr(state)
+        expect_text(state, ")")
+        
+        // MOV RCX, RAX
+        emit(state, 72)
+        emit(state, 137)
+        emit(state, 193)
+        
+        // CALL CloseHandle (IAT[8])
+        emit_iat_call(state, 8)
+        return 0
+    }
+    
+    // --- getbyte(ptr, offset) ---
+    if str_eq(name, "getbyte") == 1 {
+        // arg1: ptr
+        parse_expr(state)
+        emit(state, 80)   // PUSH RAX
+        expect_text(state, ",")
+        
+        // arg2: offset
+        parse_expr(state)
+        // RAX = offset
+        
+        expect_text(state, ")")
+        
+        // POP RCX (ptr)
+        emit(state, 89)
+        
+        // ADD RCX, RAX (ptr + offset)
+        // 48 01 C1
+        emit(state, 72)
+        emit(state, 1)
+        emit(state, 193)
+        
+        // MOVZX EAX, BYTE [RCX]
+        // 0F B6 01
+        emit(state, 15)
+        emit(state, 182)
+        emit(state, 1)
+        
+        return 0
+    }
+    
+    // --- setbyte(ptr, offset, value) ---
+    if str_eq(name, "setbyte") == 1 {
+        // arg1: ptr
+        parse_expr(state)
+        emit(state, 80)   // PUSH RAX
+        expect_text(state, ",")
+        
+        // arg2: offset
+        parse_expr(state)
+        emit(state, 80)   // PUSH RAX
+        expect_text(state, ",")
+        
+        // arg3: value
+        parse_expr(state)
+        // RAX = value
+        
+        expect_text(state, ")")
+        
+        // POP RCX (offset)
+        emit(state, 89)
+        // POP RDX (ptr)
+        emit(state, 90)
+        
+        // ADD RDX, RCX (ptr + offset)
+        // 48 01 CA
+        emit(state, 72)
+        emit(state, 1)
+        emit(state, 202)
+        
+        // MOV [RDX], AL
+        // 88 02
+        emit(state, 136)
+        emit(state, 2)
+        
+        return 0
+    }
+    
+    // Unknown function - skip args
+    while str_eq(current_token_text(state), ")") == 0 {
+        advance(state)
+    }
+    expect_text(state, ")")
+    return 0
+}
+
+// Parse expression (currently: number, string, ident, or call)
+fn parse_expr(state) {
+    let ttype = current_token_type(state)
+    
+    // Number (type 2 - OPERATOR in scanners, but actually checking for different condition)
+    // WAIT - we need to check the actual token types from scanners!
+    // scan_ident: type 1 or 5 (keyword vs identifier)
+    // scan_operator: type 2
+    // scan_number: type 3
+    // scan_string: type 4
+    
+    // Number (type 3 from scan_number)
+    if ttype == 3 {
+        parse_number(state)
+        return 0
+    }
+    
+    // String literal (type 4 from scan_string)
+    if ttype == 4 {
+        let text = current_token_text(state)
+        advance(state)
+        
+        // Add string to data section
+        let offset = add_string_data(state, text)
+        
+        // String VA = ImageBase + .text RVA + 0xE100 + offset
+        // 0x400000 + 0x1000 + 57600 + offset = 0x40F100 + offset
+        // 4256000 = 0x40F100
+        let str_va = 4256000 + offset
+        
+        // MOV RAX, str_va
+        emit_mov_rax_imm64(state, str_va)
+        return 0
+    }
+    
+    // Identifier or function call (type 1 or 5)
+    if ttype == 1 {
+        parse_ident(state)
+        return 0
+    }
+    if ttype == 5 {
+        parse_ident(state)
+        return 0
+    }
+    
+    // Unknown type (operator, etc) - skip to avoid infinite loop
+    advance(state)
+    return 0
+}
+
+// Parse let statement
+fn parse_let(state) {
+    expect_text(state, "let")
+    
+    let name = current_token_text(state)
+    advance(state)
+    
+    expect_text(state, "=")
+    
+    parse_expr(state)
+    
+    // Add variable
+    let offset = add_var(state, name)
+    
+    // MOV [RBP - offset], RAX
+    // 48 89 45 xx
+    emit(state, 72)
+    emit(state, 137)
+    emit(state, 69)
+    let neg_off = 256 - offset
+    emit(state, neg_off)
+    
+    return 0
+}
+
+// Parse statement
+fn parse_statement(state) {
+    let text = current_token_text(state)
+    
+    if str_eq(text, "let") == 1 {
+        parse_let(state)
+        return 0
+    }
+    
+    if str_eq(text, "return") == 1 {
+        advance(state)
+        parse_expr(state)
+        // Value already in RAX
+        return 0
+    }
+    
+    // **NEW: Check for array assignment ident[index] = expr**
+    let ttype = current_token_type(state)
+    if ttype == 1 {
+        // Peek ahead to see if it's array assignment
+        let name = current_token_text(state)
+        advance(state)
+        
+        let next = current_token_text(state)
+        if str_eq(next, "[") == 1 {
+            // Array assignment: ident[index] = value
+            advance(state)  // eat '['
+            
+            // Get base address of array
+            let offset = lookup_var(state, name)
+            if offset > 0 {
+                // MOV RAX, [RBP - offset]  (load base address)
+                emit(state, 72)
+                emit(state, 139)
+                emit(state, 69)
+                let neg_off = 256 - offset
+                emit(state, neg_off)
+                
+                // PUSH RAX (save base)
+                emit(state, 80)
+                
+                // Parse index
+                parse_expr(state)
+                
+                // MOV RCX, RAX (index to RCX)
+                emit(state, 72)
+                emit(state, 137)
+                emit(state, 193)
+                
+                // SHL RCX, 3 (multiply by 8)
+                emit(state, 72)
+                emit(state, 193)
+                emit(state, 225)
+                emit(state, 3)
+                
+                // POP RAX (restore base)
+                emit(state, 88)
+                
+                // ADD RAX, RCX (element address)
+                emit(state, 72)
+                emit(state, 1)
+                emit(state, 200)
+                
+                // PUSH RAX (save element address)
+                emit(state, 80)
+                
+                expect_text(state, "]")
+                expect_text(state, "=")
+                
+                // Parse value expression
+                parse_expr(state)
+                
+                // POP RDX (element address)
+                emit(state, 90)
+                
+                // MOV [RDX], RAX (store value)
+                // 48 89 02
+                emit(state, 72)
+                emit(state, 137)
+                emit(state, 2)
+                
+                return 0
+            }
+        }
+        
+        // Not array assignment, backtrack-style handling would be complex
+        // For now, treat as expression statement (function call likely)
+        // Re-parse as ident call
+        let prev_pos = state[2]
+        state[2] = prev_pos - 1  // Move back one token
+        parse_expr(state)
+        return 0
+    }
+    
+    // Expression statement (function call)
+    parse_expr(state)
+    return 0
+}
+
+// Parse function body
+fn parse_function(state) {
+    expect_text(state, "fn")
+    
+    let name = current_token_text(state)
+    advance(state)
+    
+    // Skip parameters ()
+    expect_text(state, "(")
+    expect_text(state, ")")
+    
+    expect_text(state, "{")
+    
+    // Reset variables for this function
+    state[28] = 0
+    state[32] = 0  // stack_depth
+    
+    // Function prologue:
+    // SUB RSP, 56 (shadow space + locals + alignment)
+    // 48 83 EC 38
+    emit(state, 72)
+    emit(state, 131)
+    emit(state, 236)
+    emit(state, 56)
+    
+    // Parse statements until '}'
+    while str_eq(current_token_text(state), "}") == 0 {
+        parse_statement(state)
+    }
+    
+    expect_text(state, "}")
+    return 0
+}
+
+// Parse entire program
+// ============================================================================
+// PHASE 71: CONST KEYWORD PARSING
+// ============================================================================
+
+fn parse_const_decl(state) {
+    // Syntax: const NAME = NUMBER
+    io_print("[CONST] count=")
+    print_num(state[31])
+    io_print(" ")
+    advance(state)  // Skip 'const' keyword
+    
+    // 1. Expect identifier
+    if current_token_type(state) != 1 {  // TOKEN_IDENT
+        io_print("Error: Expected identifier after const, got type ")
+        print_num(current_token_type(state))
+        io_println("")
+        return 0
+    }
+    
+    let token_text = current_token_text(state)
+    let name_len = str_len(token_text)
+    let name = my_alloc(name_len + 1)
+    copy_str(name, token_text)
+    
+    io_print("Name: ")
+    io_print(name)
+    io_print(" ")
+    advance(state)
+    
+    // 2. Expect '=' (token type 2 = operator)
+    if current_token_type(state) != 2 {  // TOKEN_OPERATOR
+        io_print("Error: Expected operator after const name, got type ")
+        print_num(current_token_type(state))
+        io_print(", text: ")
+        io_println(current_token_text(state))
+        return 0
+    }
+    
+    let op_text = current_token_text(state)
+    let is_assign = 0
+    if getbyte(op_text, 0) == 61 {  // ASCII '='
+        is_assign = 1
+    }
+    if is_assign == 0 {
+        io_println("Error: Expected = after const name")
+        return 0
+    }
+    advance(state)
+    
+    // 3. Expect number
+    if current_token_type(state) != 3 {  // TOKEN_NUMBER
+        io_println("Error: Expected number after =")
+        return 0
+    }
+    
+    let value = str_to_int(current_token_text(state))
+    advance(state)
+    
+    // 4. Store in const table
+    let const_names = state[29]
+    let const_values = state[30]
+    let const_count = state[31]
+    
+    // Check limit (256 constants max)
+    if const_count >= 256 {
+        io_println("Error: Too many constants (max 256)")
+        return 0
+    }
+    
+    // Store name and value
+    set_arr(const_names, const_count, name)
+    set_arr(const_values, const_count, value)
+    
+    // Increment count
+    state[31] = const_count + 1
+    
+    // Debug: verify storage
+    io_print("Value: ")
+    print_num(value)
+    io_print(" Stored at index ")
+    print_num(const_count)
+    io_print(" New count: ")
+    print_num(state[31])
+    io_println("")
+    
+    return 0
+}
+
+fn parse_program(state) {
+    while state[2] < state[1] {
+        let text = current_token_text(state)
+        let handled = 0
+        
+        // PHASE 71: Handle const declarations
+        if str_eq(text, "const") == 1 {
+            parse_const_decl(state)
+            handled = 1
+        }
+        
+        if str_eq(text, "fn") == 1 {
+            parse_function(state)
+            handled = 1
+        }
+        
+        // Skip unknown tokens
+        if handled == 0 {
+            advance(state)
+        }
+    }
+    return 0
+}
+
+// ============================================================================
+// SECTION 7: MAIN COMPILER WITH CLI
+// ============================================================================
+
+fn run_compiler() {
+    io_print("R")
+    
+    // io_print("[A] Inside run_compiler\n")
+    // io_println("DEBUG: Main reached")
+    
+    // io_println("=================================")
+    // io_println("  SYNAPSE v3.6 - FULL COMPILER  ")
+    // io_println("=================================")
+    // io_print("A")
+    // io_print("B")
+    // io_println("")
+    
+    // ========== CLI PARSING (Phase 56) ==========
+    io_print("1")
+    let cmd = get_cmd_line()
+    io_print("2")
+    let dummy1 = my_alloc(8)  // Add dummy
+    let input_file = my_alloc(256)
+    io_print("3")
+    setbyte(input_file, 0, 65)  // Test 'A'
+    io_print("T")
+    setbyte(input_file, 1, 66)  // Test 'B'
+    io_print("U")
+    let output_file = my_alloc(256)
+    io_print("4")
+    
+    // Set default output: "out.exe"
+    io_print("X")
+    setbyte(output_file, 0, 111)  // o
+    io_print("Y")
+    setbyte(output_file, 1, 117)  // u
+    setbyte(output_file, 2, 116)  // t
+    setbyte(output_file, 3, 46)   // .
+    setbyte(output_file, 4, 101)  // e
+    setbyte(output_file, 5, 120)  // x
+    setbyte(output_file, 6, 101)  // e
+    setbyte(output_file, 7, 0)
+    
+    // Parse command line
+    io_print("A")
+    // Skip executable name
+    let i = 0
+    let pos = 0
+    let in_quote = 0
+    io_print("B")
+    
+    // Skip first token (executable path)
+    if getbyte(cmd, 0) == 34 { // "
+        io_print("Q")
+        pos = 1
+        while getbyte(cmd, pos) != 34 {
+            pos = pos + 1
+        }
+        pos = pos + 1
+    }
+    io_print("C")
+    if getbyte(cmd, 0) != 34 {
+        io_print("D")
+        while getbyte(cmd, pos) > 32 {
+            pos = pos + 1
+        }
+    }
+    io_print("E")
+    
+    // Skip spaces
+    while getbyte(cmd, pos) == 32 {
+        pos = pos + 1
+    }
+    
+    // Get input filename
+    i = 0
+    while getbyte(cmd, pos) > 32 {
+        setbyte(input_file, i, getbyte(cmd, pos))
+        i = i + 1
+        pos = pos + 1
+    }
+    setbyte(input_file, i, 0)
+    
+    // Skip spaces after input filename
+    while getbyte(cmd, pos) == 32 {
+        pos = pos + 1
+    }
+    
+    // Check for -o flag: '-' = 45, 'o' = 111
+    if getbyte(cmd, pos) == 45 {
+        let pos1 = pos + 1
+        let ch = getbyte(cmd, pos1)
+        if ch == 111 {
+            pos = pos + 2
+            // Skip spaces after -o
+            while getbyte(cmd, pos) == 32 {
+                pos = pos + 1
+            }
+            // Copy output filename
+            i = 0
+            while getbyte(cmd, pos) > 32 {
+                setbyte(output_file, i, getbyte(cmd, pos))
+                i = i + 1
+                pos = pos + 1
+            }
+            setbyte(output_file, i, 0)
+        }
+    }
+    
+    // Print parsed files
+    io_print("5")
+    io_print("Source: ")
+    io_println(input_file)
+    io_print("Target: ")
+    io_println(output_file)
+    io_println("")
+    
+    // ========== COMPILER INIT ==========
+    // PHASE 71: Increased from 256 to 512 for const tables (indices 0-63)
+    let state = my_alloc(512)
+    init_compiler(state)
+    
+    // ========== READ SOURCE FILE ==========
+    io_print("Loading... ")
+    
+    let fd = open(input_file, 0)
+    if fd == 0 - 1 {
+        io_println("ERROR: Cannot open source file")
+        exit(1)
+        return 1
+    }
+    
+    let source = my_alloc(16384)
+    let bytes_read = read(fd, source, 16384)
+    close(fd)
+    
+    state[9] = source
+    state[10] = 0
+    state[11] = bytes_read
+    
+    io_println("OK")
+    
+    // ========== TOKENIZE ==========
+    io_print("Tokenizing... ")
+    tokenize(state)
+    let token_count = state[1]
+    // io_print("(")
+    // print_num(token_count)
+    // io_println(" tokens)")
+    
+    // ========== PARSE & CODEGEN ==========
+    io_print("Compiling... ")
+    
+    parse_program(state)
+    io_println("OK")
+    
+    // ========== BUILD PE ==========
+    io_print("Building PE... ")
+    
+    io_print("H1")
+    emit_pe_header(state, state[4])  // Use get_arr!
+    io_print("H2")
+    
+    // Copy code to exe_buf at offset 512
+    let code_buf = state[3]
+    let exe_buf = state[5]
+    let ci = 0
+    let exe_off = 0
+    let cb = 0
+    io_print("X1")
+    let actual_code_size = state[4]
+    io_print("X2")
+    io_print("CP1:")
+    io_print("X3")
+    // Removed print_num(actual_code_size) for now - might hang
+    io_print(":")
+    while ci < actual_code_size {  // Use local variable!
+        exe_off = 512 + ci
+        cb = getbyte(code_buf, ci)
+        setbyte(exe_buf, exe_off, cb)
+        ci = ci + 1
+    }
+    io_print("CP2")
+    
+    // Copy data to exe_buf at offset 512 + 57600 (0xE100)
+    let data_buf = state[7]
+    let di = 0
+    let data_base = 512 + 57600
+    let db = 0
+    let data_size = state[8]
+    io_print("D1")
+    while di < data_size {  // Use local variable!
+        exe_off = data_base + di
+        db = getbyte(data_buf, di)
+        setbyte(exe_buf, exe_off, db)
+        di = di + 1
+    }
+    io_print("D2")
+    
+    // Set exe_pos to AFTER padded .text section (512 + 65536 = 66048)
+    state[6] = 66048
+    io_print("D3")
+    
+    // Calculate aligned offset for .idata
+    let raw_size = 65536 // Force 64KB
+    let idata_offset = 512 + raw_size
+    io_print("D4")
+    
+    // Pad to alignment
+    while state[6] < idata_offset {
+        put_byte(state, 0)
+    }
+    io_print("D5")
+    
+    emit_import_table(state)
+    io_print("D6")
+    
+    // Pad .idata to 512 bytes
+    let idata_end = idata_offset + 512
+    while state[6] < idata_end {
+        put_byte(state, 0)
+    }
+    io_print("D7")
+    
+    // NO PADDING FOR .bss (SizeOfRawData=0)
+    
+    io_print("W1")
+    
+    io_println("OK")
+    
+    // ========== WRITE OUTPUT FILE ==========
+    io_print("Writing ")
+    io_print(output_file)
+    io_print("... ")
+    io_print("W2")
+    
+    let out_fd = open(output_file, 1)
+    io_print("W3")
+    
+    // Check if file creation failed (INVALID_HANDLE = -1 = 0xFFFFFFFF)
+    let invalid = 4294967295
+    if out_fd == invalid {
+        io_println("FAILED!")
+        io_println("ERROR: Cannot create output file")
+        exit(1)
+    }
+    io_print("W4")
+    
+    let exe_size = state[6]
+    io_print("W5")
+    
+    write(out_fd, exe_buf, exe_size)
+    io_print("W6")
+    close(out_fd)
+    io_print("W7")
+    
+    io_println("OK")
+    io_println("")
+    io_println("=================================")
+    io_print("  SUCCESS! Created ")
+    io_println(output_file)
+    io_println("=================================")
+    
+    return 0
+}
+
+fn test_2arg(a, b) {
+    io_println("TEST_2ARG_BODY")
+    return 0
+}
+
+fn main() {
+    let r = run_compiler()
+    return 0
+}

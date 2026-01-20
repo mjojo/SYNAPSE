@@ -1,0 +1,100 @@
+// ============================================================================
+// SYNAPSE v3.6 - THE OUROBOROS
+// Self-Hosting Compiler - True Multi-Generation Bootstrap
+// 
+// This compiler compiles itself through infinite generations!
+// Gen 0 (assembly) → Gen 1 (this file) → Gen 2 → Gen 3 → ...
+// ============================================================================
+
+// ============================================================================
+// SECTION 1: STDLIB CORE
+// ============================================================================
+
+// Helper: build DWORD from 4 bytes at base+off (avoids chained expressions)
+fn build_dword(base, off) {
+    let b0 = getbyte(base, off)
+    let off1 = off + 1
+    let off2 = off + 2
+    let off3 = off + 3
+    let b1 = getbyte(base, off1)
+    let b2 = getbyte(base, off2)
+    let b3 = getbyte(base, off3)
+    let m1 = b1 * 256
+    let m2 = b2 * 65536
+    let m3 = b3 * 16777216
+    let r = b0 + m1
+    r = r + m2
+    r = r + m3
+    return r
+}
+
+// --- ARRAY ACCESS HELPERS (Bootstrap-safe, no [] syntax) ---
+
+// Read QWORD from array by INDEX (auto-multiply by 8)
+// Guard-based with flag checks
+fn get_arr(base, index) {
+    let result = 0
+    let done = 0
+    
+    let off = index * 8
+    if done == 0 {
+        result = build_dword(base, off)
+        done = 1
+    }
+    return result
+}
+
+// Write QWORD to array by INDEX (auto-multiply by 8)
+fn set_arr(base, index, value) {
+    let v0 = value % 256
+    let t1 = value / 256
+    let v1 = t1 % 256
+    let t2 = t1 / 256
+    let v2 = t2 % 256
+    let t3 = t2 / 256
+    let v3 = t3 % 256
+    
+    if index == 0 { 
+        setbyte(base, 0, v0) 
+        setbyte(base, 1, v1) 
+        setbyte(base, 2, v2) 
+        setbyte(base, 3, v3) 
+        return 0 
+    }
+    if index == 1 { 
+        setbyte(base, 8, v0) 
+        setbyte(base, 9, v1) 
+        setbyte(base, 10, v2) 
+        setbyte(base, 11, v3) 
+        return 0 
+    }
+    if index == 2 { 
+        setbyte(base, 16, v0) 
+        setbyte(base, 17, v1) 
+        setbyte(base, 18, v2) 
+        setbyte(base, 19, v3) 
+        return 0 
+    }
+    if index == 3 { 
+        setbyte(base, 24, v0) 
+        setbyte(base, 25, v1) 
+        setbyte(base, 26, v2) 
+        setbyte(base, 27, v3) 
+        return 0 
+    }
+    if index == 4 { 
+        setbyte(base, 32, v0) 
+        setbyte(base, 33, v1) 
+        setbyte(base, 34, v2) 
+        setbyte(base, 35, v3) 
+        return 0 
+    }
+    if index == 5 { 
+        setbyte(base, 40, v0) 
+        setbyte(base, 41, v1) 
+        setbyte(base, 42, v2) 
+        setbyte(base, 43, v3) 
+        return 0 
+    }
+    if index == 6 { 
+        setbyte(base, 48, v0) 

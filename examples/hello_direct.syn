@@ -1,0 +1,6 @@
+// Phase 55.9 Test - Direct WriteFile intrinsic
+fn main() {
+    let h = getstd(-11)
+    write(h, "Hello World!", 12)
+    return 0
+}

@@ -1,0 +1,1 @@
+!R123TU4XYABCDE5Source: test_eq.syn\nTarget: out.exe\n\nDEBUG init_compiler: END\nLoading... L=129 TtPp{OP:}Error: expected { got \n

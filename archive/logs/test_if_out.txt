@@ -1,0 +1,1 @@
+!R123TU4XYABCDE5Source: test_if.syn\nTarget: out.exe\n\nDEBUG init_compiler: END\nLoading... L=87 TtPp{OP:>}{OP:{}{OP:}}!44\nB:H2ESX1X2CP1:X3:CP2D1D2D3D4D5D6D7W1OK\nWriting out.exe... W2W3W4W5W6W7OK\n\n=================================\n  SUCCESS! Created out.exe\n=================================\nExit: 0 

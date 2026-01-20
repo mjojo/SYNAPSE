@@ -1,0 +1,45 @@
+fn get_arr(base, index) {
+    let result = 0
+    let done = 0
+    
+    if done == 0 { if index == 0 { result = getbyte(base, 0) + getbyte(base, 1) * 256 + getbyte(base, 2) * 65536 + getbyte(base, 3) * 16777216 } }
+    if done == 0 { if index == 0 { done = 1 } }
+    
+    if done == 0 { if index == 10 { result = getbyte(base, 80) + getbyte(base, 81) * 256 + getbyte(base, 82) * 65536 + getbyte(base, 83) * 16777216 } }
+    if done == 0 { if index == 10 { done = 1 } }
+    
+    return result
+}
+
+fn set_arr(base, index, value) {
+    let v0 = value % 256
+    let value1 = value / 256
+    let v1 = value1 % 256
+    let value2 = value1 / 256
+    let v2 = value2 % 256
+    let value3 = value2 / 256
+    let v3 = value3 % 256
+    
+    if index == 0 { 
+        setbyte(base, 0, v0) 
+        setbyte(base, 1, v1) 
+        setbyte(base, 2, v2) 
+        setbyte(base, 3, v3) 
+        return 0 
+    }
+    if index == 10 { 
+        setbyte(base, 80, v0) 
+        setbyte(base, 81, v1) 
+        setbyte(base, 82, v2) 
+        setbyte(base, 83, v3) 
+        return 0 
+    }
+    return 0
+}
+
+fn main() {
+    let arr = my_alloc(512)
+    set_arr(arr, 10, 1234567)
+    let val = get_arr(arr, 10)
+    return val
+}

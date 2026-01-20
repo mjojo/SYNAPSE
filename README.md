@@ -1,68 +1,77 @@
-# 🌟 SYNAPSE v3.6 "The Ouroboros"
+# 🌟 SYNAPSE v3.7 "The Turing Machine"
 
 **Unhackable AI on Bare Metal Assembly**
 *The World's First Self-Hosting Blockchain AI Platform with Graphics & GUI*
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-3.6.0--OUROBOROS-gold)
-![Status](https://img.shields.io/badge/status-TRUE_SELF_HOSTING!-success)
+![Version](https://img.shields.io/badge/version-3.7.0--TURING-gold)
+![Status](https://img.shields.io/badge/status-ALGORITHM_PROVEN-success)
 ![Arch](https://img.shields.io/badge/arch-x64_AVX2-red)
 ![Graphics](https://img.shields.io/badge/graphics-GDI%2B-blue)
 ![License](https://img.shields.io/badge/license-Apache_2.0_+_AGPL_v3-blue)
 
 </div>
 
-## 🏆 THE OUROBOROS COMPLETE: TRUE SELF-HOSTING!
+## 🏆 TURING COMPLETENESS ACHIEVED: ARITHMETIC + LOOPS
 
-**January 5, 2026** — SYNAPSE compiler compiles itself through multiple generations!
+**January 20, 2026** — SYNAPSE Linear Compiler now capable of complex algorithms!
 
+```synapse
+// Verified Algorithm: Sum of Digits
+val = 12345; res = 0;
+while val > 0 {
+    dig = val % 10;
+    res = res + dig;
+    val = val / 10
+};
+return res // Returns 15
 ```
-Gen 0: synapse.exe (assembly) → compiles synapse_full.syn
-Gen 1: synapse_new.exe → compiles synapse_full.syn  
-Gen 2: out.exe (self-hosted!) → compiles test_exit.syn
-Gen 3: out.exe → runs perfectly! 🎉
-```
 
-**The Ouroboros:** A compiler that compiles itself, and the result compiles itself again, forever!
+**Capability Proof:**
+The compiler successfully generates x64 machine code for:
+- Arithmetic: `+`, `-`, `*`, `/`, `%`
+- Control Flow: `while` loops with `CMP`/`JLE`
+- Memory: Stack-based local variables
 
 ---
 
-## 🚀 Technical Specifications (v3.6)
+## 🚀 Technical Specifications (v3.7)
 
 | Specification | Status | Description |
 |---------------|--------|-------------|
 | **Self-Hosting** | ✅ **TRUE** | Multi-generation bootstrapping verified! |
-| **Architecture** | x64 JIT | Three-level virtualization (Host -> Guest -> Target) |
+| **Logic** | ✅ **COMPLETE** | Full ALU (`+ - * / %`) + Loops (`while`) |
+| **Architecture** | x64 JIT | Direct Code Emission (Gen 1 Linear Compiler) |
 | **PE Generation** | ✅ **PERFECT** | Byte-perfect PE32+ matching assembly HOST |
 | **Graphics** | ✅ **YES** | Direct VRAM access, GDI integration, 8x8 embedded font |
 | **GUI** | ✅ **YES** | Mouse input, keyboard, clickable buttons |
 | **Data Types** | Strong | `int` (64-bit), `ptr`, `string`, `array` |
 | **Control Flow** | Full | `if`, `while`, `fn`, `return`, `recursion` |
-| **Memory** | Manual | `alloc`, `ptr[i]`, Data Segment for literals |
-| **Logic** | Complete | `==`, `<`, `>`, `<=`, `>=`, `+`, `-`, `*`, `/` |
-| **API Calls** | ✅ **WORKING** | 11 KERNEL32 functions via IAT |
-| **Forward Refs** | ✅ **FIXED** | Function name preservation during parsing |
+| **Memory** | Manual | `alloc`, `stack` (RSP-relative locals), Data Segment |
 | **Binary Size** | ~55 KB | Full self-hosting compiler |
 | **License** | Dual | Apache 2.0 (language) + AGPL v3 (services) |
 
 ---
 
-## 🎆 Victory: Phase 69 Complete - THE OUROBOROS!
+## 🎆 Victory: Phase 115 Complete - FULL ALU & LOOPS!
 
-**SYNAPSE v3.6.0-OUROBOROS** — True Self-Hosting Achieved! 🐉🔄✨
+**SYNAPSE v3.7.0-TURING** — Algorithms Online! 🧮🧠✨
+
+### ✅ Recent Achievement (January 20, 2026)
+
+We have successfully implemented the "brain" of the compiler:
+1.  **Complex Arithmetic:** `IMUL` and `DIV` integrated into linear code generation.
+2.  **Modulo Support:** Extraction of `EDX` register verified.
+3.  **State Management:** Stack variables (`[RSP+8]`) track algorithm state correctly.
+4.  **Loop Logic:** `while` loops with backpatching enable iteration.
 
 ### ✅ Historic Achievement (January 5, 2026)
+**The Ouroboros:** A compiler that compiles itself!
+- Phase 69: True Self-Hosting Loop Closed.
 
-After an epic debugging marathon spanning phases 67-69, SYNAPSE achieved genuine multi-generation self-hosting:
-
-| Phase | Name | Critical Fix |
-|-------|------|--------------|
-| 67 | **Forward Reference Fix** | Added `fwd_call_name` buffer to preserve function names |
-| 68 | **IAT & PE Structure** | Corrected IAT indices, moved PE to offset 0x80 |
-| 69 | **PE Header Alignment** | Matched ALL fields to working HOST binary |
-
-### 🔥 Working Features (v3.6.0-OUROBOROS)
+### 🔥 Working Features (v3.7.0)
+* **Algorithmic Logic:** `Sum of Digits` verified (Code 15).
 * **True Self-Hosting:** Compiler compiles itself through multiple generations!
 * **Perfect PE32+:** Byte-level match with assembly HOST for compatibility
 * **Forward References:** Function calls resolved before definition
